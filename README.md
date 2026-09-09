@@ -7,22 +7,23 @@
 
 ## Docs map
 
-| Doc                                                                                  | What's in it                                                      |
-| ------------------------------------------------------------------------------------ | ----------------------------------------------------------------- |
-| [ARCHITECTURE.md](ARCHITECTURE.md)                                                   | Layering, provider abstractions, repo layout, environments        |
-| [DATABASE.md](DATABASE.md)                                                           | Schema, RLS design, guest merge                                   |
-| [API.md](API.md)                                                                     | API conventions + link to the OpenAPI contract                    |
-| [AUTH.md](AUTH.md)                                                                   | Apple/Google/guest auth, guest-merge flow                         |
-| [BILLING.md](BILLING.md)                                                             | Entitlement model, billing vendor decision, webhook handling      |
-| [LOCALIZATION.md](LOCALIZATION.md)                                                   | i18n architecture, RTL, pluralization                             |
-| [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md)                                                 | Tokens, motion, sound, haptics, the clicker                       |
-| [PRIVACY.md](PRIVACY.md) / [SECURITY.md](SECURITY.md) / [DATA_MAP.md](DATA_MAP.md)   | Privacy-by-design, security practices, field-level data inventory |
-| [TESTING.md](TESTING.md)                                                             | Test suites and the mandatory per-task testing loop               |
-| [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md)                                         | Apple/Google store submission checklist                           |
-| [docs/architecture/state-flow.md](docs/architecture/state-flow.md)                   | guest → first lesson → plan → sign-in → purchase state machine    |
-| [docs/architecture/risks.md](docs/architecture/risks.md)                             | Implementation risks, ranked                                      |
-| [docs/architecture/tech-stack-versions.md](docs/architecture/tech-stack-versions.md) | Verified current package versions + why                           |
-| [docs/api/openapi.yaml](docs/api/openapi.yaml)                                       | Full API contract                                                 |
+| Doc                                                                                    | What's in it                                                      |
+| -------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| [ARCHITECTURE.md](ARCHITECTURE.md)                                                     | Layering, provider abstractions, repo layout, environments        |
+| [DATABASE.md](DATABASE.md)                                                             | Schema, RLS design, guest merge                                   |
+| [API.md](API.md)                                                                       | API conventions + link to the OpenAPI contract                    |
+| [AUTH.md](AUTH.md)                                                                     | Apple/Google/guest auth, guest-merge flow                         |
+| [BILLING.md](BILLING.md)                                                               | Entitlement model, billing vendor decision, webhook handling      |
+| [LOCALIZATION.md](LOCALIZATION.md)                                                     | i18n architecture, RTL, pluralization                             |
+| [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md)                                                   | Tokens, motion, sound, haptics, the clicker                       |
+| [PRIVACY.md](PRIVACY.md) / [SECURITY.md](SECURITY.md) / [DATA_MAP.md](DATA_MAP.md)     | Privacy-by-design, security practices, field-level data inventory |
+| [TESTING.md](TESTING.md)                                                               | Test suites and the mandatory per-task testing loop               |
+| [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md)                                           | Apple/Google store submission checklist                           |
+| [docs/architecture/state-flow.md](docs/architecture/state-flow.md)                     | guest → first lesson → plan → sign-in → purchase state machine    |
+| [docs/architecture/risks.md](docs/architecture/risks.md)                               | Implementation risks, ranked                                      |
+| [docs/architecture/tech-stack-versions.md](docs/architecture/tech-stack-versions.md)   | Verified current package versions + why                           |
+| [docs/api/openapi.yaml](docs/api/openapi.yaml)                                         | Full API contract                                                 |
+| [docs/architecture/phase-2-verification.md](docs/architecture/phase-2-verification.md) | What Phase 2 actually ran vs. only compiled                       |
 
 ## Repository layout
 
@@ -42,21 +43,27 @@
 
 ```
 pnpm install
-cp .env.example .env.local     # fill in local Supabase project values
-supabase start                  # local Supabase stack
-supabase db reset                # replay migrations + seed.sql
-pnpm --filter @pawcue/mobile dev  # once apps/mobile exists (Phase 2)
+cp .env.example .env.local                    # fill in Supabase URL + anon key
+pnpm --filter @pawcue/mobile start            # run the app (Expo)
+pnpm --filter @pawcue/mobile run export:web   # or bundle it for the browser
+
+pnpm verify                                   # format, lint, typecheck, unit + RN render tests
+pnpm db:verify                                # replay migrations from zero, RLS suite, advisors
 ```
 
 ## Status
 
-End of **Phase 0** (architecture, docs, domain models, schema, API contract), validated against a real Supabase
-project rather than only on paper:
+**Phase 0** — architecture, domain models, schema and API contract, validated against a real Supabase project:
+migrations replay from zero, a 49-check RLS/security suite passes, Supabase advisors are clean, and generated
+database types are guarded against domain drift. Tagged `phase-0-baseline`.
 
-- migrations replay from zero and seed cleanly (`pnpm db:reset`)
-- 49-check RLS/security suite passes (`pnpm db:test`), Supabase advisors clean (`pnpm db:advisors`)
-- database TypeScript types generated from the live schema and guarded against domain drift
-- `pnpm verify` (format + lint + typecheck + 77 unit tests) green
+**Phase 1** — the design system: tokens, accessibility foundations (real WCAG contrast maths) and UI primitives.
+Tagged `phase-1-baseline`.
 
-**No mobile app exists yet** — `apps/mobile` is an empty placeholder until Phase 1. Do not assume a doc describes
-shipped behavior; check `apps/mobile` and `supabase/` directly.
+**Phase 2** adds a running Expo app shell: boot, Expo Router navigation, English + Hebrew, persisted language,
+Supabase client + guest auth, API client, permission architecture and a jest-expo render harness.
+
+What is actually verified versus merely compiled is documented precisely in
+[docs/architecture/phase-2-verification.md](docs/architecture/phase-2-verification.md) — **no native behaviour has
+been exercised** (no Xcode, no Android SDK on the build machine), so audio, haptics and full RTL layout mirroring
+remain unverified. Do not assume a doc describes shipped behavior; check `apps/mobile` and `supabase/` directly.

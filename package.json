@@ -13,13 +13,14 @@
     "test": "vitest run",
     "test:e2e": "pnpm --filter tests-e2e run test",
     "build": "pnpm -r --if-present run build",
-    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test",
+    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm test:mobile",
     "supabase": "supabase",
     "db:reset": "supabase db reset --linked --yes",
     "db:test": "supabase db query --linked -f supabase/tests/rls_security.sql",
     "db:advisors": "supabase db advisors --linked",
     "db:types": "supabase gen types typescript --linked > packages/domain/src/generated/database.types.ts",
-    "db:verify": "pnpm db:reset && pnpm db:test && pnpm db:advisors"
+    "db:verify": "pnpm db:reset && pnpm db:test && pnpm db:advisors",
+    "test:mobile": "pnpm --filter @pawcue/mobile run test"
   },
   "devDependencies": {
     "@types/node": "^22.20.1",

@@ -1,0 +1,57 @@
+{
+  "results": {
+    "app boot renders UI": {
+      "ok": true,
+      "detail": "[\"Settings\",\"Your free dog clicker\",\"Tap it. Hear it. That's all you need to start.\"]"
+    },
+    "English copy from i18n bundle": {
+      "ok": true,
+      "detail": ""
+    },
+    "design tokens painted (Deep Evergreen #23473C)": {
+      "ok": true,
+      "detail": "{\"found\":true,\"bg\":\"rgb(35, 71, 60)\",\"radius\":\"999px\",\"w\":220}"
+    },
+    "prompt hidden after 2 presses": {
+      "ok": true,
+      "detail": ""
+    },
+    "prompt appears after 3 presses": {
+      "ok": true,
+      "detail": ""
+    },
+    "first-lesson CTA rendered": {
+      "ok": true,
+      "detail": ""
+    },
+    "anonymous Supabase session established": {
+      "ok": true,
+      "detail": "{\"present\":true,\"isAnonymous\":true,\"hasToken\":true}"
+    },
+    "navigated to /settings": {
+      "ok": true,
+      "detail": "url=http://localhost:4599/settings"
+    },
+    "Hebrew copy rendered": {
+      "ok": true,
+      "detail": "הגדרות"
+    },
+    "language persisted to storage": {
+      "ok": true,
+      "detail": "stored=he-IL"
+    },
+    "Hebrew survives a full reload": {
+      "ok": true,
+      "detail": "הגדרות | הקליקר החינמי שלך לאילוף כלבים"
+    },
+    "RTL writing direction applied to Hebrew text": {
+      "ok": true,
+      "detail": "{\"found\":true,\"direction\":\"rtl\",\"textAlign\":\"center\",\"unicodeBidi\":\"isolate\"}"
+    },
+    "LTR restored when switching back to English": {
+      "ok": true,
+      "detail": "{\"text\":\"Your free dog clicker\",\"direction\":\"ltr\"}"
+    }
+  },
+  "netErrors": []
+}

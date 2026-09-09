@@ -104,14 +104,30 @@
     }
   },
   "skill": {
-    "nameResponse": { "title": "Name response" },
-    "sit": { "title": "Sit" },
-    "down": { "title": "Down" },
-    "stay": { "title": "Stay" },
-    "come": { "title": "Come" },
-    "leaveIt": { "title": "Leave it" },
-    "place": { "title": "Place" },
-    "looseLeashBasics": { "title": "Loose leash basics" }
+    "nameResponse": {
+      "title": "Name response"
+    },
+    "sit": {
+      "title": "Sit"
+    },
+    "down": {
+      "title": "Down"
+    },
+    "stay": {
+      "title": "Stay"
+    },
+    "come": {
+      "title": "Come"
+    },
+    "leaveIt": {
+      "title": "Leave it"
+    },
+    "place": {
+      "title": "Place"
+    },
+    "looseLeashBasics": {
+      "title": "Loose leash basics"
+    }
   },
   "lesson": {
     "nameGame": {
@@ -129,7 +145,10 @@
       "step2": "Move it slowly upward and back over their head.",
       "step3": "As their bottom touches the floor, click and reward."
     },
-    "down": { "title": "Down", "goal": "Teach your dog to lie down on cue." },
+    "down": {
+      "title": "Down",
+      "goal": "Teach your dog to lie down on cue."
+    },
     "come": {
       "title": "Come",
       "goal": "Build a reliable recall in low-distraction settings."
@@ -206,7 +225,9 @@
     }
   },
   "planEngine": {
-    "changelog": { "v1_0_0": "Initial rules-based plan engine." }
+    "changelog": {
+      "v1_0_0": "Initial rules-based plan engine."
+    }
   },
   "errors": {
     "noInternet": {
@@ -239,6 +260,22 @@
     "terms": "Terms",
     "support": "Support",
     "deleteAccount": "Delete Account",
-    "logOut": "Log Out"
+    "logOut": "Log Out",
+    "title": "Settings",
+    "restartRequired": "Restarting to apply the new layout direction…",
+    "languageOption": {
+      "en-US": "English",
+      "he-IL": "עברית (Hebrew)"
+    },
+    "diagnostics": "Diagnostics (development only)",
+    "sessionStatus": "Session"
+  },
+  "permissions": {
+    "notifications": {
+      "rationale": "We'll only use notifications for your training reminders."
+    },
+    "photoLibrary": {
+      "rationale": "We only access the photo you pick for your dog's profile."
+    }
   }
 }

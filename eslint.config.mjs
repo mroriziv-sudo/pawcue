@@ -17,6 +17,10 @@ export default tseslint.config(
       "**/coverage/**",
       // Generated from the live database schema; not hand-edited, so linting it is noise.
       "packages/domain/src/generated/**",
+      // Expo build output and generated route types.
+      "apps/mobile/dist-web/**",
+      "apps/mobile/dist-native/**",
+      "apps/mobile/.expo/**",
     ],
   },
   ...tseslint.configs.recommendedTypeChecked,
@@ -42,7 +46,7 @@ export default tseslint.config(
      * a stale closure in a press handler or an effect that misses a cleanup is a real runtime bug, and this is the
      * only automated check for it.
      */
-    files: ["packages/ui/**/*.{ts,tsx}"],
+    files: ["packages/ui/**/*.{ts,tsx}", "apps/mobile/**/*.{ts,tsx}"],
     plugins: { "react-hooks": reactHooks },
     rules: {
       "react-hooks/rules-of-hooks": "error",
@@ -51,7 +55,7 @@ export default tseslint.config(
   },
   {
     // Tests assert on deliberately malformed input, so the strictness that protects product code gets in the way.
-    files: ["**/*.test.ts"],
+    files: ["**/*.test.ts", "**/*.test.tsx"],
     rules: {
       "@typescript-eslint/no-unsafe-assignment": "off",
       "@typescript-eslint/no-unsafe-member-access": "off",

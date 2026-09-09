@@ -45,3 +45,8 @@ pnpm-debug.log*
 # test artifacts
 coverage/
 maestro-logs/
+
+# expo build output
+apps/mobile/dist-web/
+apps/mobile/dist-native/
+apps/mobile/.expo/

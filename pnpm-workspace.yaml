@@ -3,7 +3,31 @@ packages:
   - "packages/*"
   - "tests/e2e"
 allowBuilds:
-  # esbuild's postinstall only fetches its platform-specific native binary — standard and required for it to run.
+  # Each entry compiles or fetches a platform-specific native binary on install and is required for that package
+  # to work. Reviewed individually rather than blanket-enabling install scripts.
+  # Fetches esbuild's platform binary.
   esbuild: true
+  # Native file-watcher used by Metro and Jest.
+  "@parcel/watcher": true
+  # Native module resolver used by the lint toolchain.
+  unrs-resolver: true
 minimumReleaseAgeExclude:
+  # pnpm 12 quarantines very recently published versions by default. This one is a deliberate pin: @types/react
+  # must match the React version Expo SDK 57 ships.
   - "@types/react@19.3.0"
+overrides:
+  # React must be a single instance across the whole workspace. Two copies in one tree produce
+  # "Cannot read properties of null (reading 'useMemo')" as hooks resolve against the wrong renderer.
+  # Pinned to the version Expo SDK 57 ships.
+  react: 19.2.3
+  react-dom: 19.2.3
+# Metro does not follow pnpm's strict per-package isolation: `expo-router` imports peers such as
+# `@expo/metro-runtime` that pnpm will not place inside expo-router's own node_modules. Hoisting the Expo/RN
+# runtime packages to the root makes them resolvable without switching the whole repo to `node-linker=hoisted`,
+# which would give up isolation for every dependency.
+publicHoistPattern:
+  - "@expo/*"
+  - "expo-*"
+  - "@react-native/*"
+  - "react-native-*"
+  - "@babel/runtime"

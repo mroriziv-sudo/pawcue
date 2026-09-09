@@ -100,17 +100,36 @@
       "title": "התנהגות רגועה",
       "description": "עזרה לכלב שלכם להירגע, במיוחד ברגעי התרגשות."
     },
-    "other": { "title": "משהו אחר", "description": "ספרו לנו עוד לאחר ההרשמה." }
+    "other": {
+      "title": "משהו אחר",
+      "description": "ספרו לנו עוד לאחר ההרשמה."
+    }
   },
   "skill": {
-    "nameResponse": { "title": "תגובה לשם" },
-    "sit": { "title": "שב" },
-    "down": { "title": "שכב" },
-    "stay": { "title": "המתן" },
-    "come": { "title": "בוא" },
-    "leaveIt": { "title": "עזוב" },
-    "place": { "title": "מקום" },
-    "looseLeashBasics": { "title": "יסודות רצועה רפויה" }
+    "nameResponse": {
+      "title": "תגובה לשם"
+    },
+    "sit": {
+      "title": "שב"
+    },
+    "down": {
+      "title": "שכב"
+    },
+    "stay": {
+      "title": "המתן"
+    },
+    "come": {
+      "title": "בוא"
+    },
+    "leaveIt": {
+      "title": "עזוב"
+    },
+    "place": {
+      "title": "מקום"
+    },
+    "looseLeashBasics": {
+      "title": "יסודות רצועה רפויה"
+    }
   },
   "lesson": {
     "nameGame": {
@@ -128,7 +147,10 @@
       "step2": "הזיזו אותו לאט כלפי מעלה ואחורה מעל הראש.",
       "step3": "ברגע שהישבן נוגע ברצפה, לחצו על הקליקר ותגמלו."
     },
-    "down": { "title": "שכב", "goal": "ללמד את הכלב שלכם לשכב לפי פקודה." },
+    "down": {
+      "title": "שכב",
+      "goal": "ללמד את הכלב שלכם לשכב לפי פקודה."
+    },
     "come": {
       "title": "בוא",
       "goal": "בניית קריאה אמינה בסביבה עם מעט הסחות דעת."
@@ -205,7 +227,9 @@
     }
   },
   "planEngine": {
-    "changelog": { "v1_0_0": "מנוע תוכניות מבוסס-כללים, גרסה ראשונית." }
+    "changelog": {
+      "v1_0_0": "מנוע תוכניות מבוסס-כללים, גרסה ראשונית."
+    }
   },
   "errors": {
     "noInternet": {
@@ -238,6 +262,22 @@
     "terms": "תנאי שימוש",
     "support": "תמיכה",
     "deleteAccount": "מחיקת חשבון",
-    "logOut": "התנתקות"
+    "logOut": "התנתקות",
+    "title": "הגדרות",
+    "restartRequired": "מפעילים מחדש כדי להחיל את כיוון הפריסה החדש…",
+    "languageOption": {
+      "en-US": "English (אנגלית)",
+      "he-IL": "עברית"
+    },
+    "diagnostics": "אבחון (לפיתוח בלבד)",
+    "sessionStatus": "הפעלה"
+  },
+  "permissions": {
+    "notifications": {
+      "rationale": "נשתמש בהתראות רק עבור תזכורות האימון שלכם."
+    },
+    "photoLibrary": {
+      "rationale": "אנחנו ניגשים רק לתמונה שתבחרו לפרופיל של הכלב."
+    }
   }
 }
