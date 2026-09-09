@@ -38,6 +38,31 @@ only — it's the loop for a single PR-sized change.
   `pnpm db:types` output is committed and guarded by `schema-conformance.test.ts`, which parses it and fails if a
   domain model and the real schema drift apart in either direction.
 
+### `auth-merge-guest` security cases
+
+Required before **Phase 7** can be called done. These cover
+`POST /v1/auth/merge-guest`, whose spec is [supabase/functions/README.md](supabase/functions/README.md). They exist
+because the database deliberately cannot defend this operation: `merge_guest_session` is `SECURITY DEFINER`,
+service-role-only, and its UUID arguments prove nothing. This endpoint is the entire authorization boundary, and a
+regression here is another account takeover (see SECURITY.md for the Phase 0 incident).
+
+Every case must assert on **observable data effects**, not just the status code — after a rejection, the victim's
+`dogs`/`subscriptions`/`entitlements` rows must be provably unchanged.
+
+| #   | Case                                                     | Expected                                                                                                                            |
+| --- | -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Authenticated caller JWT **+** valid matching guest JWT  | **Allowed.** Guest data re-parented to the caller; `anonymous_sessions.merged_at` set                                               |
+| 2   | Missing caller JWT (guest JWT present)                   | **Rejected `401`.** No data moves                                                                                                   |
+| 3   | Missing guest JWT (caller JWT present)                   | **Rejected `401`.** No data moves — an authenticated user must not be able to claim a guest they can't prove                        |
+| 4   | Invalid or expired guest JWT (bad signature, `exp` past) | **Rejected `401`.** Both variants tested separately; no data moves                                                                  |
+| 5   | Guest JWT belonging to a **different** anonymous session | **Rejected.** Merge source comes from the verified token, so this can only ever merge that token's own session — never the victim's |
+| 6   | Forged guest ID in the request body with no matching JWT | **Rejected `401`.** This is the Phase 0 exploit in endpoint form; body IDs are never authoritative                                  |
+| 7   | Replay — the same valid merge submitted twice            | **Safe and idempotent.** Second call is a no-op: no duplicate dogs/sessions, `merged_at` unchanged, still `200`                     |
+
+Case 5 deserves a second assertion: submit a valid guest JWT for session A together with a body naming session B,
+and assert that **A** merged and **B** was untouched. That proves the handler reads the source from the token
+rather than the body, which cases 5 and 6 otherwise only prove indirectly.
+
 - **Billing**: free user, trial, monthly, annual, expiration, cancellation, grace period, restore, refund, and
   **webhook replay idempotency** (the same store notification delivered twice must not double-apply).
 - **Localization**: English, Hebrew, RTL, long strings (Hebrew/German-style string expansion doesn't clip), ICU

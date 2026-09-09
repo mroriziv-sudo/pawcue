@@ -29,6 +29,14 @@ relay user gets full functionality identically to a real-email user.
 
 Full detail: DATABASE.md `merge_guest_session()`, docs/architecture/state-flow.md. Summary of the contract:
 
+**Phase 7 implementation guardrail.** The endpoint behind this flow is the entire authorization boundary for the
+merge — the database cannot defend it, because `merge_guest_session` is `SECURITY DEFINER`, service-role-only, and
+its UUID arguments prove nothing. The binding rules and required shape are in
+[supabase/functions/README.md](supabase/functions/README.md); the seven security cases that must pass are in
+[TESTING.md](TESTING.md#auth-merge-guest-security-cases). In short: the caller's authenticated JWT is required, the
+guest's anonymous-session JWT is required and independently verified, and **an ID in the request body is never
+sufficient to authorize a merge**.
+
 1. `AuthProvider.mergeGuestSession(anonymousSessionId)` is called immediately after Apple/Google sign-in succeeds.
 2. **Idempotent** — a retry (e.g. after a dropped network response) is a safe no-op, checked via
    `anonymous_sessions.merged_at`.
