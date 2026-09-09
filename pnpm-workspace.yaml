@@ -5,3 +5,5 @@ packages:
 allowBuilds:
   # esbuild's postinstall only fetches its platform-specific native binary — standard and required for it to run.
   esbuild: true
+minimumReleaseAgeExclude:
+  - "@types/react@19.3.0"

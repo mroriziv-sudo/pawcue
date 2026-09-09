@@ -10,7 +10,7 @@
     "format:check": "prettier --check .",
     "lint": "pnpm -r --if-present run lint",
     "typecheck": "pnpm -r --if-present run typecheck",
-    "test": "pnpm -r --if-present run test",
+    "test": "vitest run",
     "test:e2e": "pnpm --filter tests-e2e run test",
     "build": "pnpm -r --if-present run build",
     "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test",
@@ -22,10 +22,13 @@
     "db:verify": "pnpm db:reset && pnpm db:test && pnpm db:advisors"
   },
   "devDependencies": {
+    "@types/node": "^22.20.1",
     "eslint": "^10.10.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "prettier": "^3.4.2",
     "supabase": "2.117.0",
     "typescript": "^6.0.2",
-    "typescript-eslint": "^8.70.0"
+    "typescript-eslint": "^8.70.0",
+    "vitest": "^3.2.7"
   }
 }
