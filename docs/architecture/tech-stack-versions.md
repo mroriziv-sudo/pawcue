@@ -30,6 +30,7 @@ recalled — see citations. This doc is the source of truth for `package.json` v
 | ESLint                        | latest 10.x flat-config                        | pair with `typescript-eslint`                                                                                                                                                                                                                                                 |
 | @testing-library/react-native | **14.0.1**                                     | **breaking change**: `render`/`renderHook`/`fireEvent`/`act` are now async — every call site must `await`. Requires RN ≥0.78, Node ≥22.13 — root `package.json` `engines.node` is set to `>=22.13.0` for this reason; local dev machine uses Node 24 LTS via nvm (see below). |
 | E2E                           | **Maestro** (primary)                          | Both Maestro and Detox are actively maintained; Maestro chosen for lower flakiness/YAML simplicity per the brief's "Maestro or Detox" option. Revisit only if a scenario needs Detox's gray-box JS sync.                                                                      |
+| supabase (CLI)                | **2.117.0** (pinned exactly)                   | Project dev dependency, not a global install, so CI and every machine run the same CLI. A 3.0.0 beta line exists; `latest` is 2.117.0. Note: `pnpm ci` is a **built-in pnpm v12 command** and shadows a script of that name — the repo's full gate is `pnpm verify`.          |
 
 ### Why TypeScript 6.0, not 7.0
 

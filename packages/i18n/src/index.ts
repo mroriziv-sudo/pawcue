@@ -15,6 +15,10 @@ export function isRtlLocale(locale: string): boolean {
 /**
  * `compatibilityJSON: "v4"` (the i18next default) resolves plural suffixes from each locale's real CLDR plural
  * categories — Hebrew needs one/two/many/other, not just one/other, see `plan.minutes_*` in he-IL/common.json.
+ *
+ * The returned instance is usable immediately: resources are bundled inline, so there is no async backend and
+ * `init` resolves synchronously. If a lazy-loading backend is ever added, this becomes async and every caller
+ * (and the app's render gate) has to start awaiting readiness.
  */
 export function createI18n(): I18nInstance {
   const instance = i18next.createInstance();

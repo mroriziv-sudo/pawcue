@@ -32,6 +32,13 @@ export const appEventSchema = z.object({
   properties: z
     .record(z.string(), z.union([z.string(), z.number(), z.boolean()]))
     .optional(),
+  /** When the event happened on the device — which, for a queued offline event, is well before the server saw it. */
   occurredAt: z.iso.datetime({ offset: true }),
+  /**
+   * When the server recorded it. Distinct from `occurredAt` on purpose: the gap between the two is exactly the
+   * offline-queue delay, which is worth being able to measure. `app_events` is append-only and so has no
+   * `updated_at`.
+   */
+  createdAt: z.iso.datetime({ offset: true }),
 });
 export type AppEvent = z.infer<typeof appEventSchema>;

@@ -14,6 +14,12 @@ export const userSchema = z
     displayName: z.string().max(100).nullable(),
     preferredLocale: localeSchema,
     hasCompletedOnboarding: z.boolean(),
+    /**
+     * Mirrors `auth.users.is_anonymous`. The guest-vs-signed-in distinction is real product state — it drives the
+     * "sign in to keep your progress" prompt and is what `merge_guest_session` validates before re-parenting data
+     * (see supabase/migrations) — so it belongs on the model, not just in the database.
+     */
+    isAnonymous: z.boolean(),
   })
   .extend(timestampedSchema.shape);
 export type User = z.infer<typeof userSchema>;

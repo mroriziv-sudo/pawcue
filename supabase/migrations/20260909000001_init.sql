@@ -10,9 +10,12 @@ create extension if not exists pgcrypto;
 -- ---------------------------------------------------------------------------
 -- updated_at bookkeeping
 -- ---------------------------------------------------------------------------
+-- search_path is pinned on every function here: without it a caller can prepend a schema they control and
+-- shadow the objects the function body resolves (Supabase linter 0011_function_search_path_mutable).
 create or replace function set_updated_at()
 returns trigger
 language plpgsql
+set search_path = ''
 as $$
 begin
   new.updated_at = now();
@@ -475,8 +478,35 @@ create index app_events_user_id_idx on app_events (user_id);
 create index app_events_name_idx on app_events (name);
 
 -- ---------------------------------------------------------------------------
+-- Foreign-key covering indexes
+--
+-- Postgres does not create an index for the referencing side of a foreign key. Beyond ordinary join/filter cost,
+-- an unindexed FK forces a sequential scan of the child table on every cascading DELETE — and account deletion
+-- (brief §14) cascades across most of this schema. These are the FKs not already covered by an index created
+-- alongside their table above.
+-- ---------------------------------------------------------------------------
+create index anonymous_sessions_merged_into_user_id_idx on anonymous_sessions (merged_into_user_id);
+create index dog_goals_goal_id_idx on dog_goals (goal_id);
+create index dog_skills_skill_id_idx on dog_skills (skill_id);
+create index lessons_content_version_id_idx on lessons (content_version_id);
+create index session_events_lesson_step_id_idx on session_events (lesson_step_id);
+create index session_events_troubleshooting_option_id_idx on session_events (troubleshooting_option_id);
+create index training_plans_plan_engine_version_id_idx on training_plans (plan_engine_version_id);
+create index training_sessions_plan_activity_id_idx on training_sessions (plan_activity_id);
+
+-- ---------------------------------------------------------------------------
 -- merge_guest_session — transactional, idempotent guest → account merge (DATABASE.md, brief §12)
 -- ---------------------------------------------------------------------------
+-- SECURITY: this function re-parents one account's data onto another, so it must never be reachable by a client.
+-- It is SECURITY DEFINER and PostgREST exposes every public function as /rest/v1/rpc/<name>, which means the
+-- default PUBLIC/anon/authenticated EXECUTE grants would let ANY caller holding the (publicly shipped) anon key
+-- move an arbitrary victim's dogs, subscriptions and entitlements onto their own account. The REVOKEs at the
+-- bottom of this file close that hole; the guards below are defense in depth for the service-role callers that
+-- remain, so a bug in the Edge Function can't merge nonsense either.
+--
+-- Authorization lives in the /v1/auth/merge-guest Edge Function, which must verify BOTH the caller's new
+-- authenticated JWT and the guest's anonymous-session JWT before invoking this with the service role. Possession
+-- of the anonymous session's token is the proof of ownership — these UUID arguments are not.
 create or replace function merge_guest_session(p_anonymous_user_id uuid, p_target_user_id uuid)
 returns void
 language plpgsql
@@ -485,6 +515,21 @@ as $$
 declare
   v_already_merged timestamptz;
 begin
+  if p_anonymous_user_id = p_target_user_id then
+    raise exception 'merge_guest_session: source and target must differ (got %)', p_anonymous_user_id
+      using errcode = 'check_violation';
+  end if;
+
+  if not exists (select 1 from profiles where id = p_anonymous_user_id and is_anonymous) then
+    raise exception 'merge_guest_session: source % is not an anonymous profile', p_anonymous_user_id
+      using errcode = 'check_violation';
+  end if;
+
+  if not exists (select 1 from profiles where id = p_target_user_id and not is_anonymous) then
+    raise exception 'merge_guest_session: target % is not a permanent profile', p_target_user_id
+      using errcode = 'check_violation';
+  end if;
+
   select merged_at into v_already_merged from anonymous_sessions where id = p_anonymous_user_id;
 
   -- Idempotent: a retry after a successful merge is a no-op, not an error.
@@ -534,14 +579,14 @@ alter table purchase_events enable row level security;
 alter table app_events enable row level security;
 
 -- Owner-scoped: profiles
-create policy "profiles_select_own" on profiles for select to authenticated using (auth.uid() = id);
-create policy "profiles_update_own" on profiles for update to authenticated using (auth.uid() = id);
+create policy "profiles_select_own" on profiles for select to authenticated using ((select auth.uid()) = id);
+create policy "profiles_update_own" on profiles for update to authenticated using ((select auth.uid()) = id);
 
 -- Owner-scoped: anonymous_sessions (a guest may read its own merge status)
-create policy "anonymous_sessions_select_own" on anonymous_sessions for select to authenticated using (auth.uid() = id);
+create policy "anonymous_sessions_select_own" on anonymous_sessions for select to authenticated using ((select auth.uid()) = id);
 
 -- Owner-scoped: dogs
-create policy "dogs_all_own" on dogs for all to authenticated using (auth.uid() = owner_user_id) with check (auth.uid() = owner_user_id);
+create policy "dogs_all_own" on dogs for all to authenticated using ((select auth.uid()) = owner_user_id) with check ((select auth.uid()) = owner_user_id);
 
 -- Public catalog: readable by anyone (including anon), writes are service-role only (no policy = no client write)
 create policy "training_goals_public_read" on training_goals for select to anon, authenticated using (true);
@@ -554,72 +599,84 @@ create policy "plan_engine_versions_public_read" on plan_engine_versions for sel
 
 -- Owner-scoped via dog_id join
 create policy "dog_goals_all_own" on dog_goals for all to authenticated
-  using (exists (select 1 from dogs where dogs.id = dog_goals.dog_id and dogs.owner_user_id = auth.uid()))
-  with check (exists (select 1 from dogs where dogs.id = dog_goals.dog_id and dogs.owner_user_id = auth.uid()));
+  using (exists (select 1 from dogs where dogs.id = dog_goals.dog_id and dogs.owner_user_id = (select auth.uid())))
+  with check (exists (select 1 from dogs where dogs.id = dog_goals.dog_id and dogs.owner_user_id = (select auth.uid())));
 
 create policy "dog_skills_all_own" on dog_skills for all to authenticated
-  using (exists (select 1 from dogs where dogs.id = dog_skills.dog_id and dogs.owner_user_id = auth.uid()))
-  with check (exists (select 1 from dogs where dogs.id = dog_skills.dog_id and dogs.owner_user_id = auth.uid()));
+  using (exists (select 1 from dogs where dogs.id = dog_skills.dog_id and dogs.owner_user_id = (select auth.uid())))
+  with check (exists (select 1 from dogs where dogs.id = dog_skills.dog_id and dogs.owner_user_id = (select auth.uid())));
 
 create policy "training_plans_all_own" on training_plans for all to authenticated
-  using (exists (select 1 from dogs where dogs.id = training_plans.dog_id and dogs.owner_user_id = auth.uid()))
-  with check (exists (select 1 from dogs where dogs.id = training_plans.dog_id and dogs.owner_user_id = auth.uid()));
+  using (exists (select 1 from dogs where dogs.id = training_plans.dog_id and dogs.owner_user_id = (select auth.uid())))
+  with check (exists (select 1 from dogs where dogs.id = training_plans.dog_id and dogs.owner_user_id = (select auth.uid())));
 
 create policy "plan_days_all_own" on plan_days for all to authenticated
   using (exists (
     select 1 from training_plans join dogs on dogs.id = training_plans.dog_id
-    where training_plans.id = plan_days.plan_id and dogs.owner_user_id = auth.uid()
+    where training_plans.id = plan_days.plan_id and dogs.owner_user_id = (select auth.uid())
   ))
   with check (exists (
     select 1 from training_plans join dogs on dogs.id = training_plans.dog_id
-    where training_plans.id = plan_days.plan_id and dogs.owner_user_id = auth.uid()
+    where training_plans.id = plan_days.plan_id and dogs.owner_user_id = (select auth.uid())
   ));
 
 create policy "plan_activities_all_own" on plan_activities for all to authenticated
   using (exists (
     select 1 from plan_days join training_plans on training_plans.id = plan_days.plan_id
     join dogs on dogs.id = training_plans.dog_id
-    where plan_days.id = plan_activities.plan_day_id and dogs.owner_user_id = auth.uid()
+    where plan_days.id = plan_activities.plan_day_id and dogs.owner_user_id = (select auth.uid())
   ))
   with check (exists (
     select 1 from plan_days join training_plans on training_plans.id = plan_days.plan_id
     join dogs on dogs.id = training_plans.dog_id
-    where plan_days.id = plan_activities.plan_day_id and dogs.owner_user_id = auth.uid()
+    where plan_days.id = plan_activities.plan_day_id and dogs.owner_user_id = (select auth.uid())
   ));
 
 create policy "training_sessions_all_own" on training_sessions for all to authenticated
-  using (exists (select 1 from dogs where dogs.id = training_sessions.dog_id and dogs.owner_user_id = auth.uid()))
-  with check (exists (select 1 from dogs where dogs.id = training_sessions.dog_id and dogs.owner_user_id = auth.uid()));
+  using (exists (select 1 from dogs where dogs.id = training_sessions.dog_id and dogs.owner_user_id = (select auth.uid())))
+  with check (exists (select 1 from dogs where dogs.id = training_sessions.dog_id and dogs.owner_user_id = (select auth.uid())));
 
 create policy "session_events_all_own" on session_events for all to authenticated
   using (exists (
     select 1 from training_sessions join dogs on dogs.id = training_sessions.dog_id
-    where training_sessions.id = session_events.session_id and dogs.owner_user_id = auth.uid()
+    where training_sessions.id = session_events.session_id and dogs.owner_user_id = (select auth.uid())
   ))
   with check (exists (
     select 1 from training_sessions join dogs on dogs.id = training_sessions.dog_id
-    where training_sessions.id = session_events.session_id and dogs.owner_user_id = auth.uid()
+    where training_sessions.id = session_events.session_id and dogs.owner_user_id = (select auth.uid())
   ));
 
 create policy "progress_all_own" on progress for all to authenticated
-  using (exists (select 1 from dogs where dogs.id = progress.dog_id and dogs.owner_user_id = auth.uid()))
-  with check (exists (select 1 from dogs where dogs.id = progress.dog_id and dogs.owner_user_id = auth.uid()));
+  using (exists (select 1 from dogs where dogs.id = progress.dog_id and dogs.owner_user_id = (select auth.uid())))
+  with check (exists (select 1 from dogs where dogs.id = progress.dog_id and dogs.owner_user_id = (select auth.uid())));
 
 create policy "streaks_all_own" on streaks for all to authenticated
-  using (exists (select 1 from dogs where dogs.id = streaks.dog_id and dogs.owner_user_id = auth.uid()))
-  with check (exists (select 1 from dogs where dogs.id = streaks.dog_id and dogs.owner_user_id = auth.uid()));
+  using (exists (select 1 from dogs where dogs.id = streaks.dog_id and dogs.owner_user_id = (select auth.uid())))
+  with check (exists (select 1 from dogs where dogs.id = streaks.dog_id and dogs.owner_user_id = (select auth.uid())));
 
 create policy "reminders_all_own" on reminders for all to authenticated
-  using (exists (select 1 from dogs where dogs.id = reminders.dog_id and dogs.owner_user_id = auth.uid()))
-  with check (exists (select 1 from dogs where dogs.id = reminders.dog_id and dogs.owner_user_id = auth.uid()));
+  using (exists (select 1 from dogs where dogs.id = reminders.dog_id and dogs.owner_user_id = (select auth.uid())))
+  with check (exists (select 1 from dogs where dogs.id = reminders.dog_id and dogs.owner_user_id = (select auth.uid())));
 
 -- Owner-scoped, directly on user_id
 create policy "notification_preferences_all_own" on notification_preferences for all to authenticated
-  using (auth.uid() = user_id) with check (auth.uid() = user_id);
+  using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
 
-create policy "subscriptions_select_own" on subscriptions for select to authenticated using (auth.uid() = user_id);
-create policy "entitlements_select_own" on entitlements for select to authenticated using (auth.uid() = user_id);
+create policy "subscriptions_select_own" on subscriptions for select to authenticated using ((select auth.uid()) = user_id);
+create policy "entitlements_select_own" on entitlements for select to authenticated using ((select auth.uid()) = user_id);
 -- purchase_events: no client policy at all (service-role only — brief DATABASE table inventory).
 
-create policy "app_events_insert_own" on app_events for insert to authenticated with check (auth.uid() = user_id);
+create policy "app_events_insert_own" on app_events for insert to authenticated with check ((select auth.uid()) = user_id);
 -- app_events has no select policy for clients — write-only from the client, read via service role for analytics.
+
+-- ---------------------------------------------------------------------------
+-- Function EXECUTE privileges
+--
+-- Postgres grants EXECUTE on new functions to PUBLIC by default, and Supabase additionally grants anon/
+-- authenticated on the public schema. PostgREST then exposes each one at /rest/v1/rpc/<name>. Neither of these
+-- functions is meant to be called by a client — one is a trigger body, the other performs a privileged data
+-- merge — so both grants are revoked explicitly. Verified by the RLS/security suite in supabase/tests/.
+-- ---------------------------------------------------------------------------
+revoke all on function merge_guest_session(uuid, uuid) from public, anon, authenticated;
+revoke all on function handle_new_auth_user() from public, anon, authenticated;
+revoke all on function set_updated_at() from public, anon, authenticated;

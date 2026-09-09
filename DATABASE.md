@@ -48,9 +48,26 @@ PostgreSQL via Supabase. Schema is the source of truth for persistence shape; so
 | `entitlements`             | Resolved "what is this user allowed" (derived from subscriptions)                  | via `user_id`                         | no                                              |
 | `purchase_events`          | Raw store receipt/webhook audit log                                                | via `user_id`                         | no (service role only)                          |
 | `content_versions`         | Version stamps for lesson/troubleshooting content bundles                          | —                                     | **yes**                                         |
-| `app_events`               | First-party analytics events                                                       | via `user_id` \| `session_id`         | no (write-only from client, service role reads) |
+| `plan_engine_versions`     | Version stamps for the deterministic plan engine (brief §9)                        | —                                     | **yes**                                         |
+| `app_events`               | First-party analytics events                                                       | via `user_id`                         | no (write-only from client, service role reads) |
 
-Full column definitions: see the migration file, which is the authoritative version of this list.
+That is 25 tables, matching the live schema. Full column definitions: see the migration file, which is the
+authoritative version of this list.
+
+### Indexes
+
+Every foreign key has a covering index. Postgres does not create one automatically for the referencing side, and
+beyond ordinary join cost an unindexed FK forces a sequential scan of the child table on every cascading DELETE —
+which matters here because account deletion (brief §14) cascades across most of the schema. Eight FKs were missing
+one in the first draft and are now indexed explicitly; the check is part of the validation queries in
+`supabase/tests/`.
+
+### Function privileges
+
+PostgREST exposes every function in the `public` schema as `/rest/v1/rpc/<name>`, and Postgres grants `EXECUTE` to
+`PUBLIC` by default. The migration therefore ends with explicit `REVOKE`s on `merge_guest_session`,
+`handle_new_auth_user`, and `set_updated_at`: none of them is meant to be client-callable. Every function also pins
+`search_path`. See SECURITY.md for the incident that made this explicit.
 
 ## Row Level Security
 
@@ -70,22 +87,35 @@ Two ownership shapes appear repeatedly:
    `content_versions`): `SELECT` allowed for `anon` and `authenticated` roles, no write policy for either — writes
    happen only via service role (content pipeline / seed scripts / future CMS).
 
-Cross-user access is denied by construction (predicate keyed to `auth.uid()`), not by application-level filtering —
-verified by the RLS test suite (`supabase/tests/rls/*.sql` via `pgTAP`, wired up in Phase 4) which asserts that user
-A's JWT cannot read/write user B's `dogs`/`training_plans`/`progress` rows.
+Every policy calls `(select auth.uid())` rather than a bare `auth.uid()`. The scalar subselect is evaluated once per
+statement instead of once per row; without it Supabase's own linter flags `auth_rls_initplan` on every owner-scoped
+table, and the per-row re-evaluation becomes a real cost at scale.
 
-## `merge_guest_session(anonymous_user_id uuid)`
+Cross-user access is denied by construction (predicate keyed to `auth.uid()`), not by application-level filtering —
+verified by [`supabase/tests/rls_security.sql`](supabase/tests/rls_security.sql), which drops to the actual `anon`
+and `authenticated` roles and asserts that user A cannot read, update, delete, or forge ownership of user B's rows.
+Running those assertions as a privileged role would prove nothing, since the migration role bypasses RLS.
+
+## `merge_guest_session(p_anonymous_user_id uuid, p_target_user_id uuid)`
 
 `SECURITY DEFINER` Postgres function, called from the `POST /v1/auth/merge-guest` Edge Function immediately after a
 guest's anonymous auth identity is linked to a real Apple/Google identity. Runs in one transaction:
 
-1. Re-parents every row owned by `anonymous_user_id` across `dogs`, `training_plans`, `training_sessions`, `progress`,
-   `streaks`, `reminders` to the now-authenticated `auth.uid()`.
+1. Re-parents every row owned by `p_anonymous_user_id` across `dogs`, `notification_preferences`, `subscriptions`,
+   `entitlements`, and `app_events` to `p_target_user_id`. (Plans, sessions, progress, streaks and reminders follow
+   automatically, since they are owned through `dogs`.)
 2. Is idempotent: re-running after a successful merge is a no-op (checked via a `merged_at` marker on
    `anonymous_sessions`), so a client retry after a dropped response can't double-merge or duplicate rows.
 3. Never merges into an account that already has its own dog/plan data silently — see
    [docs/architecture/state-flow.md](docs/architecture/state-flow.md) for the conflict UX (existing-account case asks
    the user which data to keep rather than auto-merging two real training histories together).
+
+**Authorization does not live in this function.** Its UUID arguments are not proof of anything, so it is not
+client-callable (`EXECUTE` revoked from `public`/`anon`/`authenticated`) and only the service role may invoke it.
+The `/v1/auth/merge-guest` Edge Function is responsible for verifying **both** the caller's new authenticated JWT
+and the guest's anonymous-session JWT before calling — possession of the anonymous session's token is the actual
+proof of ownership. The function additionally rejects a self-merge, a non-anonymous source, and a non-permanent
+target as defense in depth.
 
 ## Migrations workflow
 

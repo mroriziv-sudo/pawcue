@@ -31,6 +31,39 @@ TLS everywhere (Supabase endpoints, Edge Functions are HTTPS-only by default). N
   content seeding) — never shipped to or reachable from the client.
 - `merge_guest_session` and `handle_new_auth_user` are the only `SECURITY DEFINER` functions; both have a narrow,
   audited purpose and validate their own preconditions (idempotency check, etc.) rather than trusting the caller.
+- **Every function in `public` has `EXECUTE` revoked from `public`/`anon`/`authenticated` unless it is deliberately
+  a client-facing RPC** (none are today), and every function pins `search_path`. This is not boilerplate — see the
+  finding below.
+
+### Finding: `merge_guest_session` was remotely exploitable (found and fixed during Phase 0 validation, 2026-09-09)
+
+Validating the schema against a real Supabase project — rather than reviewing the SQL by eye — surfaced a critical
+privilege-escalation bug that both manual review and SQL syntax checking had passed.
+
+**What was wrong.** `merge_guest_session(source, target)` is `SECURITY DEFINER` and re-parents one account's dogs,
+subscriptions and entitlements onto another. PostgREST automatically exposes every function in the `public` schema
+at `/rest/v1/rpc/<name>`, and Postgres grants `EXECUTE` to `PUBLIC` by default. The migration never revoked it.
+
+**Impact.** Anyone holding the anon key — which ships inside the mobile app by design and is therefore public —
+could `POST /rest/v1/rpc/merge_guest_session` with an arbitrary victim UUID and an attacker UUID, with no
+authentication at all, and take ownership of that victim's dogs, training history, subscription, and entitlement
+(i.e. also grant themselves premium). This was **confirmed by exploit, not inferred**: as the `anon` role, a test
+victim's dog was successfully transferred to a test attacker.
+
+**Root cause.** The design put authorization in the calling Edge Function but never restricted who could reach the
+function directly, and the UUID arguments carry no proof of ownership on their own.
+
+**Fix.** `EXECUTE` revoked from `public`, `anon`, and `authenticated` (service role only); plus in-function guards
+rejecting a self-merge, a non-anonymous source, and a non-permanent target. Authorization remains the Edge
+Function's job — it must verify both the caller's authenticated JWT and the guest's anonymous-session JWT — but the
+function is no longer reachable without the service role.
+
+**Regression cover.** `supabase/tests/rls_security.sql` asserts that both `anon` and `authenticated` are refused,
+that the victim's data is untouched afterwards, and that the guard conditions hold even for the service role.
+
+**Generalized lesson.** Any new `public` function is internet-reachable the moment it is created. Adding one
+requires an explicit decision about its `EXECUTE` grants, and `pnpm db:advisors` (Supabase's linter) must be clean
+before a schema change ships.
 
 ## Dependencies
 

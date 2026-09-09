@@ -13,10 +13,16 @@ Ranked roughly by (likelihood × cost if it goes wrong). Owner phase noted so ea
    on client retry, (b) merging into an account that already has data and silently clobbering it. Mitigated by the
    idempotent `merge_guest_session` function and the explicit `409 GUEST_MERGE_CONFLICT` path — see state-flow.md.
    Needs a dedicated integration test matrix (§36 AUTH).
-3. **RLS mistakes exposing cross-user data.** Any missing/incorrect policy is a privacy incident, not just a bug.
-   Mitigated by: RLS enabled from migration 0001 (never "add later"), pgTAP cross-user-access-denied tests required
-   before Phase 4 is considered done, and a policy per table documented in DATABASE.md so a missing policy is visible
-   by inspection.
+3. **Database authorization mistakes exposing cross-user data.** Any missing/incorrect policy is a privacy incident,
+   not just a bug — and Phase 0 validation proved the risk is not hypothetical: `merge_guest_session` shipped
+   remotely exploitable by unauthenticated callers via PostgREST's automatic `/rest/v1/rpc/` exposure (see
+   SECURITY.md for the full write-up). Note what did **not** catch it: manual SQL review, and a Postgres-grammar
+   syntax check. What did: executing against a real Supabase project and running Supabase's own linter.
+   Mitigated by: RLS enabled from migration 0001 (never "add later"); a policy per table documented in DATABASE.md
+   so a gap is visible by inspection; `supabase/tests/rls_security.sql` asserting cross-user denial as the real
+   `anon`/`authenticated` roles; and `pnpm db:advisors` required clean before any schema change ships.
+   **RLS alone is not the whole authorization surface** — function `EXECUTE` grants are part of it, and a
+   `SECURITY DEFINER` function bypasses RLS entirely by design.
 4. **Store policy drift between "today" and ship date.** App Store / Play Store requirements (Sign in with Apple
    triggers, privacy manifest enforcement, target SDK deadlines, Play Billing Library minimum version) change on
    their own schedule. Mitigated by treating RELEASE_CHECKLIST.md as a living doc re-verified against official docs

@@ -73,6 +73,20 @@ fully deterministic and unit-testable without network or randomness (any tie-bre
 diffed after the engine changes. `AITrainingCoachProvider` is a parallel, _optional_ interface for later
 plan-adjustment suggestions — never a dependency of the base plan engine.
 
+## 6a. Database types and domain/schema drift
+
+`packages/domain/src/generated/database.types.ts` is generated from the live linked project
+(`pnpm db:types`) and committed. It is not hand-edited. `packages/domain/src/models/schema-conformance.test.ts`
+parses it and fails if any domain model and the real schema disagree in either direction — a domain field with no
+column, or a column no model represents. Two divergences are declared intentional there rather than silently
+tolerated: `dogs.owner_user_id` and `app_events.user_id` are modeled as the richer `OwnerRef` union
+(`{kind: "user"} | {kind: "anonymousSession"}`) because the guest/permanent distinction is product-meaningful even
+though both map to the same physical column.
+
+`LocalizationString` is the one domain model with no table: translations are reviewed JSON resources in
+`packages/i18n`, so a copy change is a code review with a diff rather than a silent production row edit, and the
+app renders fully offline. Revisit only if translations must change without an app release.
+
 ## 7. Content model
 
 Lessons, steps, and troubleshooting options are structured rows (`lessons`, `lesson_steps`,

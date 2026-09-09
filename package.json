@@ -13,10 +13,19 @@
     "test": "pnpm -r --if-present run test",
     "test:e2e": "pnpm --filter tests-e2e run test",
     "build": "pnpm -r --if-present run build",
-    "ci": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test"
+    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test",
+    "supabase": "supabase",
+    "db:reset": "supabase db reset --linked --yes",
+    "db:test": "supabase db query --linked -f supabase/tests/rls_security.sql",
+    "db:advisors": "supabase db advisors --linked",
+    "db:types": "supabase gen types typescript --linked > packages/domain/src/generated/database.types.ts",
+    "db:verify": "pnpm db:reset && pnpm db:test && pnpm db:advisors"
   },
   "devDependencies": {
+    "eslint": "^10.10.0",
     "prettier": "^3.4.2",
-    "typescript": "^6.0.2"
+    "supabase": "2.117.0",
+    "typescript": "^6.0.2",
+    "typescript-eslint": "^8.70.0"
   }
 }

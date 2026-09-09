@@ -1,7 +1,15 @@
 import { z } from "zod";
 import { timestampedSchema, uuidSchema, localeSchema } from "./shared";
 
-/** A single translated string resource — see also `packages/i18n`, which is the runtime-facing mirror of this. */
+/**
+ * A single translated string resource.
+ *
+ * Deliberately NOT a database table in v1: translations ship as reviewed JSON resources in `packages/i18n` so a
+ * string change is a code review with a diff, not a silent production row edit — and so the app can render fully
+ * offline (brief §28). This type describes that file-backed shape and exists for tooling that reads/validates the
+ * resources. Revisit only if translations ever need to change without an app release; that would mean adding a
+ * `localization_strings` table and a cache-invalidation story via `content_versions`.
+ */
 export const localizationStringSchema = z
   .object({
     id: uuidSchema,

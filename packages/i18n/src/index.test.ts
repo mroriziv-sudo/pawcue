@@ -51,38 +51,33 @@ describe("locale metadata", () => {
 });
 
 describe("createI18n", () => {
-  it("initializes and resolves a known key in the default locale (en-US)", async () => {
+  it("initializes and resolves a known key in the default locale (en-US)", () => {
     const i18n = createI18n();
-    await i18n.init;
     expect(i18n.t("clicker.freeTitle")).toBe("Your free dog clicker");
   });
 
   it("resolves the same key correctly after switching to he-IL", async () => {
     const i18n = createI18n();
-    await i18n.init;
     await i18n.changeLanguage("he-IL");
     expect(i18n.t("clicker.freeTitle")).toBe("הקליקר החינמי שלך לאילוף כלבים");
   });
 
   it("falls back to English for a locale outside the supported set rather than throwing", async () => {
     const i18n = createI18n();
-    await i18n.init;
     // i18next's changeLanguage accepts any string at the type level; "fr" is unsupported at the app level,
     // which is exactly the runtime fallback path this test exercises.
     await i18n.changeLanguage("fr");
     expect(i18n.t("clicker.freeTitle")).toBe("Your free dog clicker");
   });
 
-  it("resolves English plural categories correctly for 1 and 2 minutes", async () => {
+  it("resolves English plural categories correctly for 1 and 2 minutes", () => {
     const i18n = createI18n();
-    await i18n.init;
     expect(i18n.t("plan.minutes", { count: 1 })).toBe("1 minute");
     expect(i18n.t("plan.minutes", { count: 2 })).toBe("2 minutes");
   });
 
   it("resolves Hebrew plural categories correctly for 1, 2, and 10 minutes", async () => {
     const i18n = createI18n();
-    await i18n.init;
     await i18n.changeLanguage("he-IL");
     expect(i18n.t("plan.minutes", { count: 1 })).toBe("דקה");
     expect(i18n.t("plan.minutes", { count: 2 })).toBe("שתי דקות");

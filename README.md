@@ -50,6 +50,13 @@ pnpm --filter @pawcue/mobile dev  # once apps/mobile exists (Phase 2)
 
 ## Status
 
-This repo is at the end of **Phase 0** (architecture, docs, domain models, initial schema, API contract). See the
-[implementation phases](#) in the original brief and the project's ongoing phase summaries for what's actually
-built vs. planned — do not assume a doc describes shipped behavior; check `apps/mobile` and `supabase/` directly.
+End of **Phase 0** (architecture, docs, domain models, schema, API contract), validated against a real Supabase
+project rather than only on paper:
+
+- migrations replay from zero and seed cleanly (`pnpm db:reset`)
+- 49-check RLS/security suite passes (`pnpm db:test`), Supabase advisors clean (`pnpm db:advisors`)
+- database TypeScript types generated from the live schema and guarded against domain drift
+- `pnpm verify` (format + lint + typecheck + 77 unit tests) green
+
+**No mobile app exists yet** — `apps/mobile` is an empty placeholder until Phase 1. Do not assume a doc describes
+shipped behavior; check `apps/mobile` and `supabase/` directly.

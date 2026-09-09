@@ -15,9 +15,29 @@ only — it's the loop for a single PR-sized change.
   version always produces byte-identical output, checked via a snapshot test, not just "looks reasonable."
 - **Auth**: guest, Apple, Google, logout, merge, duplicate-merge-is-idempotent, expired token, account deletion —
   run against a local Supabase instance, not mocked at the HTTP layer, so RLS is actually exercised.
-- **Database**: RLS (pgTAP — cross-user access must be denied, not just "usually filtered"), deletion cascades,
-  migration replay from zero (`supabase db reset` in CI), constraint checks (e.g. one active plan per dog, one
-  primary goal per dog).
+- **Database**: implemented in [`supabase/tests/rls_security.sql`](supabase/tests/rls_security.sql) — 49 checks
+  covering anonymous/public catalog access, own-data access, cross-user denial (read/update/delete/ownership
+  forgery), unauthorized writes to server-authoritative tables (`entitlements`, `subscriptions`,
+  `purchase_events`), the `merge_guest_session` privilege-escalation regression, guest-merge correctness and
+  idempotency, constraints, the `auth.users` → `profiles` trigger, `updated_at` triggers, and account-deletion
+  behavior (personal data hard-deleted; billing/audit rows retained with `user_id` nulled).
+
+  These run against a **real Supabase project, never production**:
+
+  ```
+  pnpm db:reset      # replay every migration from zero + seed — proves reproducibility
+  pnpm db:test       # the 49-check suite
+  pnpm db:advisors   # Supabase's own security/performance linter — must be clean
+  pnpm db:verify     # all three in order
+  pnpm db:types      # regenerate packages/domain/src/generated/database.types.ts
+  ```
+
+  The suite drops to the actual `anon` / `authenticated` roles via `set local role` plus `request.jwt.claims`.
+  This matters: the migration role bypasses RLS, so assertions made without dropping privileges prove nothing.
+
+  `pnpm db:types` output is committed and guarded by `schema-conformance.test.ts`, which parses it and fails if a
+  domain model and the real schema drift apart in either direction.
+
 - **Billing**: free user, trial, monthly, annual, expiration, cancellation, grace period, restore, refund, and
   **webhook replay idempotency** (the same store notification delivered twice must not double-apply).
 - **Localization**: English, Hebrew, RTL, long strings (Hebrew/German-style string expansion doesn't clip), ICU

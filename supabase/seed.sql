@@ -74,11 +74,13 @@ insert into lesson_steps (lesson_id, step_order, instruction_key, requires_click
   ('00000000-0000-4000-a000-0000000020a1', 2, 'lesson.sit.step3', true,  5);
 
 insert into lesson_steps (lesson_id, step_order, instruction_key, requires_clicker_press, repetition_target)
-select id, 0, slug || '.step1', false, null from lessons where slug not in ('name_game', 'sit')
+-- repetition_target is cast explicitly: an untyped NULL resolves to text and collides with the integer in the
+-- third branch ("UNION types text and integer cannot be matched").
+select id, 0, slug || '.step1', false, null::smallint from lessons where slug not in ('name_game', 'sit')
 union all
-select id, 1, slug || '.step2', true, null from lessons where slug not in ('name_game', 'sit')
+select id, 1, slug || '.step2', true, null::smallint from lessons where slug not in ('name_game', 'sit')
 union all
-select id, 2, slug || '.step3', false, 5 from lessons where slug not in ('name_game', 'sit');
+select id, 2, slug || '.step3', false, 5::smallint from lessons where slug not in ('name_game', 'sit');
 
 -- ---------------------------------------------------------------------------
 -- lesson_troubleshooting — the core differentiator (brief §7). Fully authored for Name Game and Sit;
