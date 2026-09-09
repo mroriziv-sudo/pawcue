@@ -1,0 +1,244 @@
+{
+  "common": {
+    "appName": "PawCue",
+    "cta": {
+      "continue": "Continue",
+      "startTraining": "Start training",
+      "notWorking": "Not working?",
+      "restorePurchases": "Restore Purchases",
+      "terms": "Terms",
+      "privacy": "Privacy",
+      "close": "Close",
+      "tryAgain": "Try again",
+      "setReminder": "Set reminder",
+      "skip": "Skip"
+    },
+    "nav": {
+      "today": "Today",
+      "train": "Train",
+      "clicker": "Clicker",
+      "progress": "Progress",
+      "dog": "Dog"
+    },
+    "greeting": "Good morning, {{name}}"
+  },
+  "clicker": {
+    "freeTitle": "Your free dog clicker",
+    "freeSubtitle": "Tap it. Hear it. That's all you need to start.",
+    "readyPrompt": "Ready to use it for real?",
+    "readySubtitle": "Teach your dog their first skill in 2 minutes.",
+    "startFirstLesson": "Start first lesson",
+    "accessibilityLabel": "Dog training clicker. Double tap to play click sound.",
+    "soundEffects": "Sound Effects",
+    "haptics": "Haptics",
+    "howToUse": "How to use a clicker",
+    "volume": "Volume"
+  },
+  "onboarding": {
+    "goalQuestion": "What do you want help with most?",
+    "dogInfoTitle": "Tell us about your dog",
+    "skillsQuestion": "What does your dog already know?",
+    "commitmentQuestion": "How much time do you want to train each day?",
+    "buildPlanCta": "Build my training plan",
+    "noneYet": "None yet"
+  },
+  "plan": {
+    "generatingTitle": "Building {{dogName}}'s training plan",
+    "revealTitle": "Your {{lengthDays}}-Day Plan",
+    "today": "TODAY",
+    "tomorrow": "TOMORROW",
+    "day": "DAY {{dayIndex}}",
+    "minutes_one": "{{count}} minute",
+    "minutes_other": "{{count}} minutes"
+  },
+  "paywall": {
+    "title": "Unlock {{dogName}}'s full plan",
+    "trialDisclosure": "{{trialDays}} days free, then {{price}}/{{period}}",
+    "noTrialDisclosure": "{{price}}/{{period}}, cancels anytime",
+    "renewalNotice": "Auto-renews unless cancelled at least 24 hours before the current period ends.",
+    "feature": {
+      "fullPlan": "Full personalized training plan",
+      "fullCatalog": "Full lesson catalog",
+      "dailyUpdates": "Daily plan updates",
+      "advancedTroubleshooting": "Advanced troubleshooting",
+      "goalPrograms": "Goal-specific programs",
+      "fullHistory": "Full progress history"
+    }
+  },
+  "goal": {
+    "bitingNipping": {
+      "title": "Biting & nipping",
+      "description": "Reduce mouthing and nipping with calm, consistent redirection."
+    },
+    "pottyTraining": {
+      "title": "Potty training",
+      "description": "Build a reliable routine for going outside."
+    },
+    "leashPulling": {
+      "title": "Leash pulling",
+      "description": "Teach a loose-leash walking habit."
+    },
+    "recall": {
+      "title": "Recall",
+      "description": "Build a reliable come-when-called."
+    },
+    "jumping": {
+      "title": "Jumping",
+      "description": "Teach a calmer greeting instead of jumping up."
+    },
+    "basicCommands": {
+      "title": "Basic commands",
+      "description": "Sit, down, stay, and the everyday foundations."
+    },
+    "crateTraining": {
+      "title": "Crate training",
+      "description": "Make the crate a calm, positive space."
+    },
+    "calmBehavior": {
+      "title": "Calm behavior",
+      "description": "Help your dog settle, especially around excitement."
+    },
+    "other": {
+      "title": "Something else",
+      "description": "Tell us more once you're in."
+    }
+  },
+  "skill": {
+    "nameResponse": { "title": "Name response" },
+    "sit": { "title": "Sit" },
+    "down": { "title": "Down" },
+    "stay": { "title": "Stay" },
+    "come": { "title": "Come" },
+    "leaveIt": { "title": "Leave it" },
+    "place": { "title": "Place" },
+    "looseLeashBasics": { "title": "Loose leash basics" }
+  },
+  "lesson": {
+    "nameGame": {
+      "title": "The Name Game",
+      "goal": "Teach your dog to look at you when you say their name.",
+      "step1": "Say your dog's name.",
+      "step2": "The instant they look at you, click.",
+      "step3": "Reward immediately.",
+      "step4": "Repeat five times."
+    },
+    "sit": {
+      "title": "Sit",
+      "goal": "Teach your dog to sit on cue.",
+      "step1": "Hold a treat near your dog's nose.",
+      "step2": "Move it slowly upward and back over their head.",
+      "step3": "As their bottom touches the floor, click and reward."
+    },
+    "down": { "title": "Down", "goal": "Teach your dog to lie down on cue." },
+    "come": {
+      "title": "Come",
+      "goal": "Build a reliable recall in low-distraction settings."
+    },
+    "stay": {
+      "title": "Stay",
+      "goal": "Teach your dog to hold a position until released."
+    },
+    "leaveIt": {
+      "title": "Leave It",
+      "goal": "Teach your dog to disengage from something on cue."
+    },
+    "place": {
+      "title": "Place",
+      "goal": "Teach your dog to go to and stay on a mat or bed."
+    },
+    "calmSettle": {
+      "title": "Calm Settle",
+      "goal": "Help your dog relax on cue, even with distractions nearby."
+    },
+    "looseLeashFoundation": {
+      "title": "Loose Leash Foundation",
+      "goal": "Build the first habits for a pull-free walk."
+    },
+    "jumpingFoundation": {
+      "title": "Jumping Foundation",
+      "goal": "Teach a calm greeting instead of jumping up."
+    },
+    "bitingFoundation": {
+      "title": "Biting Foundation",
+      "goal": "Redirect mouthing toward appropriate outlets."
+    },
+    "crateFoundation": {
+      "title": "Crate Foundation",
+      "goal": "Build a positive first association with the crate."
+    },
+    "pottyFoundation": {
+      "title": "Potty Foundation",
+      "goal": "Start a consistent, reward-based potty routine."
+    }
+  },
+  "troubleshoot": {
+    "dogWalksAway": {
+      "prompt": "My dog walks away",
+      "guidance": "Make the session easier. Move to a quieter space and reward one second of attention before asking for the full behavior."
+    },
+    "dogJumpsForTreat": {
+      "prompt": "My dog jumps for the treat",
+      "guidance": "Hold the treat closer to their nose and move it more slowly, so jumping is never rewarded."
+    },
+    "dogDistracted": {
+      "prompt": "My dog is distracted",
+      "guidance": "Move somewhere quieter with fewer sounds and smells, then try again."
+    },
+    "dogDoesntUnderstand": {
+      "prompt": "My dog doesn't understand",
+      "guidance": "Break the behavior into a smaller step and reward that smaller step for a few reps first."
+    },
+    "dogGetsFrustrated": {
+      "prompt": "My dog gets frustrated",
+      "guidance": "Shorten the session and end on an easy win. Frustration usually means the ask is too big right now."
+    },
+    "dogAlreadyKnowsThis": {
+      "prompt": "My dog already knows this",
+      "guidance": "Great — add a small distraction or distance to keep it interesting, or move ahead to the next lesson."
+    },
+    "bitingFrustrated": {
+      "prompt": "My dog gets frustrated",
+      "guidance": "Pause and offer a chew toy instead of a hand or sleeve. Frustration during mouthing games often means it's time for a break."
+    },
+    "bitingCausesInjury": {
+      "prompt": "The biting is causing injury",
+      "guidance": "This goes beyond what in-app guidance can safely cover. Please consult a certified professional dog trainer or your veterinarian."
+    }
+  },
+  "planEngine": {
+    "changelog": { "v1_0_0": "Initial rules-based plan engine." }
+  },
+  "errors": {
+    "noInternet": {
+      "title": "No connection",
+      "body": "We couldn't reach our servers. Your training progress is safe and saved on this device."
+    },
+    "planUpdateFailed": {
+      "title": "We couldn't update your plan right now.",
+      "body": "Your training progress is safe."
+    },
+    "purchaseFailed": {
+      "title": "Purchase didn't go through",
+      "body": "You haven't been charged. Please try again."
+    },
+    "restoreFailed": {
+      "title": "We couldn't restore your purchases",
+      "body": "Please check your connection and try again."
+    },
+    "genericTitle": "Something went wrong"
+  },
+  "settings": {
+    "language": "Language",
+    "notifications": "Notifications",
+    "sound": "Sound",
+    "haptics": "Haptics",
+    "account": "Account",
+    "subscription": "Subscription",
+    "restorePurchases": "Restore Purchases",
+    "privacy": "Privacy",
+    "terms": "Terms",
+    "support": "Support",
+    "deleteAccount": "Delete Account",
+    "logOut": "Log Out"
+  }
+}

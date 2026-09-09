@@ -1,0 +1,543 @@
+openapi: 3.1.0
+info:
+  title: PawCue API
+  version: "1.0.0"
+  description: >
+    Versioned REST API (brief §16), implemented as Supabase Edge Functions. All routes are prefixed `/v1`.
+    Authenticated routes accept a Supabase session JWT (real or anonymous — see ARCHITECTURE.md §5); the anonymous
+    case is how guest mode reaches the backend without a "real" account.
+servers:
+  - url: "{apiBaseUrl}/v1"
+    variables:
+      apiBaseUrl:
+        default: "http://localhost:54321/functions/v1"
+
+security:
+  - bearerAuth: []
+
+paths:
+  /anonymous-session:
+    post:
+      summary: Create (or resume) an anonymous guest session
+      operationId: createAnonymousSession
+      security: []
+      responses:
+        "201":
+          description: Session created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AnonymousSession" }
+
+  /me:
+    get:
+      summary: Current user (guest or authenticated)
+      operationId: getMe
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+
+  /dogs:
+    post:
+      summary: Create a dog profile
+      operationId: createDog
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DogInput" }
+      responses:
+        "201":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Dog" }
+        "400": { $ref: "#/components/responses/ValidationError" }
+
+  /dogs/{dogId}:
+    parameters:
+      - $ref: "#/components/parameters/dogId"
+    get:
+      summary: Get a dog profile
+      operationId: getDog
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Dog" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      summary: Update a dog profile
+      operationId: updateDog
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DogInput" }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Dog" }
+    delete:
+      summary: Delete a dog profile (and its owned training data, cascaded — see DATABASE.md)
+      operationId: deleteDog
+      responses:
+        "204": { description: Deleted }
+
+  /dogs/{dogId}/goals:
+    parameters:
+      - $ref: "#/components/parameters/dogId"
+    post:
+      summary: Set a dog's primary/secondary training goals (brief §4 Screen 3 — one primary, up to two secondary)
+      operationId: setDogGoals
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [primaryGoalId]
+              properties:
+                primaryGoalId: { type: string, format: uuid }
+                secondaryGoalIds:
+                  type: array
+                  maxItems: 2
+                  items: { type: string, format: uuid }
+      responses:
+        "200": { description: Goals set }
+
+  /plans/generate:
+    post:
+      summary: Run the deterministic plan engine for a dog (brief §7, §9)
+      operationId: generatePlan
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PlanGenerateInput" }
+      responses:
+        "201":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TrainingPlan" }
+
+  /plans/current:
+    get:
+      summary: The active plan for the caller's current dog
+      operationId: getCurrentPlan
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TrainingPlan" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /plans/today:
+    get:
+      summary: Today's plan day (what the Today screen renders)
+      operationId: getTodayPlan
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PlanDay" }
+
+  /lessons/{lessonId}:
+    parameters:
+      - name: lessonId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      summary: Full lesson content — steps + troubleshooting options (public catalog, brief §7)
+      operationId: getLesson
+      security: []
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LessonDetail" }
+
+  /sessions:
+    post:
+      summary: Start a training session for a lesson
+      operationId: createSession
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [dogId, lessonId]
+              properties:
+                dogId: { type: string, format: uuid }
+                lessonId: { type: string, format: uuid }
+                planActivityId: { type: string, format: uuid, nullable: true }
+      responses:
+        "201":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TrainingSession" }
+
+  /sessions/{sessionId}/events:
+    parameters:
+      - name: sessionId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      summary: >
+        Append a session event. `id` is client-generated and is the idempotency key — replaying a queued offline
+        event with the same `id` is a safe no-op (ARCHITECTURE.md §8).
+      operationId: appendSessionEvent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SessionEventInput" }
+      responses:
+        "201":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SessionEvent" }
+
+  /sessions/{sessionId}/complete:
+    parameters:
+      - name: sessionId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      summary: Mark a session complete and trigger server-side progress/streak recalculation
+      operationId: completeSession
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TrainingSession" }
+
+  /progress:
+    get:
+      summary: Rolled-up progress + streak for the caller's current dog
+      operationId: getProgress
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProgressSummary" }
+
+  /entitlements:
+    get:
+      summary: Server-resolved entitlement — the only source of truth for premium access (brief §15)
+      operationId: getEntitlements
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Entitlement" }
+
+  /purchases/verify:
+    post:
+      summary: Verify a store receipt/transaction and (re)compute entitlement server-side
+      operationId: verifyPurchase
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [store, storeTransactionId]
+              properties:
+                store: { type: string, enum: [app_store, play_store] }
+                storeTransactionId: { type: string }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Entitlement" }
+
+  /auth/merge-guest:
+    post:
+      summary: Merge an anonymous session's data into the now-authenticated account (idempotent, brief §12)
+      operationId: mergeGuestSession
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [anonymousSessionId]
+              properties:
+                anonymousSessionId: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Merged (or already-merged no-op)
+        "409":
+          description: Guest merge conflict — target account already has its own data
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GuestMergeConflict" }
+
+  /preferences:
+    get:
+      summary: Notification/sound/haptic preferences
+      operationId: getPreferences
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/NotificationPreference" }
+    patch:
+      summary: Update preferences
+      operationId: updatePreferences
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/NotificationPreference" }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/NotificationPreference" }
+
+  /account/delete:
+    post:
+      summary: Delete the authenticated account (brief §14) — irreversible, requires prior client-side confirmation
+      operationId: deleteAccount
+      responses:
+        "202":
+          description: Deletion pipeline started
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Supabase session access token (anonymous or authenticated).
+
+  parameters:
+    dogId:
+      name: dogId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+
+  responses:
+    ValidationError:
+      description: Request failed Zod validation
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ApiError" }
+    NotFound:
+      description: Resource not found or not owned by the caller
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ApiError" }
+
+  schemas:
+    ApiError:
+      type: object
+      required: [code, message, requestId]
+      properties:
+        code: { type: string }
+        message: { type: string }
+        requestId: { type: string }
+
+    AnonymousSession:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        createdAt: { type: string, format: date-time }
+
+    User:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, nullable: true }
+        isPrivateRelayEmail: { type: boolean }
+        displayName: { type: string, nullable: true }
+        preferredLocale: { type: string, enum: [en-US, he-IL] }
+        hasCompletedOnboarding: { type: boolean }
+
+    DogInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 60 }
+        birthdate: { type: string, format: date, nullable: true }
+        breed: { type: string, nullable: true }
+        sex: { type: string, enum: [male, female, unspecified] }
+        dailyTrainingMinutes:
+          { type: integer, enum: [5, 10, 15, 20], nullable: true }
+
+    Dog:
+      allOf:
+        - $ref: "#/components/schemas/DogInput"
+        - type: object
+          properties:
+            id: { type: string, format: uuid }
+            photoUrl: { type: string, nullable: true }
+            createdAt: { type: string, format: date-time }
+            updatedAt: { type: string, format: date-time }
+
+    PlanGenerateInput:
+      type: object
+      required: [dogId, dailyMinutes]
+      properties:
+        dogId: { type: string, format: uuid }
+        dailyMinutes: { type: integer, enum: [5, 10, 15, 20] }
+
+    TrainingPlan:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        dogId: { type: string, format: uuid }
+        planEngineVersionId: { type: string, format: uuid }
+        status: { type: string, enum: [active, superseded, abandoned] }
+        dailyMinutes: { type: integer }
+        startDate: { type: string, format: date }
+        lengthDays: { type: integer }
+        days:
+          type: array
+          items: { $ref: "#/components/schemas/PlanDay" }
+
+    PlanDay:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        dayIndex: { type: integer }
+        date: { type: string, format: date }
+        totalMinutes: { type: integer }
+        activities:
+          type: array
+          items: { $ref: "#/components/schemas/PlanActivity" }
+
+    PlanActivity:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        lessonId: { type: string, format: uuid }
+        sortOrder: { type: integer }
+        estimatedMinutes: { type: integer }
+        isReview: { type: boolean }
+
+    LessonDetail:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        slug: { type: string }
+        titleKey: { type: string }
+        goalKey: { type: string }
+        estimatedMinutes: { type: integer }
+        equipment: { type: array, items: { type: string } }
+        isAlwaysFree: { type: boolean }
+        steps:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string, format: uuid }
+              stepOrder: { type: integer }
+              instructionKey: { type: string }
+              requiresClickerPress: { type: boolean }
+              repetitionTarget: { type: integer, nullable: true }
+        troubleshootingOptions:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string, format: uuid }
+              slug: { type: string }
+              promptKey: { type: string }
+              guidanceKey: { type: string }
+              safetyCategory:
+                type: string
+                enum:
+                  [
+                    NORMAL,
+                    PROFESSIONAL_TRAINER_RECOMMENDED,
+                    VET_RECOMMENDED,
+                    URGENT_SAFETY,
+                  ]
+
+    TrainingSession:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        dogId: { type: string, format: uuid }
+        lessonId: { type: string, format: uuid }
+        status: { type: string, enum: [in_progress, completed, abandoned] }
+        startedAt: { type: string, format: date-time }
+        completedAt: { type: string, format: date-time, nullable: true }
+
+    SessionEventInput:
+      type: object
+      required: [id, type, occurredAt]
+      properties:
+        id:
+          {
+            type: string,
+            format: uuid,
+            description: "Client-generated idempotency key",
+          }
+        type:
+          type: string
+          enum:
+            [
+              step_advanced,
+              clicker_pressed,
+              troubleshooting_opened,
+              troubleshooting_resolved,
+              repetition_logged,
+              session_completed,
+              session_abandoned,
+            ]
+        lessonStepId: { type: string, format: uuid, nullable: true }
+        troubleshootingOptionId: { type: string, format: uuid, nullable: true }
+        occurredAt: { type: string, format: date-time }
+
+    SessionEvent:
+      allOf:
+        - $ref: "#/components/schemas/SessionEventInput"
+        - type: object
+          properties:
+            sessionId: { type: string, format: uuid }
+
+    ProgressSummary:
+      type: object
+      properties:
+        sessionsCompleted: { type: integer }
+        trainingMinutesTotal: { type: integer }
+        skillsMasteredCount: { type: integer }
+        skillsInProgressCount: { type: integer }
+        currentStreakDays: { type: integer }
+        longestStreakDays: { type: integer }
+
+    Entitlement:
+      type: object
+      properties:
+        isPremiumActive: { type: boolean }
+        source: { type: string, nullable: true }
+        expiresAt: { type: string, format: date-time, nullable: true }
+
+    GuestMergeConflict:
+      type: object
+      properties:
+        code: { type: string, const: GUEST_MERGE_CONFLICT }
+        guestSummary:
+          type: object
+          properties:
+            dogCount: { type: integer }
+            sessionsCompleted: { type: integer }
+        accountSummary:
+          type: object
+          properties:
+            dogCount: { type: integer }
+            sessionsCompleted: { type: integer }
+
+    NotificationPreference:
+      type: object
+      properties:
+        trainingRemindersEnabled: { type: boolean }
+        osPermissionGranted: { type: boolean, nullable: true }

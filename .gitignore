@@ -1,0 +1,47 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# expo / react native
+.expo/
+.expo-shared/
+dist/
+web-build/
+*.jsbundle
+ios/Pods/
+ios/build/
+android/build/
+android/app/build/
+android/.gradle/
+
+# build output
+build/
+out/
+*.tsbuildinfo
+
+# env
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# supabase
+supabase/.branches/
+supabase/.temp/
+
+# logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# os
+.DS_Store
+
+# editor
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# test artifacts
+coverage/
+maestro-logs/
