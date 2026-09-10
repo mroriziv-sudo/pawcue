@@ -210,3 +210,38 @@ interpretation.
 
 Unchanged: everything requiring real hardware — haptics, click-to-sound latency, silent-mode/audio-session
 behaviour, and phone-call/Siri interruptions — remains **device-only** and is not claimed here.
+
+## Confirmed: the dev build executes the real UI natively
+
+After the launcher was attached to Metro by hand, the development build served and rendered the app:
+
+```
+Metro up (dev-client mode)
+iOS Bundled 399ms .../expo-router/entry.js (1224 modules)
+```
+
+A simulator screenshot (`xcrun simctl io booted screenshot`, no Accessibility permission needed) shows the
+clicker screen rendered by the **dev build**, not Expo Go: title, subtitle, clicker, press counter, Settings
+control, and — at a press count of 3 — the "Ready to use it for real?" prompt with its CTA. Captured as
+[`assets/phase-2-dev-build-clicker.png`](./assets/phase-2-dev-build-clicker.png).
+
+This promotes several rows from *bundled* to **actually executed on the simulator**:
+
+| Behaviour | Evidence |
+| --- | --- |
+| App boots natively outside Expo Go | Own bundle id `com.pawcue.app`, own launcher, Metro bundle served |
+| Expo Router renders the index route | Clicker screen on screen |
+| Design tokens applied natively | Warm Ivory ground, brand-primary clicker, type scale as specified |
+| Safe-area insets honoured | Content clears the Dynamic Island and home indicator |
+| `PressableScale` handles real touches | Press count advanced on real taps |
+| The 3-press reveal gate (brief §4) | Prompt + CTA appeared exactly at 3 |
+| i18n resolves at runtime | English strings rendered from the catalogue, not keys |
+| LTR layout | Settings control at top-**right** |
+| No permission dialog on first launch | None shown at boot or on first press |
+
+The press counter is decisive on that last-but-one point: `pressCount` is `useState(0)` in
+`src/hooks/useClicker.ts` with no persistence, so a displayed 3 can only mean three real press events were
+delivered after mount — it cannot be restored state.
+
+Still **not** claimed, and not claimable here: whether the click was *audible* (the Simulator renders audio
+through the host, which proves nothing about the on-device audio session), plus the hardware-only list above.
