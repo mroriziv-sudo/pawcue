@@ -119,3 +119,94 @@ the 13 browser runtime checks.
 pnpm verify   → EXIT 0   (prettier, eslint x5, tsc x5, 170 Vitest tests, 20 Jest tests)
 pnpm db:test  → 49/49 ALL CHECKS PASSED
 ```
+
+---
+
+# Addendum — EAS cloud development build (2026-09-10)
+
+Follow-up pass using an **EAS cloud build** instead of local CocoaPods, to avoid changing the local
+Ruby/Homebrew environment and without needing Terminal Accessibility permission.
+
+## What was set up
+
+|                         |                                                                                |
+| ----------------------- | ------------------------------------------------------------------------------ |
+| `expo-dev-client`       | **57.0.18** (SDK 57 compatible)                                                |
+| EAS profile             | **`development-simulator`** — `developmentClient: true`, `ios.simulator: true` |
+| Production profile      | **deliberately not defined**, so no production build can be triggered          |
+| Apple Developer account | **not required** — no signing/credentials referenced anywhere                  |
+| EAS project             | `@oriziv/pawcue` (`c84c5b35-84e8-4d5b-9277-d5531c83e48c`)                      |
+| Build                   | `46b489ad-0f74-411c-b253-09641f1e684d` → **FINISHED**                          |
+
+Because `developmentClient: true` means JS is served by **local** Metro at runtime, the cloud build compiles only
+the native shell — **no Supabase keys or app secrets were uploaded to EAS**.
+
+## Verified from the built artifact
+
+The `.app` (51MB) was downloaded and its **shipped `Info.plist`** audited directly — stronger evidence than
+inspecting prebuild output:
+
+- **No** `NSMicrophoneUsageDescription`
+- **No** `UIBackgroundModes`
+- **None** of `NSLocation*`, `NSContacts*`, `NSCameraUsageDescription`, `NSUserTrackingUsageDescription`,
+  `NSBluetooth*`, `NSMotionUsageDescription`, `NSHealth*`
+- `CFBundleIdentifier` = `com.pawcue.app`, version `0.1.0`, `MinimumOSVersion` 16.4
+- `EXDevLauncher.bundle` / `EXDevMenu.bundle` present, as expected for a development build
+
+Installed on the **iPhone 17 Pro / iOS 26.5** simulator and launched: it runs as **PawCue, independently of
+Expo Go**, showing its own launcher ("PawCue — Development Build") and detecting the local Metro server.
+
+## Defect found and fixed: microphone permission was being declared
+
+`expo-audio` also supports **recording** and background playback, so its config plugin injects, **by default**:
+
+- iOS: `NSMicrophoneUsageDescription` ("Allow PawCue to access your microphone") and `UIBackgroundModes: ["audio"]`
+- Android: `RECORD_AUDIO`, `MODIFY_AUDIO_SETTINGS`, `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_MEDIA_PLAYBACK`
+
+This app only ever **plays** a 45ms click in the foreground. Declaring microphone access directly contradicts
+brief §18 ("Do NOT request: microphone"), PRIVACY.md, DATA_MAP.md, and this repo's own
+`FORBIDDEN_PERMISSIONS` list. It was invisible from the JS source — it only exists in the generated native
+manifests, which is precisely why it survived every previous phase.
+
+Fixed at the source using the plugin's own flags:
+
+```json
+[
+  "expo-audio",
+  {
+    "microphonePermission": false,
+    "recordAudioAndroid": false,
+    "enableBackgroundRecording": false,
+    "enableBackgroundPlayback": false
+  }
+]
+```
+
+`MODIFY_AUDIO_SETTINGS` is **intentionally kept**: a normal, auto-granted Android permission needed to configure
+the audio session, not privacy-sensitive and not on the forbidden list.
+
+Locked by `apps/mobile/__tests__/app-config.test.ts`, which asserts the plugin flags and that the config declares
+none of the eight permission classes the brief forbids.
+
+## Further native-declaration findings (recorded in RELEASE_CHECKLIST.md)
+
+- **`SYSTEM_ALERT_WINDOW` would ship in a release build.** React Native declares it in its _debug_ manifest, but
+  `expo-dev-client` places it in the **main** manifest. A release build still carrying `expo-dev-client` would
+  request "draw over other apps". Must be asserted absent from the release manifest before submission.
+- `READ_/WRITE_EXTERNAL_STORAGE` arrive transitively from `expo-file-system`, capped `maxSdkVersion="32"`, so
+  inert on the API 33+ devices we target.
+- `ios.infoPlist.ITSAppUsesNonExemptEncryption` is unset; EAS warns App Store Connect will require it manually.
+
+## The verification boundary now
+
+**Automated tapping is still unavailable** (Terminal lacks Accessibility permission), and the dev launcher needs
+one tap to attach to Metro. So the interactive matrix — RTL mirroring, clicker presses, in-app language switching,
+navigation, modals — requires a human in the Simulator.
+
+Crucially, the result of that manual pass **can be verified programmatically afterwards**: this is our own binary,
+so `I18nManager.forceRTL` should persist `RCTI18nUtil_forceRTL` into `com.pawcue.app`'s NSUserDefaults. That domain
+was confirmed **absent** before the manual pass, so its appearance is unambiguous evidence rather than
+interpretation.
+
+Unchanged: everything requiring real hardware — haptics, click-to-sound latency, silent-mode/audio-session
+behaviour, and phone-call/Siri interruptions — remains **device-only** and is not claimed here.

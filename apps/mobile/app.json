@@ -33,10 +33,25 @@
       "expo-router",
       "expo-localization",
       "expo-secure-store",
-      "expo-audio"
+      [
+        "expo-audio",
+        {
+          "microphonePermission": false,
+          "recordAudioAndroid": false,
+          "enableBackgroundRecording": false,
+          "enableBackgroundPlayback": false
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "c84c5b35-84e8-4d5b-9277-d5531c83e48c"
+      }
+    },
+    "owner": "oriziv"
   }
 }

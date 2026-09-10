@@ -79,6 +79,31 @@ box is actually checked against the app in hand, not just planned for.
 - [ ] `PRIVACY.md`, `SECURITY.md`, `DATA_MAP.md` up to date with what the shipped build actually does, not what an
       earlier phase planned.
 
+## Native declaration audit (added after the Phase 2 iOS acceptance pass)
+
+Findings from auditing the generated `Info.plist` / `AndroidManifest.xml`. None of these are visible from the JS
+source, which is exactly why they need a checklist entry.
+
+- [x] **`NSMicrophoneUsageDescription` / `RECORD_AUDIO` removed.** `expo-audio`'s plugin declares microphone
+      access, a media-playback foreground service and the iOS `audio` background mode **by default**, because the
+      library also supports recording. This app only plays a 45ms click in the foreground. Fixed by configuring the
+      plugin explicitly (`microphonePermission: false`, `recordAudioAndroid: false`,
+      `enableBackgroundRecording: false`, `enableBackgroundPlayback: false`) and locked by
+      `apps/mobile/__tests__/app-config.test.ts`. **Re-audit the generated manifests after any dependency upgrade.**
+- [ ] **`SYSTEM_ALERT_WINDOW` must not ship.** React Native declares it in its _debug_ manifest, but
+      `expo-dev-client` puts it in the **main** manifest, so a release build that still carries `expo-dev-client`
+      would request "draw over other apps" — a Play Store review flag for an app with no such feature. Before
+      submission: build the production profile and assert the merged release manifest contains no
+      `SYSTEM_ALERT_WINDOW`, and that `expo-dev-client` is absent from the release binary.
+- [ ] **`READ_EXTERNAL_STORAGE` / `WRITE_EXTERNAL_STORAGE`** arrive transitively from `expo-file-system`, capped at
+      `android:maxSdkVersion="32"` so they are inert on the API 33+ devices we target. Confirm they are still
+      capped, and declare them accurately in the Data Safety form if they survive.
+- [ ] **`MODIFY_AUDIO_SETTINGS` is intentionally kept** — a normal, auto-granted Android permission needed to
+      configure the audio session. Not privacy-sensitive and not on the brief's forbidden list.
+- [ ] **`ios.infoPlist.ITSAppUsesNonExemptEncryption`** is unset; EAS warns that App Store Connect will require it
+      to be answered manually before testing. Set it explicitly (almost certainly `false`) rather than answering it
+      by hand each submission.
+
 ## Sign-off
 
 This checklist is not "done" until every box above is checked **against the actual build being submitted**, in the
