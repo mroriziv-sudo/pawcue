@@ -262,7 +262,7 @@
     "deleteAccount": "Delete Account",
     "logOut": "Log Out",
     "title": "Settings",
-    "restartRequired": "Restarting to apply the new layout direction…",
+    "restartRequired": "Reopen the app to apply the new layout direction.",
     "languageOption": {
       "en-US": "English",
       "he-IL": "עברית (Hebrew)"

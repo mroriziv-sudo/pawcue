@@ -63,7 +63,12 @@ Tagged `phase-1-baseline`.
 **Phase 2** adds a running Expo app shell: boot, Expo Router navigation, English + Hebrew, persisted language,
 Supabase client + guest auth, API client, permission architecture and a jest-expo render harness.
 
-What is actually verified versus merely compiled is documented precisely in
-[docs/architecture/phase-2-verification.md](docs/architecture/phase-2-verification.md) — **no native behaviour has
-been exercised** (no Xcode, no Android SDK on the build machine), so audio, haptics and full RTL layout mirroring
-remain unverified. Do not assume a doc describes shipped behavior; check `apps/mobile` and `supabase/` directly.
+Verification is tracked in two places, deliberately kept apart:
+[phase-2-verification.md](docs/architecture/phase-2-verification.md) (browser/bundle) and
+[phase-2-native-acceptance.md](docs/architecture/phase-2-native-acceptance.md) (iOS 26.5 simulator, iPhone 17 Pro).
+
+The app boots and runs natively on iOS with zero runtime errors, and guest auth, locale detection, persistence and
+Dynamic Type are verified there. **Still unverified: native RTL layout mirroring** (blocked on a development build —
+`I18nManager.forceRTL` is a no-op in Expo Go) and **anything needing real hardware** — haptics, click-to-sound
+latency, silent-mode/audio-session behaviour. Do not assume a doc describes shipped behavior; check `apps/mobile`
+and `supabase/` directly.

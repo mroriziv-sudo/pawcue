@@ -64,5 +64,15 @@ export async function applyLocale(
 
   I18nManager.allowRTL(shouldBeRtl);
   I18nManager.forceRTL(shouldBeRtl);
+
+  /**
+   * `forceRTL` writes an app-level native preference that React Native only reads when the view hierarchy is
+   * built, so the flip needs a full app restart — this function never pretends otherwise.
+   *
+   * Verified on the iOS 26.5 simulator (2026-09-10): in **Expo Go** this call is a silent no-op. It does not
+   * throw, `isRTL` stays false, and nothing is written to NSUserDefaults, because Expo Go is a shared host app
+   * and one experience must not permanently flip its layout. Confirming that RTL mirroring actually works
+   * therefore requires our own binary (a development build) — see docs/architecture/phase-2-verification.md.
+   */
   return { requiresReload: true };
 }

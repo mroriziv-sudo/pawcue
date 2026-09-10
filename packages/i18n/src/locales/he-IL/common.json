@@ -264,7 +264,7 @@
     "deleteAccount": "מחיקת חשבון",
     "logOut": "התנתקות",
     "title": "הגדרות",
-    "restartRequired": "מפעילים מחדש כדי להחיל את כיוון הפריסה החדש…",
+    "restartRequired": "פתחו מחדש את האפליקציה כדי להחיל את כיוון הפריסה החדש.",
     "languageOption": {
       "en-US": "English (אנגלית)",
       "he-IL": "עברית"
