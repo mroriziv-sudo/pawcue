@@ -7,15 +7,27 @@
  * assertions meaningful.
  */
 
-// expo-audio: no audio device under Jest. The mock records calls so the clicker's ordering can still be asserted.
-jest.mock("expo-audio", () => ({
-  createAudioPlayer: jest.fn(() => ({
-    play: jest.fn(),
-    seekTo: jest.fn(),
-    remove: jest.fn(),
-  })),
-  setAudioModeAsync: jest.fn(() => Promise.resolve()),
-}));
+/**
+ * expo-audio: no audio device under Jest, so playback is backed by a fake that models the real player's semantics.
+ *
+ * This used to be `{ play: jest.fn(), seekTo: jest.fn(), remove: jest.fn() }`, and that shallow mock is the reason
+ * the every-other-press-is-silent defect reached a device. It returned `undefined` where the real `seekTo` returns
+ * a promise, and modelled no playback position, so playing from the end of a clip was indistinguishable from
+ * playing from the start. The fake tracks position and reports which presses actually produced sound.
+ */
+jest.mock("expo-audio", () => {
+  const {
+    createRecorder,
+    FakeAudioPlayer,
+  } = require("./__tests__/support/fake-audio-player");
+  const recorder = createRecorder();
+  // Exposed so screen-level tests can assert on what was actually audible.
+  globalThis.__audioRecorder = recorder;
+  return {
+    createAudioPlayer: jest.fn(() => new FakeAudioPlayer(recorder, 45)),
+    setAudioModeAsync: jest.fn(() => Promise.resolve()),
+  };
+});
 
 jest.mock("expo-haptics", () => ({
   impactAsync: jest.fn(() => Promise.resolve()),

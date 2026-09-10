@@ -6,6 +6,8 @@ import { Text, Card, Button, useTheme, useDirection } from "@pawcue/ui";
 import { SUPPORTED_LOCALES, type SupportedLocale } from "@pawcue/i18n";
 import { useSettingsStore } from "../src/state/settings-store";
 import { useBootstrapStore } from "../src/state/bootstrap-store";
+import { CLICK_SOUNDS } from "../src/audio/click-sounds";
+import { ensureClicker, playClick } from "../src/audio/clicker-audio";
 
 /**
  * Settings — Phase 2 covers language, sound and haptics.
@@ -25,9 +27,11 @@ export default function SettingsScreen() {
     soundEnabled,
     hapticsEnabled,
     pendingDirectionReload,
+    clickSoundId,
     setLanguage,
     setSoundEnabled,
     setHapticsEnabled,
+    setClickSoundId,
   } = useSettingsStore();
   const { sessionStatus, userId } = useBootstrapStore();
 
@@ -126,6 +130,66 @@ export default function SettingsScreen() {
           </View>
         </Card>
       </View>
+
+      {/*
+        Development-only clicker sound selector, for the QA listening test.
+
+        Gated on __DEV__ so it cannot reach a release build, and deliberately untranslated — translating it would
+        imply it is a user-facing feature, which it is not. The final sound is an open product decision; until it
+        is made, this exists purely so the three candidates can be compared on real hardware through the same
+        preload/playback path the product uses.
+      */}
+      {__DEV__ ? (
+        <View style={{ gap: theme.space[2] }} testID="dev-sound-selector">
+          <Text variant="h3">Clicker sound (dev only)</Text>
+          <Text variant="caption" tone="muted">
+            QA listening test. Not user-facing. Select, then return to the
+            clicker and test there — that is the production playback path.
+          </Text>
+          {CLICK_SOUNDS.map((sound) => {
+            const selected = sound.id === clickSoundId;
+            return (
+              <Card
+                key={sound.id}
+                padding="compact"
+                onPress={() => void setClickSoundId(sound.id)}
+                accessibilityLabel={sound.label}
+                testID={`click-sound-${sound.id}`}
+              >
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: theme.space[2],
+                  }}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text variant="body">{sound.label}</Text>
+                    <Text variant="caption" tone="muted">
+                      {sound.description}
+                    </Text>
+                  </View>
+                  <Text variant="body" tone={selected ? "success" : "muted"}>
+                    {selected ? "✓" : ""}
+                  </Text>
+                </View>
+              </Card>
+            );
+          })}
+          <Button
+            label="Preview selected click"
+            variant="secondary"
+            onPress={() => {
+              // Goes through the real engine rather than a one-off player, so a preview cannot sound different
+              // from what the clicker screen produces.
+              ensureClicker(clickSoundId);
+              playClick();
+            }}
+            testID="preview-click"
+          />
+        </View>
+      ) : null}
 
       {/*
         Development-only. Gated on __DEV__ so it cannot reach a release build, and present because the foundations

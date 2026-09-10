@@ -100,9 +100,25 @@ source, which is exactly why they need a checklist entry.
       capped, and declare them accurately in the Data Safety form if they survive.
 - [ ] **`MODIFY_AUDIO_SETTINGS` is intentionally kept** — a normal, auto-granted Android permission needed to
       configure the audio session. Not privacy-sensitive and not on the brief's forbidden list.
+- [x] **`NSFaceIDUsageDescription` removed.** `expo-secure-store` injects it by default, but the app stores tokens
+      without `requireAuthentication`, so Face ID is never invoked. A usage description for a capability the app
+      never exercises is exactly what App Store review asks about. Fixed with `faceIDPermission: false`, confirmed
+      absent from a regenerated `Info.plist`, and locked by `apps/mobile/__tests__/app-config.test.ts`.
 - [ ] **`ios.infoPlist.ITSAppUsesNonExemptEncryption`** is unset; EAS warns that App Store Connect will require it
       to be answered manually before testing. Set it explicitly (almost certainly `false`) rather than answering it
       by hand each submission.
+- [ ] **`NSLocalNetworkUsageDescription` / `NSBonjourServices` / `NSAllowsArbitraryLoads` / `RCTMetroPort` must not
+      ship.** These are Metro/dev-client entries in the generated debug `Info.plist`. Local-network access in
+      particular triggers a user-visible iOS prompt and is a review question. Assert they are absent from the
+      release binary's `Info.plist`, alongside the `SYSTEM_ALERT_WINDOW` check above.
+
+## Product decisions that must be closed before release
+
+- [ ] **Choose the clicker sound.** Three candidates ship behind a `__DEV__` selector pending a listening test on
+      a physical device — see [docs/architecture/clicker-sound-design.md](docs/architecture/clicker-sound-design.md).
+- [ ] **Remove the developer-only clicker sound selector**, or get explicit approval to keep it. It is gated on
+      `__DEV__` and asserted absent from a release render by `apps/mobile/__tests__/dev-only-ui.test.tsx`, so it
+      cannot ship accidentally — but the gate is not a substitute for the decision.
 
 ## Sign-off
 

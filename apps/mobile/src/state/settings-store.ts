@@ -2,6 +2,11 @@ import { create } from "zustand";
 import type { SupportedLocale } from "@pawcue/i18n";
 import { appStorage, STORAGE_KEYS } from "../lib/storage";
 import { applyLocale, resolveInitialLocale } from "../i18n";
+import {
+  DEFAULT_CLICK_SOUND_ID,
+  isClickSoundId,
+  type ClickSoundId,
+} from "../audio/click-sounds";
 
 /**
  * User-controlled settings that must survive a restart.
@@ -15,6 +20,11 @@ interface SettingsState {
   language: SupportedLocale;
   soundEnabled: boolean;
   hapticsEnabled: boolean;
+  /**
+   * Which of the three clicker candidates is loaded. Developer-only: the selector that writes it is rendered
+   * behind `__DEV__`, and the final sound is still an open product decision.
+   */
+  clickSoundId: ClickSoundId;
   /** True once a language change has requested a native direction flip that needs an app reload. */
   pendingDirectionReload: boolean;
   hydrated: boolean;
@@ -23,6 +33,7 @@ interface SettingsState {
   setLanguage: (locale: SupportedLocale) => Promise<void>;
   setSoundEnabled: (enabled: boolean) => Promise<void>;
   setHapticsEnabled: (enabled: boolean) => Promise<void>;
+  setClickSoundId: (id: ClickSoundId) => Promise<void>;
 }
 
 async function readBoolean(key: string, fallback: boolean): Promise<boolean> {
@@ -34,15 +45,18 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   language: "en-US",
   soundEnabled: true,
   hapticsEnabled: true,
+  clickSoundId: DEFAULT_CLICK_SOUND_ID,
   pendingDirectionReload: false,
   hydrated: false,
 
   hydrate: async () => {
-    const [language, soundEnabled, hapticsEnabled] = await Promise.all([
-      resolveInitialLocale(),
-      readBoolean(STORAGE_KEYS.soundEnabled, true),
-      readBoolean(STORAGE_KEYS.hapticsEnabled, true),
-    ]);
+    const [language, soundEnabled, hapticsEnabled, storedClickSound] =
+      await Promise.all([
+        resolveInitialLocale(),
+        readBoolean(STORAGE_KEYS.soundEnabled, true),
+        readBoolean(STORAGE_KEYS.hapticsEnabled, true),
+        appStorage.getItem(STORAGE_KEYS.clickSound),
+      ]);
 
     // Applies the stored/device language on boot so a returning Hebrew user opens straight into Hebrew.
     const { requiresReload } = await applyLocale(language);
@@ -51,6 +65,11 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       language,
       soundEnabled,
       hapticsEnabled,
+      // An unrecognised stored id (a candidate removed between builds) falls back rather than breaking audio.
+      clickSoundId:
+        storedClickSound !== null && isClickSoundId(storedClickSound)
+          ? storedClickSound
+          : DEFAULT_CLICK_SOUND_ID,
       pendingDirectionReload: requiresReload,
       hydrated: true,
     });
@@ -69,5 +88,10 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   setHapticsEnabled: async (enabled) => {
     await appStorage.setItem(STORAGE_KEYS.hapticsEnabled, String(enabled));
     set({ hapticsEnabled: enabled });
+  },
+
+  setClickSoundId: async (id) => {
+    await appStorage.setItem(STORAGE_KEYS.clickSound, id);
+    set({ clickSoundId: id });
   },
 }));

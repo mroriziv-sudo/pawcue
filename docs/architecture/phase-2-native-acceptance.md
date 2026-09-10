@@ -225,23 +225,110 @@ clicker screen rendered by the **dev build**, not Expo Go: title, subtitle, clic
 control, and — at a press count of 3 — the "Ready to use it for real?" prompt with its CTA. Captured as
 [`assets/phase-2-dev-build-clicker.png`](./assets/phase-2-dev-build-clicker.png).
 
-This promotes several rows from *bundled* to **actually executed on the simulator**:
+This promotes several rows from _bundled_ to **actually executed on the simulator**:
 
-| Behaviour | Evidence |
-| --- | --- |
-| App boots natively outside Expo Go | Own bundle id `com.pawcue.app`, own launcher, Metro bundle served |
-| Expo Router renders the index route | Clicker screen on screen |
-| Design tokens applied natively | Warm Ivory ground, brand-primary clicker, type scale as specified |
-| Safe-area insets honoured | Content clears the Dynamic Island and home indicator |
-| `PressableScale` handles real touches | Press count advanced on real taps |
-| The 3-press reveal gate (brief §4) | Prompt + CTA appeared exactly at 3 |
-| i18n resolves at runtime | English strings rendered from the catalogue, not keys |
-| LTR layout | Settings control at top-**right** |
-| No permission dialog on first launch | None shown at boot or on first press |
+| Behaviour                             | Evidence                                                          |
+| ------------------------------------- | ----------------------------------------------------------------- |
+| App boots natively outside Expo Go    | Own bundle id `com.pawcue.app`, own launcher, Metro bundle served |
+| Expo Router renders the index route   | Clicker screen on screen                                          |
+| Design tokens applied natively        | Warm Ivory ground, brand-primary clicker, type scale as specified |
+| Safe-area insets honoured             | Content clears the Dynamic Island and home indicator              |
+| `PressableScale` handles real touches | Press count advanced on real taps                                 |
+| The 3-press reveal gate (brief §4)    | Prompt + CTA appeared exactly at 3                                |
+| i18n resolves at runtime              | English strings rendered from the catalogue, not keys             |
+| LTR layout                            | Settings control at top-**right**                                 |
+| No permission dialog on first launch  | None shown at boot or on first press                              |
 
 The press counter is decisive on that last-but-one point: `pressCount` is `useState(0)` in
 `src/hooks/useClicker.ts` with no persistence, so a displayed 3 can only mean three real press events were
 delivered after mount — it cannot be restored state.
 
-Still **not** claimed, and not claimable here: whether the click was *audible* (the Simulator renders audio
+Still **not** claimed, and not claimable here: whether the click was _audible_ (the Simulator renders audio
 through the host, which proves nothing about the on-device audio session), plus the hardware-only list above.
+
+## Manual acceptance pass — results
+
+The manual Simulator pass was performed by the product owner on the EAS development build (iPhone 17 Pro,
+iOS 26.5). It settled the outstanding RTL question and found one blocking defect.
+
+### RTL — now verified
+
+| Step                                           | Result                                                       |
+| ---------------------------------------------- | ------------------------------------------------------------ |
+| English → Hebrew                               | **Pass**                                                     |
+| Hebrew persists across a full kill + relaunch  | **Pass**                                                     |
+| **Native RTL layout mirroring**                | **Pass** — "הגדרות" moved to the top-**left** after relaunch |
+| Hebrew → English                               | **Pass**                                                     |
+| English persists across a full kill + relaunch | **Pass**                                                     |
+| Layout returns to LTR, Settings top-right      | **Pass**                                                     |
+
+This closes the gap recorded above. `I18nManager.forceRTL` is a silent no-op in Expo Go but works correctly in
+our own binary, exactly as predicted — the limitation was Expo Go's, not a defect in the app.
+
+### Blocker found: the clicker was silent on roughly every other press
+
+Reported symptom: the counter and the press animation advanced on every press, but audio played on only about
+half of them, alternating.
+
+**Root cause.** `AudioPlayer.play()` is synchronous; `AudioPlayer.seekTo()` returns a `Promise` because it wraps
+a native `seek(to:completionHandler:)`. The original implementation was:
+
+```ts
+void player.seekTo(0); // asynchronous — lands later
+player.play(); // synchronous — runs immediately
+```
+
+so `play()` always ran _before_ the rewind landed. A one-shot sound parks its player at the end of the item when
+it finishes, and `play()` on a player already at its end produces no sound — it is not an error, just silence.
+Hence the alternation: press 1 plays and ends parked at `duration`; press 2 is swallowed, and the late seek then
+returns the position to 0; press 3 plays; press 4 is swallowed.
+
+**Fix.** Two changes, in `src/audio/clicker-engine.ts`, neither of which delays a press:
+
+1. **Reset after playback, never before it.** A voice returns to position 0 once its clip has finished — via the
+   `didJustFinish` status event, with a timer backstop so correctness does not depend on an event we do not
+   control. Pressing costs exactly one synchronous `play()`, which is strictly less work than before.
+2. **A pool of six voices.** Rapid presses land on different voices and overlap naturally instead of stealing
+   each other's playback.
+
+No debounce, throttle or delay was added; every press issues exactly one playback request.
+
+**A second bug was caught by the new tests.** `refresh()` (the foreground handler) originally skipped voices it
+believed were already armed — but a suspended audio session is precisely the case where that belief is wrong, so
+the first press after returning from the background could be silent. It now distrusts the flag and re-seeks every
+idle voice.
+
+**Why tests missed the original defect.** The Jest mock was
+`{ play: jest.fn(), seekTo: jest.fn(), remove: jest.fn() }`. It returned `undefined` where the real `seekTo`
+returns a promise, and modelled no playback position, so playing from the end of a clip was indistinguishable
+from playing from the start. It has been replaced with a fake that models position, asynchronous seeks, and
+silent playback at end-of-clip — and the suite now includes a reproduction of the original implementation that
+asserts the exact `[true, false, true, false, true, false]` pattern, which both documents the bug and proves the
+fake is faithful.
+
+### Permission re-audit after the fix
+
+Re-run against freshly generated native projects (`expo prebuild --clean`), not just the config:
+
+|                                                                  | iOS Info.plist             | Android main manifest                              |
+| ---------------------------------------------------------------- | -------------------------- | -------------------------------------------------- |
+| Microphone                                                       | absent                     | `RECORD_AUDIO` absent                              |
+| Background audio                                                 | `UIBackgroundModes` absent | `FOREGROUND_SERVICE*` absent, no services declared |
+| Location / contacts / camera / bluetooth / motion / health / ATT | all absent                 | all absent                                         |
+
+**A second permission declared without cause was found and fixed.** `expo-secure-store` injects
+`NSFaceIDUsageDescription` by default, but the app stores tokens without `requireAuthentication`, so Face ID is
+never invoked. Fixed with `faceIDPermission: false` and confirmed absent from a regenerated Info.plist.
+
+`MODIFY_AUDIO_SETTINGS` and `VIBRATE` are intentionally kept — normal, auto-granted Android permissions needed to
+configure the audio session and fire haptics. `SYSTEM_ALERT_WINDOW` and the `maxSdkVersion="32"` storage
+permissions remain as previously documented in RELEASE_CHECKLIST.md.
+
+### Still device-only, still not claimed
+
+The Simulator routes audio through the host's output device, so it can show that playback was _requested_ and
+that the engine's state machine behaves, but it cannot establish real-world audio behaviour. Unchanged and
+**not claimed**: haptics, real click-to-sound latency, silent-mode/audio-session behaviour, phone-call and Siri
+interruptions, Bluetooth/AirPods routing, and how each candidate sounds on a phone speaker outdoors.
+
+The final choice of clicker sound is therefore explicitly deferred to a listening test on a physical iPhone.

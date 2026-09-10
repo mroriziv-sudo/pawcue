@@ -51,7 +51,8 @@
     "export:web": "expo export --platform web",
     "typecheck": "tsc --noEmit",
     "lint": "eslint app src",
-    "test": "jest"
+    "test": "jest",
+    "audio:generate": "node ../../tools/audio/generate-click-sounds.mjs"
   },
   "private": true
 }

@@ -11,6 +11,11 @@ import appJson from "../app.json";
  *
  * Nothing in the JS surfaced it: it only appears in the generated Info.plist / AndroidManifest. Asserting on the
  * config is the cheapest place to stop it regressing when a dependency is upgraded.
+ *
+ * A second instance of the same class was caught later: `expo-secure-store` injects `NSFaceIDUsageDescription`
+ * by default, but the app stores tokens without `requireAuthentication`, so Face ID is never invoked. A usage
+ * description for a capability the app never exercises is exactly what App Store review asks about, and it
+ * contradicts the same minimal-permissions rule.
  */
 
 type PluginEntry = string | [string, Record<string, unknown>];
@@ -47,6 +52,18 @@ describe("expo-audio native declarations", () => {
   });
 });
 
+describe("expo-secure-store native declarations", () => {
+  const secureStore = pluginConfig("expo-secure-store");
+
+  it("is configured with explicit options rather than plugin defaults", () => {
+    expect(secureStore).toBeDefined();
+  });
+
+  it("declares no Face ID usage, because the app never requests biometric auth", () => {
+    expect(secureStore?.faceIDPermission).toBe(false);
+  });
+});
+
 describe("declared Android permissions", () => {
   it("requests no permissions of its own", () => {
     expect(appJson.expo.android.permissions).toEqual([]);
@@ -65,6 +82,7 @@ describe("permissions the brief forbids outright", () => {
     ["motion", /NSMotionUsageDescription|ACTIVITY_RECOGNITION/],
     ["health", /NSHealth/],
     ["tracking (ATT)", /NSUserTrackingUsageDescription/],
+    ["biometrics", /NSFaceIDUsageDescription/],
   ])("never declares %s", (_label, pattern) => {
     expect(serialized).not.toMatch(pattern);
   });

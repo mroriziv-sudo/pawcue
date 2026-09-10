@@ -75,6 +75,11 @@ export const STORAGE_KEYS = {
   language: "pawcue.settings.language",
   soundEnabled: "pawcue.settings.sound",
   hapticsEnabled: "pawcue.settings.haptics",
+  /**
+   * Developer-only clicker sound selection, used for QA listening tests. Persisted so a comparison survives the
+   * app restarts a listening test involves. No user-facing UI writes this key.
+   */
+  clickSound: "pawcue.dev.clickSound",
   /** Set once the RTL direction has been applied and the app reloaded, to avoid a reload loop. */
   appliedDirection: "pawcue.settings.appliedDirection",
 } as const;
