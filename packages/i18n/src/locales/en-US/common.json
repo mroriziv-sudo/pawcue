@@ -277,5 +277,66 @@
     "photoLibrary": {
       "rationale": "We only access the photo you pick for your dog's profile."
     }
+  },
+  "session": {
+    "overview": {
+      "goalLabel": "What you'll teach",
+      "equipmentLabel": "What you need",
+      "resumeAvailable": "You have a session in progress.",
+      "offlineNotice": "Showing a saved copy of this lesson.",
+      "durationLabel_one": "About {{count}} minute",
+      "durationLabel_other": "About {{count}} minutes",
+      "stepsLabel_one": "{{count}} step",
+      "stepsLabel_other": "{{count}} steps"
+    },
+    "equipment": {
+      "treats": "Treats",
+      "clicker": "Clicker",
+      "leash": "Leash",
+      "crate": "Crate",
+      "mat_or_bed": "Mat or bed",
+      "none": "Nothing"
+    },
+    "train": {
+      "stepCounter": "Step {{current}} of {{total}}",
+      "progressLabel": "Step {{current}} of {{total}}, {{percent}} percent complete",
+      "next": "Next step",
+      "finish": "Finish lesson",
+      "clickerHint": "Use the clicker the moment your dog gets it right.",
+      "clickerRequired": "Use the clicker at least once to continue.",
+      "repetitionsLabel": "Successful reps",
+      "repetitionsProgress": "{{count}} of {{target}}",
+      "addRepetition": "Log a successful rep",
+      "undoRepetition": "Undo last rep",
+      "repetitionsComplete": "All reps done",
+      "exit": "Pause",
+      "exitConfirmTitle": "Pause this session?",
+      "exitConfirmBody": "Your progress is saved. You can pick up where you left off.",
+      "exitConfirmStay": "Keep training",
+      "exitConfirmLeave": "Pause and exit",
+      "repetitionsRemaining_one": "{{count}} more to go",
+      "repetitionsRemaining_other": "{{count}} more to go"
+    },
+    "troubleshooting": {
+      "title": "Not working?",
+      "subtitle": "Pick what you're seeing.",
+      "backToTraining": "Back to training",
+      "escalationNotice": "This one is worth getting hands-on help with."
+    },
+    "complete": {
+      "title": "Nice work.",
+      "body": "You finished {{lesson}}.",
+      "done": "Done",
+      "trainAgain": "Train again",
+      "repsSummary_one": "{{count}} successful rep logged",
+      "repsSummary_other": "{{count}} successful reps logged",
+      "clicksSummary_one": "{{count}} click",
+      "clicksSummary_other": "{{count}} clicks"
+    },
+    "errors": {
+      "unavailableTitle": "Lesson unavailable",
+      "unavailableBody": "This lesson hasn't been downloaded yet, and we couldn't reach the network.",
+      "stepRequirementsUnmet": "Finish this step before moving on."
+    }
   }
 }

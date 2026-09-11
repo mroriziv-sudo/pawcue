@@ -116,9 +116,8 @@ export default function ClickerScreen() {
           <View style={{ height: theme.space[4] }} />
           <Button
             label={t("clicker.startFirstLesson")}
-            onPress={() => {
-              /* The Name Game lesson is Phase 3; the CTA is wired to navigation there. */
-            }}
+            /** The Name Game is the free first lesson (brief §9): no account, no plan, no paywall in the way. */
+            onPress={() => router.push("/lesson/name_game")}
             testID="start-first-lesson"
           />
         </View>

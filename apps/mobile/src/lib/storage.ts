@@ -82,4 +82,11 @@ export const STORAGE_KEYS = {
   clickSound: "pawcue.dev.clickSound",
   /** Set once the RTL direction has been applied and the app reloaded, to avoid a reload loop. */
   appliedDirection: "pawcue.settings.appliedDirection",
+  /**
+   * The training session currently in progress. One at a time: a user trains one dog on one lesson at a time, and
+   * a list would invite resuming the wrong one.
+   */
+  activeSession: "pawcue.session.active",
+  /** Locally completed sessions awaiting a server flush once a dog profile exists. */
+  completedSessions: "pawcue.session.completed",
 } as const;

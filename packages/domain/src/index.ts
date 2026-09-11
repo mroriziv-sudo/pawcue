@@ -3,6 +3,7 @@ export * from "./models/user";
 export * from "./models/dog";
 export * from "./models/goals-skills";
 export * from "./models/lesson";
+export * from "./models/lesson-content";
 export * from "./models/plan";
 export * from "./models/session";
 export * from "./models/progress";
@@ -18,3 +19,4 @@ export * from "./providers/analytics-provider";
 export * from "./providers/storage-provider";
 
 export * from "./plan-engine/training-plan-generator";
+export * from "./session-engine/training-session";

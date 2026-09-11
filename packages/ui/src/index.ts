@@ -29,4 +29,5 @@ export * from "./primitives/Text";
 export * from "./primitives/PressableScale";
 export * from "./primitives/Button";
 export * from "./primitives/Card";
+export * from "./primitives/ProgressBar";
 export * from "./primitives/Icon";

@@ -279,5 +279,71 @@
     "photoLibrary": {
       "rationale": "אנחנו ניגשים רק לתמונה שתבחרו לפרופיל של הכלב."
     }
+  },
+  "session": {
+    "overview": {
+      "goalLabel": "מה תלמדו",
+      "equipmentLabel": "מה צריך",
+      "resumeAvailable": "יש לכם אימון פעיל.",
+      "offlineNotice": "מוצג עותק שמור של השיעור.",
+      "durationLabel_one": "כדקה אחת",
+      "durationLabel_two": "כשתי דקות",
+      "durationLabel_other": "כ-{{count}} דקות",
+      "stepsLabel_one": "שלב אחד",
+      "stepsLabel_two": "שני שלבים",
+      "stepsLabel_other": "{{count}} שלבים"
+    },
+    "equipment": {
+      "treats": "חטיפים",
+      "clicker": "קליקר",
+      "leash": "רצועה",
+      "crate": "כלוב",
+      "mat_or_bed": "מזרן או מיטה",
+      "none": "כלום"
+    },
+    "train": {
+      "stepCounter": "שלב {{current}} מתוך {{total}}",
+      "progressLabel": "שלב {{current}} מתוך {{total}}, {{percent}} אחוז הושלמו",
+      "next": "לשלב הבא",
+      "finish": "לסיום השיעור",
+      "clickerHint": "לחצו על הקליקר ברגע שהכלב עושה נכון.",
+      "clickerRequired": "השתמשו בקליקר לפחות פעם אחת כדי להמשיך.",
+      "repetitionsLabel": "חזרות מוצלחות",
+      "repetitionsProgress": "{{count}} מתוך {{target}}",
+      "addRepetition": "רישום חזרה מוצלחת",
+      "undoRepetition": "ביטול החזרה האחרונה",
+      "repetitionsComplete": "כל החזרות הושלמו",
+      "exit": "השהיה",
+      "exitConfirmTitle": "להשהות את האימון?",
+      "exitConfirmBody": "ההתקדמות נשמרת. אפשר להמשיך בדיוק מאותה נקודה.",
+      "exitConfirmStay": "להמשיך לאמן",
+      "exitConfirmLeave": "להשהות ולצאת",
+      "repetitionsRemaining_one": "עוד חזרה אחת",
+      "repetitionsRemaining_two": "עוד שתי חזרות",
+      "repetitionsRemaining_other": "עוד {{count}} חזרות"
+    },
+    "troubleshooting": {
+      "title": "לא עובד?",
+      "subtitle": "בחרו מה קורה.",
+      "backToTraining": "חזרה לאימון",
+      "escalationNotice": "במקרה כזה כדאי לקבל ליווי מקצועי."
+    },
+    "complete": {
+      "title": "כל הכבוד.",
+      "body": "סיימתם את {{lesson}}.",
+      "done": "סיום",
+      "trainAgain": "לאמן שוב",
+      "repsSummary_one": "חזרה מוצלחת אחת נרשמה",
+      "repsSummary_two": "שתי חזרות מוצלחות נרשמו",
+      "repsSummary_other": "{{count}} חזרות מוצלחות נרשמו",
+      "clicksSummary_one": "קליק אחד",
+      "clicksSummary_two": "שני קליקים",
+      "clicksSummary_other": "{{count}} קליקים"
+    },
+    "errors": {
+      "unavailableTitle": "השיעור לא זמין",
+      "unavailableBody": "השיעור עדיין לא הורד, ולא הצלחנו להתחבר לרשת.",
+      "stepRequirementsUnmet": "השלימו את השלב הזה לפני שממשיכים."
+    }
   }
 }

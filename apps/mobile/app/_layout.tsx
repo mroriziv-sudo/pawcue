@@ -11,15 +11,13 @@ import { useBootstrapStore } from "../src/state/bootstrap-store";
 import { useSettingsStore } from "../src/state/settings-store";
 import { isRtlLocale } from "@pawcue/i18n";
 import { installClickerDiagnostics } from "../src/audio/clicker-diagnostics";
+import { installSessionDevBridge } from "../src/state/session-store";
 
 // Development-only. Exposes the clicker trace harness on `globalThis.__clickerDiag`; a no-op in release.
 installClickerDiagnostics();
+// Development-only. Exposes the session store for simulator acceptance; a no-op in release.
+installSessionDevBridge();
 
-/**
- * `retry: false` and no refetch-on-focus: the product must behave predictably offline (brief §28), and silent
- * background refetching would fight the offline-first cache rather than complement it. Retry policy belongs with
- * the sync queue introduced later, not as a global default.
- */
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: { retry: false, refetchOnWindowFocus: false, staleTime: 60_000 },
