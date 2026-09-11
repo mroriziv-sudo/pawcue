@@ -89,4 +89,10 @@ export const STORAGE_KEYS = {
   activeSession: "pawcue.session.active",
   /** Locally completed sessions awaiting a server flush once a dog profile exists. */
   completedSessions: "pawcue.session.completed",
+  /** Partially answered onboarding, so an interrupted flow resumes instead of restarting. */
+  onboardingDraft: "pawcue.onboarding.draft",
+  /** The dog the app is training. Cached locally so startup routing never waits on the network. */
+  activeDogId: "pawcue.dog.activeId",
+  /** Set when the user chooses the clicker over creating a profile, so the choice survives a relaunch. */
+  onboardingSkipped: "pawcue.onboarding.skipped",
 } as const;

@@ -1,6 +1,9 @@
 import { create } from "zustand";
 import { z } from "zod";
-import type { TrainingSessionState } from "@pawcue/domain";
+import {
+  pendingSessionEventSchema,
+  type TrainingSessionState,
+} from "@pawcue/domain";
 import { appStorage, STORAGE_KEYS } from "../lib/storage";
 
 /**
@@ -31,10 +34,18 @@ export const completedSessionSchema = z.object({
   clickerPresses: z.number().int().min(0),
   troubleshootingViewed: z.number().int().min(0),
   /**
-   * False until the session has been written to `training_sessions`/`session_events`. Always false in Phase 3:
-   * those rows require a `dog_id`, which a guest does not have yet.
+   * False until the session has been written to `training_sessions`/`session_events` and the server confirmed it.
+   * Never optimistic: it is set only after a successful write.
    */
   syncedToServer: z.boolean(),
+  /**
+   * The append-only event log, kept until the server confirms it.
+   *
+   * This is the payload the sync writes, so it must survive an app restart between training and syncing. It is
+   * dropped only once `syncedToServer` is true — local data must never disappear before the data it mirrors is
+   * confirmed persisted. Optional so records written before this field existed still parse.
+   */
+  events: z.array(pendingSessionEventSchema).optional(),
 });
 export type CompletedSessionRecord = z.infer<typeof completedSessionSchema>;
 
@@ -61,6 +72,7 @@ export function summariseSession(
     ).length,
     troubleshootingViewed: session.troubleshootingViewedIds.length,
     syncedToServer: false,
+    events: session.events,
   };
 }
 
@@ -70,9 +82,11 @@ interface TrainingLogState {
 
   hydrate: () => Promise<void>;
   record: (session: TrainingSessionState) => Promise<void>;
-  /** Completed sessions not yet written to the server. The queue a future flush will drain. */
+  /** Completed sessions not yet written to the server. The queue the sync drains. */
   pendingSync: () => CompletedSessionRecord[];
   completionsFor: (lessonSlug: string) => number;
+  /** Marks sessions confirmed by the server and releases the event payloads they no longer need. */
+  markSynced: (sessionIds: string[]) => Promise<void>;
   clear: () => Promise<void>;
 }
 
@@ -114,6 +128,26 @@ export const useTrainingLogStore = create<TrainingLogState>((set, get) => ({
   },
 
   pendingSync: () => get().completed.filter((item) => !item.syncedToServer),
+
+  markSynced: async (sessionIds) => {
+    const ids = new Set(sessionIds);
+    const completed = get().completed.map((item) =>
+      ids.has(item.sessionId)
+        ? // The events have been persisted server-side, so the local copy is no longer the only one. The summary
+          // stays as history; only the payload is released.
+          { ...item, syncedToServer: true, events: undefined }
+        : item,
+    );
+    set({ completed });
+    try {
+      await appStorage.setItem(
+        STORAGE_KEYS.completedSessions,
+        JSON.stringify(completed),
+      );
+    } catch {
+      /* A failed write means the session syncs again next time, which is safe: the write is idempotent. */
+    }
+  },
 
   completionsFor: (lessonSlug) =>
     get().completed.filter((item) => item.lessonSlug === lessonSlug).length,

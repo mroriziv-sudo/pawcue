@@ -4,14 +4,19 @@ import type {
   GuestMergeConflict,
 } from "@pawcue/domain";
 import { supabase, requireSupabase } from "../lib/supabase";
+import { env } from "../lib/env";
 
 /**
  * Concrete `AuthProvider` (the interface frozen in Phase 0). Screens depend on the interface, never on
  * `@supabase/supabase-js` directly — ARCHITECTURE.md §4.
  *
- * Phase 2 scope is the **guest** path only: anonymous sign-in is what makes the app usable with no account, which
- * is the product's first non-negotiable principle. Apple and Google sign-in are Phase 7 and deliberately throw
- * rather than return a plausible-looking stub, so a caller can't mistake them for working.
+ * Anonymous sign-in is what makes the app usable with no account, which is the product's first non-negotiable
+ * principle. The guest merge is implemented here against the deployed `auth-merge-guest` endpoint.
+ *
+ * Apple and Google still throw a typed, explicit error rather than returning a plausible-looking stub: both
+ * require external configuration this project does not yet have (an Apple Developer account and its Sign in with
+ * Apple capability; Google OAuth client ids and the Supabase provider entries). Returning a fake success would be
+ * far worse than failing loudly — it would make the merge path look tested when it never ran.
  */
 
 function toAuthSession(
@@ -76,32 +81,86 @@ export class SupabaseAuthProvider implements AuthProvider {
   }
 
   signInWithApple(): Promise<AuthSession> {
-    throw new Error(
-      "Sign in with Apple is implemented in Phase 7 (see AUTH.md).",
-    );
+    throw new ProviderNotConfiguredError("apple");
   }
 
   signInWithGoogle(): Promise<AuthSession> {
-    throw new Error(
-      "Sign in with Google is implemented in Phase 7 (see AUTH.md).",
-    );
+    throw new ProviderNotConfiguredError("google");
   }
 
   /**
-   * Phase 7. Left unimplemented on purpose: the merge is only safe when the endpoint verifies BOTH the caller's
-   * authenticated JWT and the guest's anonymous-session JWT (supabase/functions/README.md). A client-side stub here
-   * would be the exact shape of the privilege-escalation bug found in Phase 0.
+   * Calls the `auth-merge-guest` endpoint.
+   *
+   * The client sends two tokens and **no identity at all**: the merge target comes from the caller's verified JWT
+   * and the source from the guest's, both checked server-side. That is deliberate — a client-side merge, or an
+   * endpoint that trusted an id in the body, is the exact shape of the privilege-escalation bug found in Phase 0,
+   * where a victim's dog was successfully stolen.
+   *
+   * The guest token must be captured **before** signing in, because signing in replaces the stored session.
    */
-  mergeGuestSession(): Promise<{ merged: true } | GuestMergeConflict> {
-    throw new Error(
-      "Guest merge is implemented in Phase 7 — see supabase/functions/README.md for its security contract.",
+  async mergeGuestSession(
+    anonymousSessionId: string,
+    guestAccessToken?: string,
+  ): Promise<{ merged: true } | GuestMergeConflict> {
+    const client = requireSupabase();
+    const { data } = await client.auth.getSession();
+    const callerToken = data.session?.access_token;
+    if (!callerToken) {
+      throw new Error("Cannot merge: no authenticated session.");
+    }
+    if (!guestAccessToken) {
+      // Failing here rather than sending a request that can only be rejected keeps the reason legible.
+      throw new Error(
+        "Cannot merge: the guest session token was not captured before sign-in.",
+      );
+    }
+
+    const response = await fetch(
+      `${env.supabaseUrl}/functions/v1/auth-merge-guest`,
+      {
+        method: "POST",
+        headers: {
+          apikey: env.supabaseAnonKey ?? "",
+          Authorization: `Bearer ${callerToken}`,
+          "X-Guest-Authorization": `Bearer ${guestAccessToken}`,
+          "Content-Type": "application/json",
+        },
+        // The id is sent only so the server can cross-check it against the guest token and refuse a mismatch. It is
+        // never what the merge acts on.
+        body: JSON.stringify({ anonymousSessionId }),
+      },
     );
+
+    if (response.status === 409) {
+      const conflict = (await response.json()) as GuestMergeConflict;
+      return conflict;
+    }
+    if (!response.ok) {
+      throw new Error(`Guest merge failed (${response.status}).`);
+    }
+    return { merged: true };
   }
 
+  /**
+   * Conflict resolution is not implemented, and deliberately not faked.
+   *
+   * "Keep guest" or "keep account" means discarding one side's dogs and training history. That is a destructive
+   * operation which needs its own server-side transaction and its own security tests; guessing at it here would
+   * risk deleting real training data. The conflict itself is surfaced to the user (409), which is the part that
+   * matters for safety — an existing-account merge is never silently resolved.
+   */
   resolveGuestMergeConflict(): Promise<{ merged: true }> {
     throw new Error(
-      "Guest merge conflict resolution is implemented in Phase 7.",
+      "Guest merge conflict resolution is not implemented — see supabase/functions/README.md rule 7.",
     );
+  }
+}
+
+/** Thrown when a provider exists in the contract but its external configuration is absent. */
+export class ProviderNotConfiguredError extends Error {
+  constructor(readonly provider: "apple" | "google") {
+    super(`Sign in with ${provider} is not configured for this build.`);
+    this.name = "ProviderNotConfiguredError";
   }
 }
 

@@ -59,9 +59,20 @@ Every case must assert on **observable data effects**, not just the status code 
 | 6   | Forged guest ID in the request body with no matching JWT | **Rejected `401`.** This is the Phase 0 exploit in endpoint form; body IDs are never authoritative                                  |
 | 7   | Replay — the same valid merge submitted twice            | **Safe and idempotent.** Second call is a no-op: no duplicate dogs/sessions, `merged_at` unchanged, still `200`                     |
 
-Case 5 deserves a second assertion: submit a valid guest JWT for session A together with a body naming session B,
-and assert that **A** merged and **B** was untouched. That proves the handler reads the source from the token
-rather than the body, which cases 5 and 6 otherwise only prove indirectly.
+Case 5 deserves a second assertion, and the implementation is **stricter than this table originally described**.
+The table said to submit a valid guest JWT for session A with a body naming session B and assert that A merged.
+The endpoint instead **rejects the request outright** (`403 GUEST_TOKEN_SESSION_MISMATCH`) and merges nothing,
+because rule 3 of [supabase/functions/README.md](supabase/functions/README.md) is normative: a body id "must be
+rejected on mismatch". The suite asserts both A and B are untouched.
+
+"The source comes from the token" is then proven positively by a separate case: a different account merges guest
+B using only B's token, and receives exactly B's dog while the first account is unaffected.
+
+These run against the **deployed** function with real JWTs and real rows:
+
+```
+pnpm test:merge
+```
 
 - **Billing**: free user, trial, monthly, annual, expiration, cancellation, grace period, restore, refund, and
   **webhook replay idempotency** (the same store notification delivered twice must not double-apply).

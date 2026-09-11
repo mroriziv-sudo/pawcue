@@ -40,7 +40,64 @@
     "skillsQuestion": "What does your dog already know?",
     "commitmentQuestion": "How much time do you want to train each day?",
     "buildPlanCta": "Build my training plan",
-    "noneYet": "None yet"
+    "noneYet": "None yet",
+    "step": {
+      "name": {
+        "title": "What's your dog's name?",
+        "hint": "We'll use it throughout your training.",
+        "placeholder": "e.g. Luna"
+      },
+      "birthdate": {
+        "title": "When were they born?",
+        "hint": "Optional — it helps us pitch training at the right level.",
+        "placeholder": "YYYY-MM-DD"
+      },
+      "sex": {
+        "title": "Is your dog male or female?"
+      },
+      "breed": {
+        "title": "What breed are they?",
+        "hint": "Optional. A mix is fine — just write what you'd call them.",
+        "placeholder": "e.g. Border Collie mix"
+      },
+      "minutes": {
+        "title": "How long can you train each day?",
+        "hint": "Short and consistent beats long and occasional."
+      }
+    },
+    "sex": {
+      "female": "Female",
+      "male": "Male",
+      "unspecified": "Prefer not to say"
+    },
+    "minutes": {
+      "5": "5 minutes",
+      "10": "10 minutes",
+      "15": "15 minutes",
+      "20": "20 minutes"
+    },
+    "progress": "Step {{current}} of {{total}}",
+    "progressLabel": "Step {{current}} of {{total}}, {{percent}} percent complete",
+    "next": "Continue",
+    "back": "Back",
+    "skip": "Skip this",
+    "finish": "Create profile",
+    "creating": "Creating your dog's profile…",
+    "welcomeTitle": "Welcome to PawCue",
+    "welcomeBody": "Let's set up your dog's profile. It takes about a minute, and you can change anything later.",
+    "welcomeCta": "Get started",
+    "welcomeSkip": "Just let me use the clicker",
+    "validation": {
+      "nameRequired": "Your dog needs a name to continue.",
+      "nameTooLong": "That name is too long.",
+      "dateFormat": "Use the format YYYY-MM-DD.",
+      "dateFuture": "That date is in the future.",
+      "dateTooOld": "That date looks like a typo.",
+      "breedTooLong": "That breed name is too long."
+    },
+    "error": {
+      "createFailed": "We couldn't create the profile. Check your connection and try again."
+    }
   },
   "plan": {
     "generatingTitle": "Building {{dogName}}'s training plan",
@@ -338,5 +395,42 @@
       "unavailableBody": "This lesson hasn't been downloaded yet, and we couldn't reach the network.",
       "stepRequirementsUnmet": "Finish this step before moving on."
     }
+  },
+  "dogProfile": {
+    "title": "{{name}}'s profile",
+    "edit": "Edit profile",
+    "save": "Save changes",
+    "cancel": "Cancel",
+    "saved": "Saved.",
+    "saveFailed": "We couldn't save those changes.",
+    "fields": {
+      "name": "Name",
+      "birthdate": "Born",
+      "sex": "Sex",
+      "breed": "Breed",
+      "minutes": "Daily training"
+    },
+    "notSet": "Not set",
+    "syncPending_one": "{{count}} training session waiting to sync",
+    "syncPending_other": "{{count}} training sessions waiting to sync",
+    "syncNow": "Sync now",
+    "syncedAll": "Everything is synced.",
+    "syncFailed": "Couldn't sync right now. We'll keep your training safe and try again."
+  },
+  "account": {
+    "title": "Save your progress",
+    "body": "Create an account and your dog, training history and progress move with you to any device.",
+    "guestNotice": "You're using PawCue as a guest. Everything works — an account just keeps it safe.",
+    "apple": "Continue with Apple",
+    "google": "Continue with Google",
+    "notConfigured": "This sign-in method isn't available in this build yet.",
+    "later": "Not now",
+    "merging": "Moving your training across…",
+    "mergedTitle": "All set.",
+    "mergedBody": "Your dog and training history are now saved to your account.",
+    "conflictTitle": "This account already has a dog",
+    "conflictBody": "Your guest profile has {{guestDogs}} dog and {{guestSessions}} completed sessions. This account has {{accountDogs}} dog and {{accountSessions}}. Choosing which to keep isn't available yet — please sign in with a new account.",
+    "signedInAs": "Signed in",
+    "signOut": "Sign out"
   }
 }

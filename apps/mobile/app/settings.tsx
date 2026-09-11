@@ -94,6 +94,25 @@ export default function SettingsScreen() {
       </View>
 
       <View style={{ gap: theme.space[2] }}>
+        <Card
+          padding="compact"
+          onPress={() => router.push("/dog")}
+          accessibilityLabel={t("dogProfile.edit")}
+          testID="open-dog-profile"
+        >
+          <Text variant="body">{t("dogProfile.edit")}</Text>
+        </Card>
+        <Card
+          padding="compact"
+          onPress={() => router.push("/account")}
+          accessibilityLabel={t("account.title")}
+          testID="open-account"
+        >
+          <Text variant="body">{t("account.title")}</Text>
+        </Card>
+      </View>
+
+      <View style={{ gap: theme.space[2] }}>
         <Text variant="h3">{t("settings.sound")}</Text>
         <Card padding="compact">
           <View

@@ -222,6 +222,96 @@ begin
 end;
 $$;
 
+-- === Training sessions and session events (Phase 4: newly client-writable) ==
+-- These tables are owned transitively, through the dog. Phase 4 is the first time a client writes them, so the
+-- ownership chain needs proving directly: session_events -> training_sessions -> dogs -> owner_user_id.
+select tests_become_admin();
+
+insert into training_sessions (id, dog_id, lesson_id, status, started_at, completed_at)
+select '50000000-0000-4000-a000-00000000000a', 'd0000000-0000-4000-a000-00000000000a', id,
+       'completed', now(), now()
+from lessons where slug = 'name_game';
+
+insert into session_events (id, session_id, type, occurred_at)
+values ('e0000000-0000-4000-a000-00000000000a', '50000000-0000-4000-a000-00000000000a', 'session_completed', now());
+
+select tests_become('aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa');
+
+select tests_record(
+  'owner CAN read own training_sessions',
+  '1',
+  (select count(*)::text from training_sessions where id = '50000000-0000-4000-a000-00000000000a')
+);
+
+select tests_record(
+  'owner CAN read own session_events',
+  '1',
+  (select count(*)::text from session_events where id = 'e0000000-0000-4000-a000-00000000000a')
+);
+
+-- Bob must not reach Alice's training history through any of the three tables.
+select tests_become('bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb');
+
+select tests_record(
+  'other user CANNOT read another user''s training_sessions',
+  '0',
+  (select count(*)::text from training_sessions where id = '50000000-0000-4000-a000-00000000000a')
+);
+
+select tests_record(
+  'other user CANNOT read another user''s session_events',
+  '0',
+  (select count(*)::text from session_events where id = 'e0000000-0000-4000-a000-00000000000a')
+);
+
+-- An UPDATE that matches no visible row affects nothing; the check is that the row is genuinely unchanged.
+do $$
+begin
+  update training_sessions set status = 'abandoned'
+  where id = '50000000-0000-4000-a000-00000000000a';
+exception when others then null;
+end $$;
+
+select tests_become_admin();
+select tests_record(
+  'other user CANNOT modify another user''s training_session',
+  'completed',
+  (select status from training_sessions where id = '50000000-0000-4000-a000-00000000000a')
+);
+
+-- The write side: inserting a session against a dog you do not own must be refused by WITH CHECK.
+select tests_become('bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb');
+do $$
+begin
+  insert into training_sessions (id, dog_id, lesson_id, status, started_at)
+  select '50000000-0000-4000-a000-0000000000ff', 'd0000000-0000-4000-a000-00000000000a', id, 'in_progress', now()
+  from lessons where slug = 'name_game';
+exception when others then null;
+end $$;
+
+select tests_become_admin();
+select tests_record(
+  'other user CANNOT create a session against another user''s dog',
+  '0',
+  (select count(*)::text from training_sessions where id = '50000000-0000-4000-a000-0000000000ff')
+);
+
+-- Idempotency of the sync path: re-upserting the same event id must not create a second row.
+insert into session_events (id, session_id, type, occurred_at)
+values ('e0000000-0000-4000-a000-00000000000a', '50000000-0000-4000-a000-00000000000a', 'session_completed', now())
+on conflict (id) do nothing;
+
+select tests_record(
+  'session_events replay is idempotent by client-generated id',
+  '1',
+  (select count(*)::text from session_events where id = 'e0000000-0000-4000-a000-00000000000a')
+);
+
+-- Hand the suite back exactly as it was found: the checks that follow run as Alice, and leaving the admin role
+-- active would silently turn every later "must be rejected" assertion into a privileged success.
+select tests_become('aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa');
+
+
 -- Entitlements are server-authoritative: a client must not be able to grant itself premium.
 do $$
 declare v_err text := 'no error';
@@ -371,10 +461,19 @@ select tests_record(
   'aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa',
   (select owner_user_id::text from dogs where id = 'd0000000-0000-4000-a000-00000000000c')
 );
+-- Scoped to this suite's own fixtures rather than counting every dog in the project.
+-- A global count was a valid invariant when this suite was the only thing that created dogs; it is not any more,
+-- because the merge-guest endpoint suite creates real guests and real dogs in the same staging project. Counting
+-- globally made a passing security check depend on whatever else had been run that day.
 select tests_record(
   'merge is idempotent: dog count unchanged (no duplicates)',
   '3',
-  (select count(*)::text from dogs)
+  (select count(*)::text from dogs
+   where owner_user_id in (
+     'aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa',
+     'bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb',
+     'cccccccc-cccc-4ccc-cccc-cccccccccccc'
+   ))
 );
 
 -- === Constraints ==========================================================
@@ -488,6 +587,8 @@ select tests_record(
 -- === Cleanup ==============================================================
 delete from auth.users where id in ('aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa', 'bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb', 'cccccccc-cccc-4ccc-cccc-cccccccccccc');
 delete from subscriptions where store_transaction_id in ('dup-tx', 'tx-alice-retain');
+delete from session_events where id = 'e0000000-0000-4000-a000-00000000000a';
+delete from training_sessions where id in ('50000000-0000-4000-a000-00000000000a', '50000000-0000-4000-a000-0000000000ff');
 delete from purchase_events where store_event_id = 'evt-alice-1';
 
 drop function tests_record(text, text, text);

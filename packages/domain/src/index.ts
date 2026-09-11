@@ -20,3 +20,4 @@ export * from "./providers/storage-provider";
 
 export * from "./plan-engine/training-plan-generator";
 export * from "./session-engine/training-session";
+export * from "./onboarding/onboarding-flow";

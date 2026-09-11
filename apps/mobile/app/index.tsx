@@ -1,9 +1,14 @@
 import { View, Pressable } from "react-native";
+import { Redirect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { Text, Button, PressableScale, useTheme } from "@pawcue/ui";
 import { useClicker } from "../src/hooks/useClicker";
+import { useDogStore } from "../src/state/dog-store";
+import { useOnboardingStore } from "../src/state/onboarding-store";
+import { useBootstrapStore } from "../src/state/bootstrap-store";
+import { resolveStartupRoute } from "../src/state/startup-route";
 
 /** After this many intentional presses the app offers the first lesson (brief §4 Screen 1: "2–3 presses"). */
 const PRESSES_BEFORE_PROMPT = 3;
@@ -20,6 +25,30 @@ export default function ClickerScreen() {
   const router = useRouter();
   const { t } = useTranslation();
   const { click, pressCount } = useClicker();
+
+  const bootstrapStatus = useBootstrapStore((s) => s.status);
+  const dogId = useDogStore((s) => s.dogId);
+  const onboardingSkipped = useOnboardingStore((s) => s.skipped);
+  const draft = useOnboardingStore((s) => s.draft);
+
+  /**
+   * Startup routing lives here, on the entry screen, rather than in the root layout.
+   *
+   * A `<Redirect>` in the layout replaces the `<Stack>` it returns, which unmounts the navigator the redirect is
+   * trying to navigate with — the result is an infinite render loop ("Maximum update depth exceeded"), which is
+   * exactly what the first simulator run produced. Redirecting from a screen keeps the navigator mounted.
+   */
+  const startup = resolveStartupRoute({
+    hydrated: bootstrapStatus === "ready",
+    dogId,
+    onboardingSkipped,
+    draft,
+  });
+
+  if (startup.kind === "onboarding") return <Redirect href="/onboarding" />;
+  if (startup.kind === "onboarding_resume") {
+    return <Redirect href="/onboarding/steps" />;
+  }
 
   const showPrompt = pressCount >= PRESSES_BEFORE_PROMPT;
 

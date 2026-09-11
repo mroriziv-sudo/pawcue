@@ -2,6 +2,10 @@ import { create } from "zustand";
 import { isSupabaseConfigured } from "../lib/supabase";
 import { authProvider } from "../providers/SupabaseAuthProvider";
 import { useSettingsStore } from "./settings-store";
+import { useDogStore } from "./dog-store";
+import { useOnboardingStore } from "./onboarding-store";
+import { useTrainingLogStore } from "./training-log-store";
+import { syncPendingSessions } from "../sync/session-sync";
 
 /**
  * App bootstrap.
@@ -36,8 +40,19 @@ export const useBootstrapStore = create<BootstrapState>((set) => ({
   bootstrap: async () => {
     set({ status: "hydrating" });
 
-    // Local, fast, and required before first paint so the UI never flashes the wrong language or direction.
-    await useSettingsStore.getState().hydrate();
+    /**
+     * Local, fast, and required before first paint.
+     *
+     * All four reads are AsyncStorage, so they resolve in milliseconds and nothing here touches the network. That
+     * matters for more than language: startup routing is decided from dog and onboarding state, and hydrating
+     * them after the first paint is what would make a returning user see onboarding flash before their app.
+     */
+    await Promise.all([
+      useSettingsStore.getState().hydrate(),
+      useDogStore.getState().hydrate(),
+      useOnboardingStore.getState().hydrate(),
+      useTrainingLogStore.getState().hydrate(),
+    ]);
     set({ status: "ready" });
 
     if (!isSupabaseConfigured) {
@@ -60,6 +75,21 @@ export const useBootstrapStore = create<BootstrapState>((set) => ({
           userId: session.userId,
           sessionError: null,
         });
+
+        /**
+         * Opportunistic flush of anything trained offline.
+         *
+         * Not awaited and failure-tolerant: a sync that cannot reach the server leaves the queue exactly as it
+         * was, and the next launch retries. Every write is an upsert keyed by a client-generated id, so running
+         * this on every launch cannot duplicate anything.
+         */
+        void useDogStore
+          .getState()
+          .refresh()
+          .then(() => syncPendingSessions(useDogStore.getState().dogId))
+          .catch(() => {
+            /* Offline is the normal case here, not an error worth surfacing. */
+          });
       })
       .catch((error: unknown) => {
         set({
