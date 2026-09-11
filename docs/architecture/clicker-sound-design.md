@@ -3,8 +3,9 @@
 The clicker is the product's signature interaction and its acquisition wedge: it is the first thing the app does,
 before any account, permission or paywall. The sound is therefore a product surface, not an asset detail.
 
-**No final candidate has been chosen.** Three ship in the development build behind a developer-only selector so
-they can be compared on real hardware. `DEFAULT_CLICK_SOUND_ID` is a placeholder, not a recommendation.
+**Current preference: C — Crisp**, from the product owner's on-device listening test. It is not final: the
+comparison was made while the clicker was still dropping presses, so the selector stays in place until playback
+reliability is confirmed by hand. `DEFAULT_CLICK_SOUND_ID` reflects that preference, provisionally.
 
 ## Origin
 

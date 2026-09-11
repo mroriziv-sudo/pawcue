@@ -92,6 +92,11 @@ export function refreshClicker(): void {
   engine?.refresh();
 }
 
+/** Diagnostics seam, development only. Returns the live engine so a trace can compare belief against reality. */
+export function engineForDiagnostics(): ClickerEngine | null {
+  return engine;
+}
+
 /** Test seam. Not used by the app. */
 export function resetClickerForTests(): void {
   engine?.dispose();

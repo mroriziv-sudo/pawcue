@@ -262,3 +262,115 @@ describe("teardown", () => {
     expect(engine.voiceCountLoaded).toBe(CLICK_VOICE_COUNT);
   });
 });
+
+/**
+ * Coverage for the second silence defect: presses 1–6 sounded, presses 7–12 were silent, 13–18 sounded again.
+ *
+ * The pool holds six voices, so the failure appeared only once a press reused a voice — i.e. never within the
+ * first pool cycle. Every case here therefore spans several complete cycles. The earlier "pool exhaustion" test
+ * did not catch it because it pressed fast enough that voices were still in flight and went down the recycle
+ * path, which seeks before playing and so masks a stale ready-flag entirely.
+ */
+describe("repeated pool cycles", () => {
+  it.each([
+    ["7 presses — the first reuse of a voice", 7],
+    ["12 presses — two full cycles", 12],
+    ["20 presses", 20],
+    ["50 presses", 50],
+  ])("stays audible across %s", async (_label, count) => {
+    const engine = newEngine();
+
+    await pressRepeatedly(engine, count, 400);
+    await jest.advanceTimersByTimeAsync(SETTLE_MS);
+
+    expect(recorder.presses).toHaveLength(count);
+    expect(silentPresses(recorder)).toBe(0);
+    expect(recorder.silentAttempts).toBe(0);
+  });
+
+  it("stays audible at a brisk tap across many cycles", async () => {
+    const engine = newEngine();
+
+    await pressRepeatedly(engine, 40, 120);
+    await jest.advanceTimersByTimeAsync(SETTLE_MS);
+
+    expect(silentPresses(recorder)).toBe(0);
+  });
+
+  it("stays audible at varying intervals", async () => {
+    const engine = newEngine();
+
+    // Deliberately crosses the clip length in both directions, so voices are sometimes still sounding when
+    // reused and sometimes long finished.
+    for (const gap of [500, 60, 300, 25, 900, 140, 40, 700, 90, 200]) {
+      await pressRepeatedly(engine, 3, gap);
+    }
+    await jest.advanceTimersByTimeAsync(SETTLE_MS);
+
+    expect(recorder.presses).toHaveLength(30);
+    expect(silentPresses(recorder)).toBe(0);
+  });
+
+  it("never hands out a voice whose player is parked at the end of the clip", async () => {
+    const engine = newEngine();
+
+    for (let i = 0; i < 30; i += 1) {
+      // The invariant, checked before every press rather than inferred from the outcome.
+      for (const voice of engine.debugState) {
+        if (voice.armed) {
+          expect(voice.playing).toBe(false);
+          expect(voice.position).toBeLessThanOrEqual(0.001);
+        }
+      }
+      press(engine);
+      await jest.advanceTimersByTimeAsync(300);
+    }
+
+    expect(silentPresses(recorder)).toBe(0);
+  });
+});
+
+describe("re-arming versus playback", () => {
+  it("does not rewind a voice that is still sounding", async () => {
+    const engine = newEngine(1);
+
+    press(engine);
+    // Past the clip length but still inside the player's start latency, which is exactly when the previous
+    // implementation issued its seek — mid-attack, and fatally early.
+    await jest.advanceTimersByTimeAsync(CLIP_MS + 40);
+
+    expect(recorder.players[0]?.playing).toBe(true);
+    expect(recorder.seekCalls).toBe(0);
+    expect(engine.hasArmedVoice).toBe(false);
+  });
+
+  it("marks a voice ready only after its playback has actually finished", async () => {
+    const engine = newEngine(1);
+
+    press(engine);
+    await jest.advanceTimersByTimeAsync(CLIP_MS + 40);
+    expect(engine.hasArmedVoice).toBe(false);
+
+    await jest.advanceTimersByTimeAsync(SETTLE_MS);
+    expect(engine.hasArmedVoice).toBe(true);
+    expect(recorder.players[0]?.currentTime).toBe(0);
+  });
+
+  it("recovers a voice whose ready flag went stale", async () => {
+    const engine = newEngine(1);
+
+    press(engine);
+    await jest.advanceTimersByTimeAsync(SETTLE_MS);
+    expect(engine.hasArmedVoice).toBe(true);
+
+    // Forces the exact corrupt state the defect produced: flagged ready, actually parked at the end.
+    const player = recorder.players[0];
+    if (player) player.currentTime = player.duration;
+
+    press(engine);
+    await jest.advanceTimersByTimeAsync(SETTLE_MS);
+
+    // The press is served regardless, because readiness is decided by the player and not by the flag.
+    expect(silentPresses(recorder)).toBe(0);
+  });
+});

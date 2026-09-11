@@ -332,3 +332,98 @@ that the engine's state machine behaves, but it cannot establish real-world audi
 interruptions, Bluetooth/AirPods routing, and how each candidate sounds on a phone speaker outdoors.
 
 The final choice of clicker sound is therefore explicitly deferred to a listening test on a physical iPhone.
+
+## Second silence defect: silent after the first pool cycle
+
+Reported after the voice-pool engine shipped: the first six or so presses sounded, then everything went quiet,
+reproducibly, while the counter kept advancing.
+
+### Reproduced by measurement, not by assumption
+
+UI tap automation is unavailable, so the engine was instrumented (`src/audio/clicker-engine.ts` trace hook plus
+`src/audio/clicker-diagnostics.ts`) and driven through the **real** `expo-audio` players on the simulator,
+recording for every press what the engine believed against what the player reported. Enable with
+`EXPO_PUBLIC_CLICKER_DIAG=1`; results are written to AsyncStorage and can be read from the app container.
+
+The first sweep reproduced it exactly, and ruled out the obvious suspect: **every re-arm seek did work**
+(`rearm-done` reported `positionAfter: 0` every single time). The failure was block-structured — whole pool
+cycles alternating:
+
+```
+presses  1–6   position at play 0       audible
+presses  7–12  position at play 0.038   SILENT   ← 0.038s is the end of the 38ms clip
+presses 13–18  position at play 0       audible
+presses 19–20  position at play 0.038   SILENT
+```
+
+The ordered trace for one voice showed the mechanism:
+
+```
+2331ms  play         before=0
+2415ms  rearm-seek   before=0.0042   playing=TRUE    ← seek issued 84ms after play(), only 4.2ms into the clip
+2455ms  rearm-done   after=0         playing=TRUE    ← voice flagged ready, while still sounding
+2598ms  finished     after=0.038                     ← clip ends and parks at its end; re-arm is skipped
+                                                        because the voice is already flagged ready
+4883ms  play         before=0.038                    ← next press on this voice: silent
+```
+
+### Root cause
+
+**`play()` returns long before audio begins.** Measured on device, AVPlayer took roughly 80ms to actually start —
+`play()` at 2331ms, and at 2415ms the player had advanced just 4.2ms into the clip.
+
+The re-arm was scheduled from the moment `play()` was _called_, at clip length + 40ms. With a 38ms clip that is
+78ms, which lands in the middle of playback. That premature seek did two harmful things: it restarted the click
+during its own attack, and it set `armed = true` before the playback it was meant to follow had finished. When
+`didJustFinish` then arrived and parked the player at the end of the clip, `rearm()` returned early — the voice
+was already flagged armed. The voice was left believing it sat at zero while its player sat at the end, and every
+later press on it was silent until the next timer happened to reset it.
+
+No fixed margin can fix this: start latency is variable and unbounded.
+
+### Fix
+
+The player, not a flag, is now the source of truth.
+
+1. **A voice is never re-armed while it is still sounding.** If the re-arm check finds `playing` true it looks
+   again in 25ms (bounded at 40 attempts) instead of seeking. This also removes the audible mid-attack restart.
+2. **`didJustFinish` clears the ready flag before re-arming**, since the player has just parked itself at the end
+   and any prior belief is void.
+3. **The press path verifies readiness against the player** — not sounding, and within 1ms of the start. A voice
+   whose flag has drifted is corrected and skipped rather than played silently.
+
+No debounce, no throttle, no added delay on the press path, and the pool is still six voices.
+
+### Why the existing tests missed it
+
+The fake modelled playback as beginning the instant `play()` returned, so the re-arm timer always fired after
+`didJustFinish` and the ordering that causes the bug was unreachable. The fake now models the measured start
+latency.
+
+The "pool exhaustion" test did not catch it either, for a different reason: it pressed every 5ms, so voices were
+still in flight and every press went down the _recycle_ path, which seeks before playing — and that masks a stale
+ready flag completely. The bug only appears at ordinary tapping speed, on the fast path, on the second pool cycle.
+
+### Proof the fix holds
+
+Re-run on the simulator against the real players after the fix:
+
+| Scenario  | Presses | Interval | Silent |
+| --------- | ------- | -------- | ------ |
+| normal    | 20      | 400ms    | **0**  |
+| rapid     | 20      | 60ms     | **0**  |
+| sustained | 50      | 250ms    | **0**  |
+| varied    | 30      | 150ms    | **0**  |
+| **total** | **120** |          | **0**  |
+
+Every press had a position of 0 at the moment `play()` was called.
+
+In the suite, 12 tests fail against the old logic and pass against the fix — including 7, 12, 20 and 50 presses,
+several complete pool cycles, varying intervals, and an explicit invariant check that no voice parked at the end
+of its clip is ever handed to a press.
+
+### Still device-only
+
+Unchanged: haptics, real click-to-sound latency, silent-mode and audio-session behaviour, call/Siri interruptions,
+Bluetooth routing, and how each candidate sounds through a phone speaker. The simulator can prove the state
+machine is correct and that playback is genuinely under way; it cannot establish how it sounds.

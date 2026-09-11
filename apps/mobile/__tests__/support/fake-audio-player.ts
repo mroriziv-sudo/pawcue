@@ -8,13 +8,18 @@ import type { ClickVoicePlayer } from "../../src/audio/clicker-engine";
  * and modelled no playback position at all, so an implementation that played from the end of the clip looked
  * identical to one that played from the start.
  *
- * This fake models the three behaviours that actually matter:
+ * This fake models the four behaviours that actually matter:
  *
  *   1. `play()` is **synchronous**; `seekTo()` is **asynchronous**, resolving a few milliseconds later, exactly
  *      like the native round trip it wraps.
  *   2. A one-shot leaves the position parked at `duration` when it finishes.
  *   3. `play()` on a player already at its end produces **no sound**. This is the crux: it is not an error and
  *      not a thrown exception, it is simply silence, which is why nothing caught it.
+ *   4. **Playback does not begin when `play()` returns.** AVPlayer takes a variable moment to start — around
+ *      80ms measured on the iOS 26.5 simulator. So a clip is still sounding well after any margin based on clip
+ *      length alone would assume it had finished. Modelling instant playback is what let a second silence bug
+ *      through: the engine re-armed voices mid-clip, marked them ready, and was then overruled by the
+ *      end-of-playback event that parked them back at the end of the clip.
  *
  * ## Attributing sound to a press
  *
@@ -83,6 +88,14 @@ export function resetRecorder(recorder: AudioRecorder): void {
 /** Simulated native seek round trip. Non-zero on purpose: a zero-cost seek would hide the race being tested. */
 export const SEEK_LATENCY_MS = 5;
 
+/**
+ * Delay between `play()` returning and audio actually starting.
+ *
+ * Taken from a device measurement: `play()` at t=2331ms, and at t=2415ms the player had advanced only 4.2ms into
+ * the clip. Any engine that assumes playback begins immediately will act on a clip that is still sounding.
+ */
+export const PLAYBACK_START_LATENCY_MS = 80;
+
 export class FakeAudioPlayer implements ClickVoicePlayer {
   playing = false;
   currentTime = 0;
@@ -95,9 +108,12 @@ export class FakeAudioPlayer implements ClickVoicePlayer {
   }) => void)[] = [];
   private finishTimer: ReturnType<typeof setTimeout> | null = null;
 
+  private startTimer: ReturnType<typeof setTimeout> | null = null;
+
   constructor(
     private readonly recorder: AudioRecorder,
     clipMs = 45,
+    private readonly startLatencyMs = PLAYBACK_START_LATENCY_MS,
   ) {
     this.duration = clipMs / 1000;
     recorder.players.push(this);
@@ -147,6 +163,7 @@ export class FakeAudioPlayer implements ClickVoicePlayer {
   remove(): void {
     this.removed = true;
     if (this.finishTimer) clearTimeout(this.finishTimer);
+    if (this.startTimer) clearTimeout(this.startTimer);
     this.listeners = [];
   }
 
@@ -171,8 +188,21 @@ export class FakeAudioPlayer implements ClickVoicePlayer {
   private startPlayback(press: number): void {
     this.recorder.audibleStarts += 1;
     this.attribute(press);
+    // `playing` flips immediately, as the real player reports it, but the position does not begin advancing
+    // until the audio actually starts.
     this.playing = true;
-    const remainingMs = (this.duration - this.currentTime) * 1000;
+    const from = this.currentTime;
+    const remainingMs = (this.duration - from) * 1000;
+
+    if (this.startTimer) clearTimeout(this.startTimer);
+    this.startTimer = setTimeout(() => {
+      this.startTimer = null;
+      // Audio is now genuinely under way; the position leaves zero.
+      if (this.playing)
+        this.currentTime = Math.min(from + 0.004, this.duration);
+    }, this.startLatencyMs);
+
+    if (this.finishTimer) clearTimeout(this.finishTimer);
     this.finishTimer = setTimeout(() => {
       this.finishTimer = null;
       this.playing = false;
@@ -181,6 +211,6 @@ export class FakeAudioPlayer implements ClickVoicePlayer {
       for (const listener of this.listeners) {
         listener({ didJustFinish: true, isLoaded: true });
       }
-    }, remainingMs);
+    }, this.startLatencyMs + remainingMs);
   }
 }

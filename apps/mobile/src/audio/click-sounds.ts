@@ -44,10 +44,12 @@ export const CLICK_SOUNDS: readonly [ClickSound, ...ClickSound[]] = [
 ];
 
 /**
- * Placeholder default, pending the product owner's listening test. Chosen as the most neutral of the three so the
- * app is usable in the meantime — this is explicitly *not* a recommendation.
+ * The product owner's current preference from the on-device listening test: C — Crisp.
+ *
+ * Still provisional. The A/B/C selector stays in place until clicker reliability is confirmed by hand on the
+ * device, because a comparison made while presses were being dropped is not a fair one.
  */
-export const DEFAULT_CLICK_SOUND_ID: ClickSoundId = "classic";
+export const DEFAULT_CLICK_SOUND_ID: ClickSoundId = "crisp";
 
 export function isClickSoundId(value: string): value is ClickSoundId {
   return CLICK_SOUNDS.some((sound) => sound.id === value);

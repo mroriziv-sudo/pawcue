@@ -10,6 +10,10 @@ import { i18n } from "../src/i18n";
 import { useBootstrapStore } from "../src/state/bootstrap-store";
 import { useSettingsStore } from "../src/state/settings-store";
 import { isRtlLocale } from "@pawcue/i18n";
+import { installClickerDiagnostics } from "../src/audio/clicker-diagnostics";
+
+// Development-only. Exposes the clicker trace harness on `globalThis.__clickerDiag`; a no-op in release.
+installClickerDiagnostics();
 
 /**
  * `retry: false` and no refetch-on-focus: the product must behave predictably offline (brief §28), and silent
