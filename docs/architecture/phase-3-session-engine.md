@@ -111,7 +111,10 @@ test a sound.
 ## Deliberately deferred
 
 - Server sync of sessions and events (needs a dog profile).
-- `Progress`/`Streak` surfaces, course dashboards, plan integration — Phase 4.
+- `Progress`/`Streak` surfaces, course dashboards, plan integration. (This originally said "Phase 4"; that was a
+  forward guess and it was wrong. Phase 4 covered onboarding, the dog profile, the guest merge and sync, and its
+  brief explicitly left Progress/Streak alone. Visible lesson completion remains deferred — see
+  [phase-4-onboarding-and-sync.md](phase-4-onboarding-and-sync.md).)
 - Lesson media: `illustrationAssetKey` is carried through the model and the renderer reserves a slot, but no
   lesson has artwork yet, so nothing is fetched or bundled.
 - Full curriculum authoring. The seeded content exercises the engine; writing every lesson is content work.

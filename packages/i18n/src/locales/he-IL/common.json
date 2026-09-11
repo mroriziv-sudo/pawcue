@@ -327,7 +327,9 @@
       "he-IL": "עברית"
     },
     "diagnostics": "אבחון (לפיתוח בלבד)",
-    "sessionStatus": "הפעלה"
+    "sessionStatus": "הפעלה",
+    "dogSection": "הכלב שלכם",
+    "accountSection": "חשבון"
   },
   "permissions": {
     "notifications": {

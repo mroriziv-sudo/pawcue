@@ -6,6 +6,7 @@ import { Text, Card, Button, useTheme, useDirection } from "@pawcue/ui";
 import { SUPPORTED_LOCALES, type SupportedLocale } from "@pawcue/i18n";
 import { useSettingsStore } from "../src/state/settings-store";
 import { useBootstrapStore } from "../src/state/bootstrap-store";
+import { useDogStore } from "../src/state/dog-store";
 import { CLICK_SOUNDS } from "../src/audio/click-sounds";
 import { ensureClicker, playClick } from "../src/audio/clicker-audio";
 
@@ -34,6 +35,18 @@ export default function SettingsScreen() {
     setClickSoundId,
   } = useSettingsStore();
   const { sessionStatus, userId } = useBootstrapStore();
+  const dog = useDogStore((s) => s.dog);
+  const dogId = useDogStore((s) => s.dogId);
+
+  /**
+   * Named after the dog once it is loaded.
+   *
+   * "Edit profile" does not read as "my dog" to someone looking for their dog. The name is the thing they are
+   * actually looking for, so it is what the row says as soon as it is known.
+   */
+  const dogProfileLabel = dog?.name
+    ? t("dogProfile.title", { name: dog.name })
+    : t("dogProfile.edit");
 
   return (
     <ScrollView
@@ -57,6 +70,39 @@ export default function SettingsScreen() {
           </Text>
         </Card>
       ) : null}
+
+      {/*
+        The dog comes first, and each group carries its own heading.
+
+        These two cards were previously rendered between the language options and the Sound heading with no
+        heading of their own. A section heading governs everything until the next one, so they read as two more
+        language choices — which is why the profile was reported as unreachable even though the route existed.
+      */}
+      {dogId ? (
+        <View style={{ gap: theme.space[2] }}>
+          <Text variant="h3">{t("settings.dogSection")}</Text>
+          <Card
+            padding="compact"
+            onPress={() => router.push("/dog")}
+            accessibilityLabel={dogProfileLabel}
+            testID="open-dog-profile"
+          >
+            <Text variant="body">{dogProfileLabel}</Text>
+          </Card>
+        </View>
+      ) : null}
+
+      <View style={{ gap: theme.space[2] }}>
+        <Text variant="h3">{t("settings.accountSection")}</Text>
+        <Card
+          padding="compact"
+          onPress={() => router.push("/account")}
+          accessibilityLabel={t("account.title")}
+          testID="open-account"
+        >
+          <Text variant="body">{t("account.title")}</Text>
+        </Card>
+      </View>
 
       <View style={{ gap: theme.space[2] }}>
         <Text variant="h3">{t("settings.language")}</Text>
@@ -91,25 +137,6 @@ export default function SettingsScreen() {
             </Card>
           );
         })}
-      </View>
-
-      <View style={{ gap: theme.space[2] }}>
-        <Card
-          padding="compact"
-          onPress={() => router.push("/dog")}
-          accessibilityLabel={t("dogProfile.edit")}
-          testID="open-dog-profile"
-        >
-          <Text variant="body">{t("dogProfile.edit")}</Text>
-        </Card>
-        <Card
-          padding="compact"
-          onPress={() => router.push("/account")}
-          accessibilityLabel={t("account.title")}
-          testID="open-account"
-        >
-          <Text variant="body">{t("account.title")}</Text>
-        </Card>
       </View>
 
       <View style={{ gap: theme.space[2] }}>

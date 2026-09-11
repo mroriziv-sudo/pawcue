@@ -325,7 +325,9 @@
       "he-IL": "עברית (Hebrew)"
     },
     "diagnostics": "Diagnostics (development only)",
-    "sessionStatus": "Session"
+    "sessionStatus": "Session",
+    "dogSection": "Your dog",
+    "accountSection": "Account"
   },
   "permissions": {
     "notifications": {

@@ -106,3 +106,11 @@ double-invocation rewrites the same rows rather than creating new ones.
   training data and needs its own server-side transaction and its own tests.
 - **Rate limiting is per-instance and in-memory**, so it raises the cost of a brute-force loop rather than
   eliminating it. A durable limit needs shared state.
+- **Visible lesson completion.** Completing a lesson is recorded locally and synced, but nothing in the app shows
+  it. There is no lesson list and no progress surface in Phase 0–4; the only lesson screen is the overview for a
+  single lesson, and it has no completion-state contract to fix. The read surface exists and is deliberately
+  unrendered: `useTrainingLogStore.completionsFor(lessonSlug)` returns how many times a lesson has been finished.
+
+  Verified after a manual relaunch rather than assumed: one completed session held locally with
+  `syncedToServer: true`, the same session id present server-side under the correct `dog_id`, 13 events with 13
+  distinct ids, and exactly one dog row. Relaunch re-ran the opportunistic flush and correctly wrote nothing.
