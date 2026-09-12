@@ -139,7 +139,9 @@
     "unlockedTitle": "You're all set",
     "unlockedBody": "Premium is active. Every lesson is unlocked.",
     "linkUnavailable": "This link isn't set up in this build yet.",
-    "legalIntro": "Payment is charged to your store account."
+    "legalIntro": "Payment is charged to your store account.",
+    "freeTier_one": "You already have {{count}} free lesson. Premium adds the rest:",
+    "freeTier_other": "You already have {{count}} free lessons. Premium adds the rest:"
   },
   "goal": {
     "bitingNipping": {
@@ -366,7 +368,8 @@
       "durationLabel_one": "About {{count}} minute",
       "durationLabel_other": "About {{count}} minutes",
       "stepsLabel_one": "{{count}} step",
-      "stepsLabel_other": "{{count}} steps"
+      "stepsLabel_other": "{{count}} steps",
+      "prerequisiteTitle": "Not quite ready for this yet"
     },
     "equipment": {
       "treats": "Treats",
@@ -394,7 +397,9 @@
       "exitConfirmStay": "Keep training",
       "exitConfirmLeave": "Pause and exit",
       "repetitionsRemaining_one": "{{count}} more to go",
-      "repetitionsRemaining_other": "{{count}} more to go"
+      "repetitionsRemaining_other": "{{count}} more to go",
+      "pause": "Pause",
+      "pauseHint": "Your progress in this lesson is saved."
     },
     "troubleshooting": {
       "title": "Not working?",
@@ -410,7 +415,10 @@
       "repsSummary_one": "{{count}} successful rep logged",
       "repsSummary_other": "{{count}} successful reps logged",
       "clicksSummary_one": "{{count}} click",
-      "clicksSummary_other": "{{count}} clicks"
+      "clicksSummary_other": "{{count}} clicks",
+      "nextTitle": "Next in today's plan",
+      "nextAllDone": "That's today's plan finished.",
+      "backToToday": "Back to Today"
     },
     "errors": {
       "unavailableTitle": "Lesson unavailable",
@@ -485,7 +493,14 @@
     "allDoneTitle": "That's today's plan finished",
     "allDoneBody": "Nice work. Come back tomorrow for the next one.",
     "activityPremium": "Premium lesson",
-    "premiumCta": "Unlock with Premium"
+    "premiumCta": "Unlock with Premium",
+    "dailyGoal_one": "{{count}} minute of training a day",
+    "dailyGoal_other": "{{count}} minutes of training a day",
+    "resumeTitle": "Still in progress",
+    "resumeCta": "Pick up where you left off",
+    "clickerHint": "Mark the moment your dog gets it right.",
+    "dogUnavailableTitle": "Can't reach your dog's profile right now",
+    "dogUnavailableBody": "Your training is safe on this device. The plan comes back as soon as you're online."
   },
   "train": {
     "title": "Train",
@@ -508,7 +523,9 @@
     "sectionPremium": "Included with Premium",
     "premiumLocked": "Premium",
     "premiumHint": "Part of PawCue Premium.",
-    "premiumCta": "See Premium"
+    "premiumCta": "See Premium",
+    "sectionUnfinished": "Left unfinished",
+    "lastTrained": "Last trained {{when}}"
   },
   "progress": {
     "title": "Progress",
@@ -531,7 +548,11 @@
     "today": "today",
     "yesterday": "yesterday",
     "daysAgo_one": "{{count}} day ago",
-    "daysAgo_other": "{{count}} days ago"
+    "daysAgo_other": "{{count}} days ago",
+    "groupToday": "Today",
+    "groupYesterday": "Yesterday",
+    "sessionsThatDay_one": "{{count}} session",
+    "sessionsThatDay_other": "{{count}} sessions"
   },
   "dogTab": {
     "title": "{{name}}",
@@ -547,7 +568,10 @@
     "ageMonths_one": "{{count}} month old",
     "ageMonths_other": "{{count}} months old",
     "ageUnknown": "Age not set",
-    "dailyGoal": "{{count}} minutes a day"
+    "dailyGoal": "{{count}} minutes a day",
+    "manageTitle": "Manage",
+    "unavailableTitle": "Can't load the profile right now",
+    "unavailableBody": "We couldn't reach your dog's details. Nothing is lost — try again when you're back online."
   },
   "billing": {
     "sectionTitle": "Subscription",

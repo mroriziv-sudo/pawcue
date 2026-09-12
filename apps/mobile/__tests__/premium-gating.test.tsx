@@ -614,3 +614,60 @@ describe("Hebrew", () => {
     );
   });
 });
+
+describe("the lesson overview keeps the prerequisite lock separate from the premium one", () => {
+  /*
+    Found on the simulator: `stay` is premium *and* needs Sit. The overview only knew about the premium lock, so a
+    user who subscribed from this screen came back to a "Start training" button for a lesson the dog was not
+    ready for. Train already told them both; this screen now does too.
+  */
+  it("shows both locks to a free user, and no start control", async () => {
+    mockSearchParams = { slug: "stay" };
+    await renderScreen(<LessonOverviewScreen />);
+
+    await waitFor(() =>
+      expect(screen.getByTestId("lesson-prerequisite-locked")).toBeTruthy(),
+    );
+    expect(screen.getByTestId("lesson-premium-locked")).toBeTruthy();
+    expect(screen.queryByTestId("start-training")).toBeNull();
+  });
+
+  it("keeps the prerequisite lock after the premium one is paid away", async () => {
+    serverGrantsPremium();
+    mockSearchParams = { slug: "stay" };
+    await renderScreen(<LessonOverviewScreen />);
+
+    await waitFor(() =>
+      expect(screen.getByTestId("lesson-prerequisite-locked")).toBeTruthy(),
+    );
+    // Buying a subscription did not teach the dog to sit.
+    expect(screen.queryByTestId("lesson-premium-locked")).toBeNull();
+    expect(screen.queryByTestId("start-training")).toBeNull();
+  });
+
+  it("starts once both the prerequisite is trained and the user is entitled", async () => {
+    serverGrantsPremium();
+    useTrainingLogStore.setState({
+      completed: [record(LESSON.sit, "2026-09-10T10:00:00.000Z")],
+      hydrated: true,
+    });
+    mockSearchParams = { slug: "stay" };
+    await renderScreen(<LessonOverviewScreen />);
+
+    await waitFor(() =>
+      expect(screen.getByTestId("start-training")).toBeTruthy(),
+    );
+    expect(screen.queryByTestId("lesson-prerequisite-locked")).toBeNull();
+    expect(screen.queryByTestId("lesson-premium-locked")).toBeNull();
+  });
+
+  it("never shows a prerequisite lock on a lesson that has none", async () => {
+    mockSearchParams = { slug: "place" };
+    await renderScreen(<LessonOverviewScreen />);
+
+    await waitFor(() =>
+      expect(screen.getByTestId("lesson-premium-locked")).toBeTruthy(),
+    );
+    expect(screen.queryByTestId("lesson-prerequisite-locked")).toBeNull();
+  });
+});

@@ -32,8 +32,26 @@ export function Card({
   const cardStyle = resolveCardStyle({ emphasis, padding, elevated, theme });
 
   if (!onPress) {
+    /**
+     * A non-interactive card with a label is still an accessibility element.
+     *
+     * It previously accepted `accessibilityLabel` and silently dropped it on this branch, so every screen that
+     * described a read-only card — the Progress history rows, most obviously — was writing a name that never
+     * reached anyone. An unlabelled group is also read child by child, which is how "Sit" and "Completed" end up
+     * announced as two unrelated pieces of text.
+     *
+     * `accessible` is set only when there is a name to give. Grouping a card that has nothing to say would make
+     * its contents *less* navigable, not more.
+     */
     return (
-      <View style={[cardStyle, style]} testID={testID}>
+      <View
+        style={[cardStyle, style]}
+        {...(accessibilityLabel
+          ? { accessible: true, accessibilityLabel }
+          : {})}
+        {...(accessibilityHint ? { accessibilityHint } : {})}
+        testID={testID}
+      >
         {children}
       </View>
     );

@@ -143,7 +143,11 @@
     "unlockedTitle": "הכול מוכן",
     "unlockedBody": "הפרימיום פעיל. כל השיעורים פתוחים.",
     "linkUnavailable": "הקישור הזה עדיין לא מוגדר בגרסה הזו.",
-    "legalIntro": "החיוב מתבצע דרך חשבון החנות שלכם."
+    "legalIntro": "החיוב מתבצע דרך חשבון החנות שלכם.",
+    "freeTier_one": "כבר יש לכם שיעור חינמי אחד. הפרימיום מוסיף את השאר:",
+    "freeTier_two": "כבר יש לכם {{count}} שיעורים חינמיים. הפרימיום מוסיף את השאר:",
+    "freeTier_many": "כבר יש לכם {{count}} שיעורים חינמיים. הפרימיום מוסיף את השאר:",
+    "freeTier_other": "כבר יש לכם {{count}} שיעורים חינמיים. הפרימיום מוסיף את השאר:"
   },
   "goal": {
     "bitingNipping": {
@@ -372,7 +376,8 @@
       "durationLabel_other": "כ-{{count}} דקות",
       "stepsLabel_one": "שלב אחד",
       "stepsLabel_two": "שני שלבים",
-      "stepsLabel_other": "{{count}} שלבים"
+      "stepsLabel_other": "{{count}} שלבים",
+      "prerequisiteTitle": "עדיין לא מוכנים לזה"
     },
     "equipment": {
       "treats": "חטיפים",
@@ -401,7 +406,9 @@
       "exitConfirmLeave": "להשהות ולצאת",
       "repetitionsRemaining_one": "עוד חזרה אחת",
       "repetitionsRemaining_two": "עוד שתי חזרות",
-      "repetitionsRemaining_other": "עוד {{count}} חזרות"
+      "repetitionsRemaining_other": "עוד {{count}} חזרות",
+      "pause": "השהיה",
+      "pauseHint": "ההתקדמות שלכם בשיעור הזה נשמרת."
     },
     "troubleshooting": {
       "title": "לא עובד?",
@@ -419,7 +426,10 @@
       "repsSummary_other": "{{count}} חזרות מוצלחות נרשמו",
       "clicksSummary_one": "קליק אחד",
       "clicksSummary_two": "שני קליקים",
-      "clicksSummary_other": "{{count}} קליקים"
+      "clicksSummary_other": "{{count}} קליקים",
+      "nextTitle": "הבא בתוכנית של היום",
+      "nextAllDone": "סיימתם את התוכנית של היום.",
+      "backToToday": "חזרה להיום"
     },
     "errors": {
       "unavailableTitle": "השיעור לא זמין",
@@ -497,7 +507,16 @@
     "allDoneTitle": "סיימתם את התוכנית של היום",
     "allDoneBody": "כל הכבוד. חזרו מחר לתוכנית הבאה.",
     "activityPremium": "שיעור פרימיום",
-    "premiumCta": "פתחו עם פרימיום"
+    "premiumCta": "פתחו עם פרימיום",
+    "dailyGoal_one": "דקת אימון ביום",
+    "dailyGoal_two": "{{count}} דקות אימון ביום",
+    "dailyGoal_many": "{{count}} דקות אימון ביום",
+    "dailyGoal_other": "{{count}} דקות אימון ביום",
+    "resumeTitle": "עדיין באמצע",
+    "resumeCta": "המשיכו מהנקודה שעצרתם",
+    "clickerHint": "סמנו את הרגע שבו הכלב שלכם מצליח.",
+    "dogUnavailableTitle": "לא ניתן להגיע לפרופיל הכלב כרגע",
+    "dogUnavailableBody": "האימונים שלכם שמורים במכשיר הזה. התוכנית תחזור ברגע שתהיו מחוברים."
   },
   "train": {
     "title": "אימון",
@@ -521,7 +540,9 @@
     "sectionPremium": "כלול בפרימיום",
     "premiumLocked": "פרימיום",
     "premiumHint": "חלק מ‑PawCue פרימיום.",
-    "premiumCta": "לפרטי הפרימיום"
+    "premiumCta": "לפרטי הפרימיום",
+    "sectionUnfinished": "נותרו לא גמורים",
+    "lastTrained": "אומן לאחרונה {{when}}"
   },
   "progress": {
     "title": "התקדמות",
@@ -549,7 +570,13 @@
     "yesterday": "אתמול",
     "daysAgo_one": "לפני יום",
     "daysAgo_two": "לפני יומיים",
-    "daysAgo_other": "לפני {{count}} ימים"
+    "daysAgo_other": "לפני {{count}} ימים",
+    "groupToday": "היום",
+    "groupYesterday": "אתמול",
+    "sessionsThatDay_one": "אימון אחד",
+    "sessionsThatDay_two": "{{count}} אימונים",
+    "sessionsThatDay_many": "{{count}} אימונים",
+    "sessionsThatDay_other": "{{count}} אימונים"
   },
   "dogTab": {
     "title": "{{name}}",
@@ -567,7 +594,10 @@
     "ageMonths_two": "בן חודשיים",
     "ageMonths_other": "בן {{count}} חודשים",
     "ageUnknown": "הגיל לא הוגדר",
-    "dailyGoal": "{{count}} דקות ביום"
+    "dailyGoal": "{{count}} דקות ביום",
+    "manageTitle": "ניהול",
+    "unavailableTitle": "לא ניתן לטעון את הפרופיל כרגע",
+    "unavailableBody": "לא הצלחנו להגיע לפרטי הכלב. שום דבר לא אבד — נסו שוב כשתחזרו לרשת."
   },
   "billing": {
     "sectionTitle": "מנוי",

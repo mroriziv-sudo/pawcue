@@ -1,5 +1,4 @@
-import { ScrollView, Switch, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Switch, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { Text, Card, Button, useTheme, useDirection } from "@pawcue/ui";
@@ -11,6 +10,8 @@ import { CLICK_SOUNDS } from "../src/audio/click-sounds";
 import { ensureClicker, playClick } from "../src/audio/clicker-audio";
 import { BillingSection } from "../src/components/BillingSection";
 import { DevBillingPanel } from "../src/components/DevBillingPanel";
+import { ScreenScroll, Section } from "../src/components/ScreenScroll";
+import { SectionHeader } from "../src/components/SectionHeader";
 
 /**
  * Settings — Phase 2 covers language, sound and haptics.
@@ -21,7 +22,6 @@ import { DevBillingPanel } from "../src/components/DevBillingPanel";
 export default function SettingsScreen() {
   const theme = useTheme();
   const direction = useDirection();
-  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { t } = useTranslation();
 
@@ -51,16 +51,7 @@ export default function SettingsScreen() {
     : t("dogProfile.edit");
 
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: theme.colors.background.base }}
-      contentContainerStyle={{
-        paddingTop: insets.top + theme.space[4],
-        paddingBottom: insets.bottom + theme.space[8],
-        paddingHorizontal: theme.screenGutter,
-        gap: theme.space[4],
-      }}
-      testID="settings-screen"
-    >
+    <ScreenScroll testID="settings-screen">
       <Text variant="h1" testID="settings-title">
         {t("settings.title")}
       </Text>
@@ -81,8 +72,8 @@ export default function SettingsScreen() {
         language choices — which is why the profile was reported as unreachable even though the route existed.
       */}
       {dogId ? (
-        <View style={{ gap: theme.space[2] }}>
-          <Text variant="h3">{t("settings.dogSection")}</Text>
+        <Section>
+          <SectionHeader title={t("settings.dogSection")} />
           <Card
             padding="compact"
             onPress={() => router.push("/dog-profile")}
@@ -91,11 +82,11 @@ export default function SettingsScreen() {
           >
             <Text variant="body">{dogProfileLabel}</Text>
           </Card>
-        </View>
+        </Section>
       ) : null}
 
-      <View style={{ gap: theme.space[2] }}>
-        <Text variant="h3">{t("settings.accountSection")}</Text>
+      <Section>
+        <SectionHeader title={t("settings.accountSection")} />
         <Card
           padding="compact"
           onPress={() => router.push("/account")}
@@ -104,12 +95,12 @@ export default function SettingsScreen() {
         >
           <Text variant="body">{t("account.title")}</Text>
         </Card>
-      </View>
+      </Section>
 
       <BillingSection />
 
-      <View style={{ gap: theme.space[2] }}>
-        <Text variant="h3">{t("settings.language")}</Text>
+      <Section>
+        <SectionHeader title={t("settings.language")} />
         {SUPPORTED_LOCALES.map((locale: SupportedLocale) => {
           const selected = locale === language;
           return (
@@ -141,10 +132,10 @@ export default function SettingsScreen() {
             </Card>
           );
         })}
-      </View>
+      </Section>
 
-      <View style={{ gap: theme.space[2] }}>
-        <Text variant="h3">{t("settings.sound")}</Text>
+      <Section>
+        <SectionHeader title={t("settings.sound")} />
         <Card padding="compact">
           <View
             style={{
@@ -179,7 +170,7 @@ export default function SettingsScreen() {
             />
           </View>
         </Card>
-      </View>
+      </Section>
 
       {/*
         Development-only clicker sound selector, for the QA listening test.
@@ -280,6 +271,6 @@ export default function SettingsScreen() {
         onPress={() => router.back()}
         testID="close-settings"
       />
-    </ScrollView>
+    </ScreenScroll>
   );
 }

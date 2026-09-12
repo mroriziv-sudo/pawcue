@@ -1,5 +1,4 @@
-import { ActivityIndicator, ScrollView, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { ActivityIndicator, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { Text, Card, useTheme } from "@pawcue/ui";
@@ -11,20 +10,22 @@ import {
 import { useLessonStatuses } from "../../src/lessons/useCatalogue";
 import { useDogStore } from "../../src/state/dog-store";
 import { useEntitlementStore } from "../../src/state/entitlement-store";
-import { EmptyState } from "./index";
+import { EmptyState } from "../../src/components/EmptyState";
+import { ScreenScroll, Section } from "../../src/components/ScreenScroll";
+import { SectionHeader } from "../../src/components/SectionHeader";
+import { StatusPill } from "../../src/components/StatusPill";
 
 /**
  * Train — the lesson catalogue.
  *
  * Phase 0 defines no courses or categories, so this does not invent them. The honest structure the data does
- * support is by state: what can be trained now, what has been learned, and what is still locked. That ordering is
- * also the useful one — the first section is the only one most people need.
+ * support is by state: what was left unfinished, what can be trained now, what has been learned, what is locked
+ * behind a prerequisite — and, separately, what a subscription would unlock.
  *
  * Every state is derived from real history by `deriveLessonStatuses`; nothing here is stored or counted twice.
  */
 export default function TrainScreen() {
   const theme = useTheme();
-  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { t } = useTranslation();
 
@@ -44,21 +45,29 @@ export default function TrainScreen() {
   }));
 
   /**
-   * Premium content gets its own section rather than being mixed into "Coming up".
+   * Unfinished work leads, ahead of everything never started.
    *
-   * Sorting by state is Phase 6's structure and it still holds — but "you have not trained the prerequisite yet"
-   * and "this is part of the subscription" are not the same state, and a user who reads them as one will try to
-   * train their way to content that training cannot reach.
+   * It used to sit mixed into "Ready to train", indistinguishable from a lesson nobody had opened. A lesson
+   * someone began and stopped is a different thing to come back to — it is the planner's highest-priority rule for
+   * exactly that reason, and the catalogue should agree with the plan.
+   *
+   * Premium content keeps its own section rather than being folded into "Coming up": "you have not trained the
+   * prerequisite yet" and "this is part of the subscription" are not the same state, and a user who reads them as
+   * one will try to train their way to content that training cannot reach.
    */
   const sections = [
+    {
+      key: "unfinished",
+      titleKey: "train.sectionUnfinished",
+      items: gated.filter(
+        (item) => item.gate.canStart && item.detail.status === "unfinished",
+      ),
+    },
     {
       key: "ready",
       titleKey: "train.sectionReady",
       items: gated.filter(
-        (item) =>
-          item.gate.canStart &&
-          (item.detail.status === "unfinished" ||
-            item.detail.status === "not_started"),
+        (item) => item.gate.canStart && item.detail.status === "not_started",
       ),
     },
     {
@@ -84,16 +93,7 @@ export default function TrainScreen() {
   ].filter((section) => section.items.length > 0);
 
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: theme.colors.background.base }}
-      contentContainerStyle={{
-        paddingTop: insets.top + theme.space[5],
-        paddingBottom: theme.space[8],
-        paddingHorizontal: theme.screenGutter,
-        gap: theme.space[5],
-      }}
-      testID="train-screen"
-    >
+    <ScreenScroll testID="train-screen">
       <View style={{ gap: theme.space[1] }}>
         <Text variant="h1">{t("train.title")}</Text>
         <Text variant="small" tone="muted">
@@ -116,10 +116,13 @@ export default function TrainScreen() {
         />
       ) : (
         sections.map((section) => (
-          <View key={section.key} style={{ gap: theme.space[2] }}>
-            <Text variant="h3" testID={`train-section-${section.key}`}>
-              {t(section.titleKey)}
-            </Text>
+          <Section key={section.key}>
+            {/* The count rides the heading rather than being repeated on every card. */}
+            <SectionHeader
+              title={t(section.titleKey)}
+              trailing={String(section.items.length)}
+              testID={`train-section-${section.key}`}
+            />
             {section.items.map(({ detail, gate }) => (
               <LessonCard
                 key={detail.lesson.id}
@@ -143,10 +146,10 @@ export default function TrainScreen() {
                     : {})}
               />
             ))}
-          </View>
+          </Section>
         ))
       )}
-    </ScrollView>
+    </ScreenScroll>
   );
 }
 
@@ -174,17 +177,21 @@ function LessonCard({
   const theme = useTheme();
   const { t } = useTranslation();
 
-  const statusTone =
-    detail.status === "completed"
-      ? "success"
-      : detail.status === "unfinished"
-        ? "brand"
-        : "muted";
-
   // What the badge says: the premium lock is the headline when it applies, since it is the one with a way out.
-  const badgeKey = gate.premiumLocked
-    ? "train.premiumLocked"
-    : `train.status.${detail.status}`;
+  const badge: {
+    label: string;
+    tone: "success" | "brand" | "muted";
+    glyph?: string;
+  } = gate.premiumLocked
+    ? { label: t("train.premiumLocked"), tone: "brand" }
+    : detail.status === "completed"
+      ? { label: t("train.status.completed"), tone: "success", glyph: "✓" }
+      : detail.status === "unfinished"
+        ? { label: t("train.status.unfinished"), tone: "brand" }
+        : {
+            label: t(`train.status.${detail.status}`),
+            tone: "muted",
+          };
 
   const accessibleState = [
     gate.premiumLocked ? t("train.premiumLocked") : null,
@@ -206,7 +213,7 @@ function LessonCard({
       testID={`lesson-card-${detail.lesson.slug}`}
       {...(gate.canStart ? {} : { style: { opacity: 0.6 } })}
     >
-      <View style={{ gap: theme.space[1] }}>
+      <View style={{ gap: theme.space[2] }}>
         <View
           style={{
             flexDirection: "row",
@@ -218,34 +225,46 @@ function LessonCard({
           <Text variant="bodyStrong" style={{ flex: 1 }}>
             {t(detail.lesson.titleKey)}
           </Text>
-          <Text
-            variant="caption"
-            tone={gate.premiumLocked ? "brand" : statusTone}
+          <StatusPill
+            label={badge.label}
+            tone={badge.tone}
+            {...(badge.glyph ? { glyph: badge.glyph } : {})}
             testID={`lesson-status-${detail.lesson.slug}`}
-          >
-            {t(badgeKey)}
-          </Text>
+          />
         </View>
 
         <Text variant="small" tone="muted" numberOfLines={2}>
           {t(detail.lesson.goalKey)}
         </Text>
 
-        <Text variant="caption" tone="muted">
-          {t("session.overview.durationLabel", {
-            count: detail.lesson.estimatedMinutes,
-          })}
-        </Text>
-
-        {detail.status === "completed" && detail.completions > 0 ? (
-          <Text
-            variant="caption"
-            tone="muted"
-            testID={`lesson-completions-${detail.lesson.slug}`}
-          >
-            {t("train.completedCount", { count: detail.completions })}
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: theme.space[3],
+            flexWrap: "wrap",
+          }}
+        >
+          <Text variant="caption" tone="muted">
+            {t("session.overview.durationLabel", {
+              count: detail.lesson.estimatedMinutes,
+            })}
           </Text>
-        ) : null}
+
+          {/*
+            Completion acknowledged in the catalogue, not only on the completion screen. Counted from real
+            session records, which is also why it can say "4 times" rather than just "done".
+          */}
+          {detail.status === "completed" && detail.completions > 0 ? (
+            <Text
+              variant="caption"
+              tone="muted"
+              testID={`lesson-completions-${detail.lesson.slug}`}
+            >
+              {t("train.completedCount", { count: detail.completions })}
+            </Text>
+          ) : null}
+        </View>
 
         {/*
           Each lock explains itself in its own words. Shown together when both apply, so the user learns that

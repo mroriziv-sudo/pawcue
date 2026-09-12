@@ -45,6 +45,15 @@ jest.mock("../src/lessons/lesson-repository", () => ({
 }));
 
 import { loadLessonContent } from "../src/lessons/lesson-repository";
+import { usePlanStore } from "../src/state/plan-store";
+import { resetCatalogueCache } from "../src/lessons/useCatalogue";
+
+const mockLoadCatalogue = jest.fn();
+jest.mock("../src/plans/plan-repository", () => ({
+  loadPlanningCatalogue: () => mockLoadCatalogue(),
+  persistGeneratedPlan: jest.fn(),
+  fetchActivePlan: jest.fn(),
+}));
 
 const mockedLoad = loadLessonContent as jest.MockedFunction<
   typeof loadLessonContent
@@ -87,6 +96,10 @@ async function advanceToRepetitionStep() {
 beforeEach(async () => {
   jest.clearAllMocks();
   await AsyncStorage.clear();
+  resetCatalogueCache();
+  usePlanStore.getState().clear();
+  // No catalogue by default: the completion screen must cope with that, and most tests here never need one.
+  mockLoadCatalogue.mockRejectedValue(new Error("no catalogue"));
   useSessionStore.setState({ session: null, lastFailure: null });
   useTrainingLogStore.setState({ completed: [], hydrated: false });
   await i18n.changeLanguage("en-US");
@@ -491,5 +504,158 @@ describe("accessibility", () => {
     await waitFor(() =>
       expect(screen.getByTestId("session-complete")).toBeTruthy(),
     );
+  });
+});
+
+/**
+ * The completion screen answers "what happens next" from the persisted plan.
+ *
+ * The fixture lesson is Name Game; the plan below also holds Sit. After finishing Name Game the honest next thing
+ * is Sit, and when nothing is left the screen must say the day is done rather than offer nothing.
+ */
+describe("completion — what happens next", () => {
+  const SIT_ID = "00000000-0000-4000-a000-0000000000b1";
+  const SIT_SKILL = "00000000-0000-4000-a000-0000000000b2";
+  const TS = "2026-09-11T10:00:00.000Z";
+  const today = () => new Date().toISOString().slice(0, 10);
+
+  function catalogueWithSit() {
+    const nameGame = makeLessonFixture().lesson;
+    return {
+      skills: [
+        {
+          id: nameGame.skillId,
+          slug: "name_response",
+          titleKey: "skill.nameResponse.title",
+          prerequisiteSkillIds: [],
+          difficulty: 1,
+          createdAt: TS,
+          updatedAt: TS,
+        },
+        {
+          id: SIT_SKILL,
+          slug: "sit",
+          titleKey: "skill.sit.title",
+          prerequisiteSkillIds: [],
+          difficulty: 1,
+          createdAt: TS,
+          updatedAt: TS,
+        },
+      ],
+      lessons: [
+        nameGame,
+        {
+          ...nameGame,
+          id: SIT_ID,
+          slug: "sit",
+          skillId: SIT_SKILL,
+          titleKey: "lesson.sit.title",
+          goalKey: "lesson.sit.goal",
+        },
+      ],
+    };
+  }
+
+  function planWith(lessonIds: string[]) {
+    return {
+      id: "plan-1",
+      dogId: "dog-1",
+      engineVersion: "1.0.0",
+      status: "active",
+      dailyMinutes: 10,
+      startDate: today(),
+      lengthDays: 1,
+      days: [
+        {
+          dayIndex: 0,
+          date: today(),
+          totalMinutes: 3 * lessonIds.length,
+          activities: lessonIds.map((lessonId, sortOrder) => ({
+            lessonId,
+            sortOrder,
+            estimatedMinutes: 3,
+            isReview: false,
+            selectionReason: "new_skill" as const,
+          })),
+        },
+      ],
+    };
+  }
+
+  async function finishTheLesson() {
+    await renderTraining();
+    await advanceToRepetitionStep();
+    for (let i = 0; i < 5; i += 1) {
+      await fireEvent.press(screen.getByTestId("add-repetition"));
+    }
+    await fireEvent.press(screen.getByTestId("advance-step"));
+    await waitFor(() =>
+      expect(screen.getByTestId("session-complete")).toBeTruthy(),
+    );
+  }
+
+  it("names the next activity in today's plan", async () => {
+    mockLoadCatalogue.mockResolvedValue(catalogueWithSit());
+    usePlanStore.setState({
+      plan: planWith([makeLessonFixture().lesson.id, SIT_ID]),
+      status: "ready",
+    });
+
+    await finishTheLesson();
+
+    await waitFor(() =>
+      expect(screen.getByTestId("completion-next")).toBeTruthy(),
+    );
+    expect(screen.getByTestId("completion-next")).toHaveTextContent(/Sit/);
+    expect(screen.queryByTestId("completion-all-done")).toBeNull();
+  });
+
+  it("opens that lesson when chosen, leaving the finished session behind", async () => {
+    mockLoadCatalogue.mockResolvedValue(catalogueWithSit());
+    usePlanStore.setState({
+      plan: planWith([makeLessonFixture().lesson.id, SIT_ID]),
+      status: "ready",
+    });
+    await finishTheLesson();
+    await waitFor(() =>
+      expect(screen.getByTestId("completion-next")).toBeTruthy(),
+    );
+
+    await fireEvent.press(screen.getByTestId("completion-next"));
+
+    await waitFor(() =>
+      expect(mockReplace).toHaveBeenCalledWith("/lesson/sit"),
+    );
+    expect(useSessionStore.getState().session).toBeNull();
+  });
+
+  it("says the day is finished when the plan holds nothing else", async () => {
+    mockLoadCatalogue.mockResolvedValue(catalogueWithSit());
+    usePlanStore.setState({
+      plan: planWith([makeLessonFixture().lesson.id]),
+      status: "ready",
+    });
+
+    await finishTheLesson();
+
+    await waitFor(() =>
+      expect(screen.getByTestId("completion-all-done")).toBeTruthy(),
+    );
+    expect(screen.queryByTestId("completion-next")).toBeNull();
+  });
+
+  it("still completes cleanly with no plan and no catalogue at all", async () => {
+    await finishTheLesson();
+
+    expect(screen.getByTestId("completion-all-done")).toBeTruthy();
+    expect(screen.getByTestId("completion-done")).toBeTruthy();
+  });
+
+  it("returns to Today from the primary action", async () => {
+    await finishTheLesson();
+
+    await fireEvent.press(screen.getByTestId("completion-done"));
+
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/"));
   });
 });

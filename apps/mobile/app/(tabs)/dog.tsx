@@ -1,31 +1,39 @@
 import { useEffect } from "react";
-import { ScrollView, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { View } from "react-native";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { Text, Card, useTheme } from "@pawcue/ui";
+import { Text, Card, useTheme, useDirection } from "@pawcue/ui";
 import { useDogStore } from "../../src/state/dog-store";
+import { useBootstrapStore } from "../../src/state/bootstrap-store";
 import { useLessonStatuses } from "../../src/lessons/useCatalogue";
-import { EmptyState } from "./index";
+import { EmptyState } from "../../src/components/EmptyState";
+import { ScreenScroll, Section } from "../../src/components/ScreenScroll";
+import { SectionHeader } from "../../src/components/SectionHeader";
 
 /**
  * Dog — managing this dog's PawCue training, not a settings page.
  *
- * The training summary leads, because that is what the user is here to see about their dog. Profile fields and
- * the routes out to editing, the account and settings sit underneath.
+ * The training summary leads, because that is what the user is here to see about their dog. The profile it was
+ * built from sits underneath, and the routes out — edit, account, settings — are grouped separately under their
+ * own heading.
+ *
+ * That separation is the Phase 4 lesson applied again: a section heading governs everything until the next one,
+ * so three navigation cards sitting under "Profile" read as three more profile fields. They are not; they are
+ * ways to leave this screen, and they now say so.
  *
  * Scope is exactly what Phase 4 collects. No weight, no vet records, no photos — a photo alone would mean a
  * camera or library permission, and none of it is represented in any contract.
  */
 export default function DogScreen() {
   const theme = useTheme();
-  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { t } = useTranslation();
 
   const dog = useDogStore((s) => s.dog);
   const dogId = useDogStore((s) => s.dogId);
+  const dogError = useDogStore((s) => s.error);
   const refresh = useDogStore((s) => s.refresh);
+  const sessionStatus = useBootstrapStore((s) => s.sessionStatus);
   const { summary } = useLessonStatuses();
 
   useEffect(() => {
@@ -47,15 +55,7 @@ export default function DogScreen() {
 
   if (!dogId) {
     return (
-      <ScrollView
-        style={{ flex: 1, backgroundColor: theme.colors.background.base }}
-        contentContainerStyle={{
-          paddingTop: insets.top + theme.space[5],
-          paddingHorizontal: theme.screenGutter,
-          gap: theme.space[4],
-        }}
-        testID="dog-screen"
-      >
+      <ScreenScroll testID="dog-screen">
         <Text variant="h1">{t("common.nav.dog")}</Text>
         <EmptyState
           title={t("dogTab.noDogTitle")}
@@ -64,21 +64,33 @@ export default function DogScreen() {
           onPress={() => router.push("/onboarding")}
           testID="dog-empty"
         />
-      </ScrollView>
+      </ScreenScroll>
+    );
+  }
+
+  /**
+   * The row could not be read.
+   *
+   * Rendering the profile with every field reading "Not set" would tell the user they never filled it in, which
+   * is a different fact from "we could not reach it". Saying which one it is costs one card.
+   */
+  if (!dog && (dogError !== null || sessionStatus === "unavailable")) {
+    return (
+      <ScreenScroll testID="dog-screen">
+        <Text variant="h1">{t("common.nav.dog")}</Text>
+        <EmptyState
+          title={t("dogTab.unavailableTitle")}
+          body={t("dogTab.unavailableBody")}
+          ctaLabel={t("common.cta.tryAgain")}
+          onPress={() => void refresh()}
+          testID="dog-unavailable"
+        />
+      </ScreenScroll>
     );
   }
 
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: theme.colors.background.base }}
-      contentContainerStyle={{
-        paddingTop: insets.top + theme.space[5],
-        paddingBottom: theme.space[8],
-        paddingHorizontal: theme.screenGutter,
-        gap: theme.space[5],
-      }}
-      testID="dog-screen"
-    >
+    <ScreenScroll testID="dog-screen">
       <View style={{ gap: theme.space[1] }}>
         <Text variant="h1" testID="dog-name">
           {dog ? t("dogTab.title", { name: dog.name }) : t("common.nav.dog")}
@@ -88,11 +100,21 @@ export default function DogScreen() {
         </Text>
       </View>
 
-      <View style={{ gap: theme.space[2] }}>
-        <Text variant="h3">{t("dogTab.trainingTitle")}</Text>
+      <Section>
+        <SectionHeader
+          title={t("dogTab.trainingTitle")}
+          {...(dog?.dailyTrainingMinutes
+            ? {
+                trailing: t("dogTab.dailyGoal", {
+                  count: dog.dailyTrainingMinutes,
+                }),
+              }
+            : {})}
+          testID="dog-daily-goal"
+        />
         <Card padding="comfortable" testID="dog-training-summary">
           <View style={{ gap: theme.space[2] }}>
-            <Text variant="body" testID="dog-sessions">
+            <Text variant="h3" testID="dog-sessions">
               {t("progress.sessionsCompleted", {
                 count: summary?.sessionsCompleted ?? 0,
               })}
@@ -102,17 +124,12 @@ export default function DogScreen() {
                 count: summary?.lessonsCompleted ?? 0,
               })}
             </Text>
-            {dog?.dailyTrainingMinutes ? (
-              <Text variant="caption" tone="muted" testID="dog-daily-goal">
-                {t("dogTab.dailyGoal", { count: dog.dailyTrainingMinutes })}
-              </Text>
-            ) : null}
           </View>
         </Card>
-      </View>
+      </Section>
 
-      <View style={{ gap: theme.space[2] }}>
-        <Text variant="h3">{t("dogTab.profileTitle")}</Text>
+      <Section>
+        <SectionHeader title={t("dogTab.profileTitle")} />
         <Row
           label={t("dogProfile.fields.breed")}
           value={dog?.breed ?? t("dogProfile.notSet")}
@@ -123,36 +140,37 @@ export default function DogScreen() {
           value={dog ? t(`onboarding.sex.${dog.sex}`) : t("dogProfile.notSet")}
           testID="dog-sex"
         />
+      </Section>
 
-        <Card
-          padding="compact"
+      {/*
+        Navigation, under its own heading.
+
+        These three used to sit directly beneath the profile fields with no boundary between them, which made
+        "Edit profile" look like another read-only row and buried Account and Settings entirely.
+      */}
+      <Section>
+        <SectionHeader title={t("dogTab.manageTitle")} />
+        <NavRow
+          label={t("dogTab.editProfile")}
           onPress={() => router.push("/dog-profile")}
-          accessibilityLabel={t("dogTab.editProfile")}
           testID="dog-edit"
-        >
-          <Text variant="body">{t("dogTab.editProfile")}</Text>
-        </Card>
-        <Card
-          padding="compact"
+        />
+        <NavRow
+          label={t("dogTab.account")}
           onPress={() => router.push("/account")}
-          accessibilityLabel={t("dogTab.account")}
           testID="dog-account"
-        >
-          <Text variant="body">{t("dogTab.account")}</Text>
-        </Card>
-        <Card
-          padding="compact"
+        />
+        <NavRow
+          label={t("dogTab.settings")}
           onPress={() => router.push("/settings")}
-          accessibilityLabel={t("dogTab.settings")}
           testID="dog-settings"
-        >
-          <Text variant="body">{t("dogTab.settings")}</Text>
-        </Card>
-      </View>
-    </ScrollView>
+        />
+      </Section>
+    </ScreenScroll>
   );
 }
 
+/** A read-only profile fact: label on the leading edge, value on the trailing one. */
 function Row({
   label,
   value,
@@ -170,14 +188,65 @@ function Row({
           flexDirection: "row",
           alignItems: "center",
           justifyContent: "space-between",
-          gap: theme.space[2],
+          gap: theme.space[3],
         }}
       >
         <Text variant="small" tone="muted">
           {label}
         </Text>
-        <Text variant="body" testID={testID}>
+        <Text variant="body" style={{ flex: 1 }} align="end" testID={testID}>
           {value}
+        </Text>
+      </View>
+    </Card>
+  );
+}
+
+/**
+ * A row that goes somewhere.
+ *
+ * The chevron is what distinguishes it from the read-only rows above at a glance. It is chosen by direction
+ * rather than mirrored by the layout: a glyph is a character, and no amount of `flexDirection` turns `›` around.
+ * "Forward" has to follow the reading direction or it points back the way the user came.
+ *
+ * Hidden from assistive technology, which already hears the button role from the card.
+ */
+function NavRow({
+  label,
+  onPress,
+  testID,
+}: {
+  label: string;
+  onPress: () => void;
+  testID: string;
+}) {
+  const theme = useTheme();
+  const forward = useDirection() === "rtl" ? "‹" : "›";
+  return (
+    <Card
+      padding="compact"
+      onPress={onPress}
+      accessibilityLabel={label}
+      testID={testID}
+    >
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: theme.space[3],
+        }}
+      >
+        <Text variant="body" style={{ flex: 1 }}>
+          {label}
+        </Text>
+        <Text
+          variant="body"
+          tone="muted"
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+        >
+          {forward}
         </Text>
       </View>
     </Card>

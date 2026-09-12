@@ -48,6 +48,15 @@ export interface SessionStoreState {
   lastFailure: TransitionFailure | null;
   hydrated: boolean;
 
+  /**
+   * Reads the persisted session into memory at boot, without a lesson to resume it into.
+   *
+   * Exists so surfaces that are not the training screen — Today's "pick up where you left off" — can see that
+   * unfinished work exists. Before this, the persisted session was only ever read by `resumeOrBegin`, so after a
+   * cold launch the store was empty until a session screen mounted, and the resume card had nothing to show
+   * precisely when it mattered most.
+   */
+  hydrate: () => Promise<void>;
   begin: (content: LessonContent) => void;
   /** Resumes a persisted session for this lesson if one is still valid; otherwise starts fresh. */
   resumeOrBegin: (content: LessonContent) => Promise<void>;
@@ -134,6 +143,26 @@ export const useSessionStore = create<SessionStoreState>((set, get) => {
       const session = startSession(content, engineContext);
       set({ session, lastFailure: null, hydrated: true });
       void persist(session);
+    },
+
+    hydrate: async () => {
+      try {
+        const raw = await appStorage.getItem(STORAGE_KEYS.activeSession);
+        const stored: unknown = raw ? JSON.parse(raw) : null;
+        const parsed = trainingSessionStateSchema.safeParse(stored);
+        /*
+          Only an in-progress session is surfaced. A completed or abandoned one already has its record in the
+          training log; loading it here would make Today offer to "pick up" something that is finished. It is not
+          discarded either — `resumeOrBegin` still owns that decision, with the lesson content in hand.
+        */
+        if (parsed.success && parsed.data.status === "in_progress") {
+          set({ session: parsed.data, lastFailure: null, hydrated: true });
+          return;
+        }
+      } catch {
+        // Unreadable persisted state is treated exactly like none at all, as `resumeOrBegin` does.
+      }
+      set({ hydrated: true });
     },
 
     resumeOrBegin: async (content) => {

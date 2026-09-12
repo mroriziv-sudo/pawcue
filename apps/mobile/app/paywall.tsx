@@ -77,10 +77,16 @@ export default function PaywallScreen() {
     };
   }, [resetPurchase]);
 
-  /** A real number from real content: how many lessons this user cannot reach today. */
+  /** Real numbers from real content: what premium unlocks, and what the free tier already covers. */
   const lockedLessonCount = useMemo(() => {
     if (!catalogue) return 0;
     return catalogue.lessons.filter(isPremiumLesson).length;
+  }, [catalogue]);
+
+  const freeLessonCount = useMemo(() => {
+    if (!catalogue) return 0;
+    return catalogue.lessons.filter((lesson) => !isPremiumLesson(lesson))
+      .length;
   }, [catalogue]);
 
   const close = () => router.back();
@@ -122,7 +128,13 @@ export default function PaywallScreen() {
           onPress={close}
           accessibilityRole="button"
           accessibilityLabel={t("common.cta.close")}
-          hitSlop={16}
+          hitSlop={theme.space[4]}
+          // Sized rather than hit-slopped: a caption-height label plus slop is still under 44pt on its own.
+          style={{
+            minHeight: theme.minTouchTarget,
+            minWidth: theme.minTouchTarget,
+            justifyContent: "center",
+          }}
           testID="paywall-close"
         >
           <Text variant="body" tone="muted">
@@ -146,6 +158,18 @@ export default function PaywallScreen() {
         <Card padding="comfortable" testID="paywall-already-premium">
           <Text variant="body">{t("paywall.alreadyPremium")}</Text>
         </Card>
+      ) : null}
+
+      {/*
+        What premium adds, stated against what the user already has.
+
+        A benefits list on its own invites the reading that nothing works without paying — which is false here and
+        would be a dark pattern if left to stand. The free tier is real and substantial, so it is named.
+      */}
+      {freeLessonCount > 0 ? (
+        <Text variant="small" tone="muted" testID="paywall-free-tier">
+          {t("paywall.freeTier", { count: freeLessonCount })}
+        </Text>
       ) : null}
 
       <View style={{ gap: theme.space[2] }} testID="paywall-value">

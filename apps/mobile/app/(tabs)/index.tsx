@@ -1,12 +1,14 @@
 import { useEffect, useMemo } from "react";
-import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { ActivityIndicator, View } from "react-native";
 import { Redirect, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { Text, Card, Button, useTheme } from "@pawcue/ui";
 import type { PlanSelectionReason } from "@pawcue/domain";
 import { useCatalogue } from "../../src/lessons/useCatalogue";
-import { buildTodayView } from "../../src/plans/plan-lifecycle";
+import {
+  buildTodayView,
+  type TodayActivityView,
+} from "../../src/plans/plan-lifecycle";
 import { usePlanStore } from "../../src/state/plan-store";
 import { useDogStore } from "../../src/state/dog-store";
 import { useOnboardingStore } from "../../src/state/onboarding-store";
@@ -15,6 +17,10 @@ import { useSessionStore } from "../../src/state/session-store";
 import { useTrainingLogStore } from "../../src/state/training-log-store";
 import { useEntitlementStore } from "../../src/state/entitlement-store";
 import { resolveStartupRoute } from "../../src/state/startup-route";
+import { ScreenScroll, Section } from "../../src/components/ScreenScroll";
+import { SectionHeader } from "../../src/components/SectionHeader";
+import { StatusPill } from "../../src/components/StatusPill";
+import { EmptyState } from "../../src/components/EmptyState";
 
 /**
  * Today — the product's home screen.
@@ -28,13 +34,15 @@ import { resolveStartupRoute } from "../../src/state/startup-route";
  */
 export default function TodayScreen() {
   const theme = useTheme();
-  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { t } = useTranslation();
 
   const bootstrapStatus = useBootstrapStore((s) => s.status);
+  const sessionStatus = useBootstrapStore((s) => s.sessionStatus);
   const dog = useDogStore((s) => s.dog);
   const dogId = useDogStore((s) => s.dogId);
+  const dogError = useDogStore((s) => s.error);
+  const refreshDog = useDogStore((s) => s.refresh);
   const onboardingSkipped = useOnboardingStore((s) => s.skipped);
   const draft = useOnboardingStore((s) => s.draft);
 
@@ -108,6 +116,16 @@ export default function TodayScreen() {
       record.status === "completed" && record.endedAt.slice(0, 10) === today,
   ).length;
 
+  /**
+   * A lesson started and left unfinished, and still resumable.
+   *
+   * Real state, not a nag: `session-store` holds exactly one in-progress session, and it is the same one the
+   * training screen would resume. Surfacing it here is the honest half of retention — the user is reminded of
+   * something they actually began, by the app they already opened.
+   */
+  const resumable =
+    activeSession?.status === "in_progress" ? activeSession : null;
+
   if (startup.kind === "onboarding") return <Redirect href="/onboarding" />;
   if (startup.kind === "onboarding_resume") {
     return <Redirect href="/onboarding/steps" />;
@@ -117,6 +135,20 @@ export default function TodayScreen() {
   const remainingMinutes = todayView?.remainingMinutes ?? 0;
   const allDone = todayView?.allDone ?? false;
   const planPending = planStatus === "idle" || planStatus === "loading";
+
+  /**
+   * The dog is known but its row could not be read.
+   *
+   * The plan effect gates on `dog`, so with the id cached and the row unreachable nothing ever moved `planStatus`
+   * off `idle` — and `idle` reads as "still loading", which put a spinner on screen for as long as the server
+   * stayed away. Phase 6 fixed the same shape of bug for a missing catalogue; this is its sibling. Two signals
+   * mean "stop waiting": the dog store recorded a failed read, or bootstrap could not establish a session at all
+   * and therefore never tried.
+   */
+  const dogUnavailable =
+    dogId !== null &&
+    dog === null &&
+    (dogError !== null || sessionStatus === "unavailable");
 
   /**
    * What "Start training" does.
@@ -133,28 +165,51 @@ export default function TodayScreen() {
   );
 
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: theme.colors.background.base }}
-      contentContainerStyle={{
-        paddingTop: insets.top + theme.space[5],
-        paddingBottom: theme.space[8],
-        paddingHorizontal: theme.screenGutter,
-        gap: theme.space[5],
-      }}
-      testID="today-screen"
-    >
+    <ScreenScroll testID="today-screen">
       <View style={{ gap: theme.space[1] }}>
         <Text variant="h1" testID="today-greeting">
           {dog
             ? t("today.greeting", { name: dog.name })
             : t("today.greetingNoDog")}
         </Text>
+        {/*
+          One subtitle line, not two.
+
+          Sessions done today when there are any — the fact worth leading with — and otherwise the dog's own daily
+          commitment, which is what makes the plan's length make sense. Both are real fields.
+        */}
         {sessionsToday > 0 ? (
           <Text variant="small" tone="success" testID="today-done-count">
             {t("today.doneToday", { count: sessionsToday })}
           </Text>
+        ) : dog?.dailyTrainingMinutes ? (
+          <Text variant="small" tone="muted" testID="today-daily-goal">
+            {t("today.dailyGoal", { count: dog.dailyTrainingMinutes })}
+          </Text>
         ) : null}
       </View>
+
+      {/*
+        Unfinished work, above the plan.
+
+        It comes first because it is the one thing on this screen the user already committed to, and because a
+        half-finished lesson buried under a fresh plan is how it stays half-finished.
+      */}
+      {resumable ? (
+        <Card
+          padding="comfortable"
+          onPress={() => router.push(`/session/${resumable.lessonSlug}`)}
+          accessibilityLabel={t("today.resumeCta")}
+          testID="today-resume"
+        >
+          <View style={{ gap: theme.space[1] }}>
+            <Text variant="small" tone="brand">
+              {t("today.resumeTitle")}
+            </Text>
+            <Text variant="bodyStrong">{t("today.resumeCta")}</Text>
+          </View>
+        </Card>
+      ) : null}
 
       {!dogId ? (
         <EmptyState
@@ -163,6 +218,14 @@ export default function TodayScreen() {
           ctaLabel={t("today.noDogCta")}
           onPress={() => router.push("/onboarding")}
           testID="today-no-dog"
+        />
+      ) : dogUnavailable ? (
+        <EmptyState
+          title={t("today.dogUnavailableTitle")}
+          body={t("today.dogUnavailableBody")}
+          ctaLabel={t("common.cta.tryAgain")}
+          onPress={() => void refreshDog()}
+          testID="today-dog-unavailable"
         />
       ) : error || (!loading && !catalogue) || planStatus === "unavailable" ? (
         /**
@@ -198,80 +261,35 @@ export default function TodayScreen() {
           testID="today-empty"
         />
       ) : (
-        <View style={{ gap: theme.space[3] }} testID="today-plan">
-          <View style={{ gap: theme.space[1] }}>
-            <Text variant="h3">{t("today.planTitle")}</Text>
-            <Text variant="small" tone="muted" testID="today-total-time">
-              {t("today.totalTime", { count: remainingMinutes })}
-            </Text>
-          </View>
+        <Section gap={theme.space[3]}>
+          {/*
+            The remaining time sits on the heading's trailing edge rather than beneath it. It used to be a second
+            line under "Your training plan", which put the same duration on screen twice when the plan held a
+            single activity — the heading's subtitle and the card's own badge.
+          */}
+          <SectionHeader
+            title={t("today.planTitle")}
+            trailing={t("today.totalTime", { count: remainingMinutes })}
+            testID="today-total-time"
+          />
 
-          {activities.map((activity, index) => {
-            const locked = activity.premium && !isPremium;
-            // What the badge says. A lock is the most useful thing to know about a row, so it leads.
-            const stateLabel = locked
-              ? t("today.activityPremium")
-              : activity.done
-                ? t("today.activityDone")
-                : t(
-                    `today.reason.${activity.selectionReason as PlanSelectionReason}`,
-                  );
-
-            return (
-              <Card
+          <View style={{ gap: theme.space[3] }} testID="today-plan">
+            {activities.map((activity, index) => (
+              <ActivityCard
                 key={activity.lessonId}
-                padding="comfortable"
-                elevated={index === 0 && !activity.done && !locked}
-                /**
-                 * A locked row opens the paywall, not the lesson.
-                 *
-                 * The destination is what makes the lock understandable rather than merely obstructive: pressing
-                 * it leads to the one thing that resolves it. Nothing routes to the lesson while it is locked, so
-                 * a premium lesson cannot be started by a stray tap.
-                 */
+                activity={activity}
+                locked={activity.premium && !isPremium}
+                emphasised={index === 0}
                 onPress={() =>
                   router.push(
-                    locked ? "/paywall" : `/lesson/${activity.lessonSlug}`,
+                    activity.premium && !isPremium
+                      ? "/paywall"
+                      : `/lesson/${activity.lessonSlug}`,
                   )
                 }
-                // Both the lock and the done state are part of the accessible name, never conveyed by dimming alone.
-                accessibilityLabel={`${t(activity.titleKey)}. ${stateLabel}`}
-                testID={`today-activity-${activity.lessonSlug}`}
-                {...(activity.done || locked
-                  ? { style: { opacity: 0.62 } }
-                  : {})}
-              >
-                <View style={{ gap: theme.space[2] }}>
-                  <View
-                    style={{
-                      flexDirection: "row",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      gap: theme.space[2],
-                    }}
-                  >
-                    <Text
-                      variant="small"
-                      tone={activity.done && !locked ? "success" : "brand"}
-                      testID={`today-activity-state-${activity.lessonSlug}`}
-                    >
-                      {stateLabel}
-                    </Text>
-                    <Text variant="caption" tone="muted">
-                      {t("today.totalTime", {
-                        count: activity.estimatedMinutes,
-                      })}
-                    </Text>
-                  </View>
-
-                  <Text variant="h3">{t(activity.titleKey)}</Text>
-                  <Text variant="small" tone="muted" numberOfLines={2}>
-                    {t(activity.goalKey)}
-                  </Text>
-                </View>
-              </Card>
-            );
-          })}
+              />
+            ))}
+          </View>
 
           {/*
             One primary action, and it always does something honest: train the next thing that can be trained, or
@@ -290,65 +308,157 @@ export default function TodayScreen() {
               testID="today-start-premium"
             />
           ) : null}
-        </View>
+        </Section>
       )}
 
-      {/* The clicker stays one tap from home without taking a place in the primary navigation. */}
-      <Pressable
+      {/*
+        The clicker stays one tap from home without taking a place in the primary navigation.
+
+        Now a card rather than a bare line of centred text. As a text link it read as a caption someone forgot to
+        attach to anything — no edge, no press affordance, and a touch target defined only by the glyph height.
+      */}
+      <Card
+        padding="compact"
         onPress={() => router.push("/clicker")}
-        accessibilityRole="button"
         accessibilityLabel={t("today.clickerCta")}
-        hitSlop={12}
         testID="today-clicker"
       >
-        <Text variant="small" tone="muted" align="center">
-          {t("today.clickerCta")}
-        </Text>
-      </Pressable>
-    </ScrollView>
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: theme.space[3],
+          }}
+        >
+          <View style={{ flex: 1, gap: theme.space[1] }}>
+            <Text variant="bodyStrong">{t("today.clickerCta")}</Text>
+            <Text variant="caption" tone="muted">
+              {t("today.clickerHint")}
+            </Text>
+          </View>
+          <ClickerGlyph />
+        </View>
+      </Card>
+    </ScreenScroll>
   );
 }
 
 /**
- * The shared empty state.
+ * One activity in today's plan.
  *
- * One component rather than a bespoke layout per screen: an empty Today, an empty Train and an empty Progress are
- * the same shape of message, and letting each invent its own is how a product starts looking assembled.
+ * The reason leads, because "why is this here" is the question a generated plan has to answer before the user
+ * will trust it. Done and locked are pills rather than coloured words, so the three states differ in shape and
+ * not only in hue.
  */
-export function EmptyState({
-  title,
-  body,
-  ctaLabel,
+function ActivityCard({
+  activity,
+  locked,
+  emphasised,
   onPress,
-  testID,
 }: {
-  title: string;
-  body: string;
-  ctaLabel?: string;
-  onPress?: () => void;
-  testID?: string;
+  activity: TodayActivityView;
+  locked: boolean;
+  emphasised: boolean;
+  onPress: () => void;
 }) {
   const theme = useTheme();
+  const { t } = useTranslation();
+
+  const stateLabel = locked
+    ? t("today.activityPremium")
+    : activity.done
+      ? t("today.activityDone")
+      : t(`today.reason.${activity.selectionReason as PlanSelectionReason}`);
+
   return (
-    // Optional props are spread rather than passed as undefined: with `exactOptionalPropertyTypes`, absent and
-    // present-but-undefined are different types.
-    <Card padding="comfortable" {...(testID ? { testID } : {})}>
+    <Card
+      padding="comfortable"
+      elevated={emphasised && !activity.done && !locked}
+      /**
+       * A locked row opens the paywall, not the lesson.
+       *
+       * The destination is what makes the lock understandable rather than merely obstructive: pressing it leads to
+       * the one thing that resolves it. Nothing routes to the lesson while it is locked, so a premium lesson
+       * cannot be started by a stray tap.
+       */
+      onPress={onPress}
+      // Both the lock and the done state are part of the accessible name, never conveyed by dimming alone.
+      accessibilityLabel={`${t(activity.titleKey)}. ${stateLabel}`}
+      testID={`today-activity-${activity.lessonSlug}`}
+      {...(activity.done || locked ? { style: { opacity: 0.62 } } : {})}
+    >
       <View style={{ gap: theme.space[2] }}>
-        <Text variant="h3">{title}</Text>
-        <Text variant="body" tone="muted">
-          {body}
-        </Text>
-        {ctaLabel && onPress ? (
-          <>
-            <View style={{ height: theme.space[1] }} />
-            <Button
-              label={ctaLabel}
-              onPress={onPress}
-              {...(testID ? { testID: `${testID}-cta` } : {})}
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: theme.space[2],
+          }}
+        >
+          {activity.done && !locked ? (
+            <StatusPill
+              label={stateLabel}
+              tone="success"
+              glyph="✓"
+              testID={`today-activity-state-${activity.lessonSlug}`}
             />
-          </>
-        ) : null}
+          ) : locked ? (
+            <StatusPill
+              label={stateLabel}
+              tone="brand"
+              testID={`today-activity-state-${activity.lessonSlug}`}
+            />
+          ) : (
+            <Text
+              variant="small"
+              tone="brand"
+              style={{ flex: 1 }}
+              testID={`today-activity-state-${activity.lessonSlug}`}
+            >
+              {stateLabel}
+            </Text>
+          )}
+          <Text variant="caption" tone="muted">
+            {t("today.totalTime", { count: activity.estimatedMinutes })}
+          </Text>
+        </View>
+
+        <Text variant="h3">{t(activity.titleKey)}</Text>
+        <Text variant="small" tone="muted" numberOfLines={2}>
+          {t(activity.goalKey)}
+        </Text>
       </View>
     </Card>
+  );
+}
+
+/** The clicker's mark, small. Drawn from primitives for the same reason the nav glyphs are. */
+function ClickerGlyph() {
+  const theme = useTheme();
+  return (
+    <View
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      style={{
+        width: 40,
+        height: 40,
+        borderRadius: theme.radius.pill,
+        backgroundColor: theme.colors.brand.primary,
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <View
+        style={{
+          width: 14,
+          height: 14,
+          borderRadius: theme.radius.pill,
+          borderWidth: 2,
+          borderColor: theme.colors.text.onBrand,
+        }}
+      />
+    </View>
   );
 }

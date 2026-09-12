@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -25,6 +25,12 @@ import { useLessonContent } from "../../src/lessons/useLessonContent";
 import { useSessionStore } from "../../src/state/session-store";
 import { useTrainingLogStore } from "../../src/state/training-log-store";
 import { useClicker } from "../../src/hooks/useClicker";
+import { useHaptics } from "../../src/hooks/useHaptics";
+import { useCatalogue } from "../../src/lessons/useCatalogue";
+import { usePlanStore } from "../../src/state/plan-store";
+import { useEntitlementStore } from "../../src/state/entitlement-store";
+import { buildTodayView } from "../../src/plans/plan-lifecycle";
+import { ScreenScroll } from "../../src/components/ScreenScroll";
 
 /**
  * The training screen.
@@ -218,15 +224,31 @@ function ActiveStepView({
               total: progress.totalSteps,
             })}
           </Text>
+          {/*
+            "Pause", not "Exit".
+
+            Leaving does not discard anything: the session is persisted on every transition and `resumeOrBegin`
+            picks it up again, so the honest word is pause. The hint underneath says so outright, because the
+            reason people abandon a lesson rather than pausing it is not knowing that pausing is safe.
+
+            A 12pt hit slop on a caption-height label is well under the 44pt minimum, so the target is set
+            explicitly rather than inferred from the glyph.
+          */}
           <Pressable
             onPress={() => router.back()}
             accessibilityRole="button"
-            accessibilityLabel={t("session.train.exit")}
-            hitSlop={12}
+            accessibilityLabel={t("session.train.pause")}
+            accessibilityHint={t("session.train.pauseHint")}
+            hitSlop={theme.space[3]}
+            style={{
+              minHeight: theme.minTouchTarget,
+              justifyContent: "center",
+              paddingHorizontal: theme.space[2],
+            }}
             testID="pause-session"
           >
             <Text variant="small" tone="muted">
-              {t("session.train.exit")}
+              {t("session.train.pause")}
             </Text>
           </Pressable>
         </View>
@@ -530,12 +552,61 @@ function TroubleshootingView({
 
 function CompletionView({ content }: { content: LessonContent }) {
   const theme = useTheme();
-  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { t } = useTranslation();
 
   const session = useSessionStore((s) => s.session);
   const clearSession = useSessionStore((s) => s.clear);
+  const haptic = useHaptics();
+
+  const plan = usePlanStore((s) => s.plan);
+  const { catalogue } = useCatalogue();
+  const completed = useTrainingLogStore((s) => s.completed);
+  const isPremium = useEntitlementStore((s) => s.view.isPremiumActive);
+
+  /**
+   * One success haptic, on arrival.
+   *
+   * `hapticForEvent.lessonComplete` has existed since Phase 1 and nothing ever fired it — the design system
+   * described a vocabulary the app never spoke. Finishing a lesson is the one moment in the product that earns a
+   * notification-weight haptic, and it is paired with the visual change, never a substitute for it.
+   */
+  useEffect(() => {
+    haptic("lessonComplete");
+  }, [haptic]);
+
+  /**
+   * What is next, from the real plan.
+   *
+   * The session that just finished is already in the training log by the time this renders — the effect in
+   * `TrainingScreen` records it — so `buildTodayView` ticks it off and the first remaining activity is genuinely
+   * the next thing to do. When there is none, the day's plan is finished and the screen says exactly that.
+   *
+   * Nothing is fabricated here: no points, no badge, no streak. "What happens next" is the reward.
+   */
+  const today = new Date().toISOString().slice(0, 10);
+  const next = useMemo(() => {
+    if (!plan || !catalogue) return null;
+    const view = buildTodayView(
+      plan,
+      catalogue,
+      completed
+        .filter((record) => record.status === "completed")
+        .map((record) => ({
+          lessonId: record.lessonId,
+          endedAt: record.endedAt,
+        })),
+      today,
+    );
+    return (
+      view.activities.find(
+        (activity) =>
+          !activity.done &&
+          activity.lessonId !== content.lesson.id &&
+          !(activity.premium && !isPremium),
+      ) ?? null
+    );
+  }, [plan, catalogue, completed, today, content.lesson.id, isPremium]);
 
   if (!session) return null;
 
@@ -546,34 +617,38 @@ function CompletionView({ content }: { content: LessonContent }) {
     (event) => event.type === "clicker_pressed",
   ).length;
 
+  const finish = (destination?: string) => {
+    void clearSession().then(() => {
+      router.replace(destination ?? "/");
+    });
+  };
+
   /**
-   * Deliberately plain. The brief rules out fake gamification, and a streak cannot honestly be shown here: streaks
-   * are server-computed from the event log, and a guest session has not reached the server. What is shown is only
-   * what actually happened.
+   * Rewarding without being noisy. The brief rules out fake gamification, and a streak cannot honestly be shown:
+   * streaks are server-computed from the event log, and a guest session has not reached the server. What is shown
+   * is what actually happened, and what to do next.
    */
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: theme.colors.background.base }}
-      contentContainerStyle={{
-        flexGrow: 1,
-        justifyContent: "center",
-        paddingTop: insets.top + theme.space[4],
-        paddingBottom: insets.bottom + theme.space[6],
-        paddingHorizontal: theme.screenGutter,
-        gap: theme.space[4],
-      }}
-      testID="session-complete"
-    >
-      <Text variant="h1" align="center" testID="completion-title">
-        {t("session.complete.title")}
-      </Text>
-      <Text variant="body" tone="muted" align="center" testID="completion-body">
-        {t("session.complete.body", { lesson: t(content.lesson.titleKey) })}
-      </Text>
+    <ScreenScroll center gap={theme.space[4]} testID="session-complete">
+      <View style={{ alignItems: "center", gap: theme.space[3] }}>
+        <CompletionMark />
+        <Text variant="h1" align="center" testID="completion-title">
+          {t("session.complete.title")}
+        </Text>
+        <Text
+          variant="body"
+          tone="muted"
+          align="center"
+          testID="completion-body"
+        >
+          {t("session.complete.body", { lesson: t(content.lesson.titleKey) })}
+        </Text>
+      </View>
 
-      <Card padding="compact">
+      {/* What they actually did, counted from the session's own event log. */}
+      <Card padding="comfortable">
         <View style={{ gap: theme.space[1] }}>
-          <Text variant="body" align="center" testID="completion-reps">
+          <Text variant="bodyStrong" align="center" testID="completion-reps">
             {t("session.complete.repsSummary", { count: repetitions })}
           </Text>
           <Text variant="small" tone="muted" align="center">
@@ -582,26 +657,78 @@ function CompletionView({ content }: { content: LessonContent }) {
         </View>
       </Card>
 
+      {/* What happens next — the real next activity in today's plan, or the honest "that's the day". */}
+      {next ? (
+        <Card
+          padding="comfortable"
+          onPress={() => finish(`/lesson/${next.lessonSlug}`)}
+          accessibilityLabel={`${t("session.complete.nextTitle")}. ${t(next.titleKey)}`}
+          testID="completion-next"
+        >
+          <View style={{ gap: theme.space[1] }}>
+            <Text variant="caption" tone="muted">
+              {t("session.complete.nextTitle")}
+            </Text>
+            <Text variant="bodyStrong">{t(next.titleKey)}</Text>
+            <Text variant="caption" tone="muted">
+              {t("today.totalTime", { count: next.estimatedMinutes })}
+            </Text>
+          </View>
+        </Card>
+      ) : (
+        <Text
+          variant="small"
+          tone="success"
+          align="center"
+          testID="completion-all-done"
+        >
+          {t("session.complete.nextAllDone")}
+        </Text>
+      )}
+
       <View style={{ gap: theme.space[2] }}>
         <Button
-          label={t("session.complete.done")}
-          onPress={() => {
-            void clearSession();
-            router.replace("/"); // back to Today
-          }}
+          label={t("session.complete.backToToday")}
+          onPress={() => finish()}
           testID="completion-done"
         />
         <Button
           label={t("session.complete.trainAgain")}
           variant="secondary"
-          onPress={() => {
-            void clearSession().then(() => {
-              router.replace(`/session/${content.lesson.slug}`);
-            });
-          }}
+          onPress={() => finish(`/session/${content.lesson.slug}`)}
           testID="completion-train-again"
         />
       </View>
-    </ScrollView>
+    </ScreenScroll>
+  );
+}
+
+/**
+ * The completion mark.
+ *
+ * A filled disc with a tick — shape and colour together, which is DESIGN_SYSTEM.md's rule for completion states.
+ * Static rather than animated: the design system's "checkmark path draw" wants a vector library this app does not
+ * carry, and a half-hearted scale-in would be decoration rather than comprehension. The haptic is what marks the
+ * moment.
+ */
+function CompletionMark() {
+  const theme = useTheme();
+  return (
+    <View
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      style={{
+        width: 64,
+        height: 64,
+        borderRadius: theme.radius.pill,
+        backgroundColor: theme.colors.brand.primary,
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <Text variant="h2" style={{ color: theme.colors.text.onBrand }}>
+        ✓
+      </Text>
+    </View>
   );
 }

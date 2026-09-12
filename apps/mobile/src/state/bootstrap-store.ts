@@ -5,6 +5,7 @@ import { useSettingsStore } from "./settings-store";
 import { useDogStore } from "./dog-store";
 import { useOnboardingStore } from "./onboarding-store";
 import { useTrainingLogStore } from "./training-log-store";
+import { useSessionStore } from "./session-store";
 import { useEntitlementStore } from "./entitlement-store";
 import { syncPendingSessions } from "../sync/session-sync";
 
@@ -53,6 +54,8 @@ export const useBootstrapStore = create<BootstrapState>((set) => ({
       useDogStore.getState().hydrate(),
       useOnboardingStore.getState().hydrate(),
       useTrainingLogStore.getState().hydrate(),
+      // Also local. Lets Today show unfinished work on the very first frame after a relaunch.
+      useSessionStore.getState().hydrate(),
     ]);
     set({ status: "ready" });
 
