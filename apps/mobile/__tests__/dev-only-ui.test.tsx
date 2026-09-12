@@ -71,6 +71,8 @@ describe("developer-only clicker sound selector", () => {
     expect(view.queryByTestId("preview-click")).toBeNull();
     // The diagnostics block is gated the same way and must go with it.
     expect(view.queryByTestId("diagnostics")).toBeNull();
+    // Including the Phase 5 plan inspector, which shows engine reasoning a user must never see.
+    expect(view.queryByTestId("open-dev-plan")).toBeNull();
   });
 
   it("still renders the real settings when the developer blocks are gone", async () => {
@@ -80,6 +82,13 @@ describe("developer-only clicker sound selector", () => {
     expect(view.getByTestId("settings-title")).toBeTruthy();
     expect(view.getByTestId("switch-sound")).toBeTruthy();
     expect(view.getByTestId("language-he-IL")).toBeTruthy();
+  });
+
+  it("offers the plan inspector in a development build", async () => {
+    globalRef.__DEV__ = true;
+    const view = await renderSettings();
+
+    expect(view.getByTestId("open-dev-plan")).toBeTruthy();
   });
 
   it("switches the loaded sound when a candidate is chosen", async () => {

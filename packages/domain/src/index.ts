@@ -19,5 +19,7 @@ export * from "./providers/analytics-provider";
 export * from "./providers/storage-provider";
 
 export * from "./plan-engine/training-plan-generator";
+export * from "./plan-engine/content-graph";
+export * from "./plan-engine/rules-based-generator";
 export * from "./session-engine/training-session";
 export * from "./onboarding/onboarding-flow";

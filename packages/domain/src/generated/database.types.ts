@@ -503,6 +503,7 @@ export type Database = {
           is_review: boolean;
           lesson_id: string;
           plan_day_id: string;
+          selection_reason: string;
           sort_order: number;
           updated_at: string;
         };
@@ -513,6 +514,7 @@ export type Database = {
           is_review?: boolean;
           lesson_id: string;
           plan_day_id: string;
+          selection_reason?: string;
           sort_order: number;
           updated_at?: string;
         };
@@ -523,6 +525,7 @@ export type Database = {
           is_review?: boolean;
           lesson_id?: string;
           plan_day_id?: string;
+          selection_reason?: string;
           sort_order?: number;
           updated_at?: string;
         };

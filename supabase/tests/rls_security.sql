@@ -312,6 +312,111 @@ select tests_record(
 select tests_become('aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa');
 
 
+-- === Training plans (Phase 5: newly client-writable) =======================
+-- Plans are owned transitively through the dog, like sessions: plan_activities -> plan_days -> training_plans
+-- -> dogs -> owner_user_id. Phase 5 is the first time a client writes them.
+select tests_become_admin();
+
+insert into training_plans (id, dog_id, plan_engine_version_id, status, daily_minutes, start_date, length_days)
+values ('60000000-0000-4000-a000-00000000000a', 'd0000000-0000-4000-a000-00000000000a',
+        '00000000-0000-4000-a000-000000000001', 'active', 10, current_date, 3);
+
+insert into plan_days (id, plan_id, day_index, date, total_minutes)
+values ('61000000-0000-4000-a000-00000000000a', '60000000-0000-4000-a000-00000000000a', 0, current_date, 6);
+
+insert into plan_activities (id, plan_day_id, lesson_id, sort_order, estimated_minutes, is_review, selection_reason)
+select '62000000-0000-4000-a000-00000000000a', '61000000-0000-4000-a000-00000000000a', id, 0, 3, false, 'new_skill'
+from lessons where slug = 'name_game';
+
+select tests_become('aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa');
+
+select tests_record(
+  'owner CAN read own training_plan',
+  '1',
+  (select count(*)::text from training_plans where id = '60000000-0000-4000-a000-00000000000a')
+);
+
+select tests_record(
+  'owner CAN read own plan_activities',
+  '1',
+  (select count(*)::text from plan_activities where id = '62000000-0000-4000-a000-00000000000a')
+);
+
+select tests_become('bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb');
+
+select tests_record(
+  'other user CANNOT read another user''s training_plan',
+  '0',
+  (select count(*)::text from training_plans where id = '60000000-0000-4000-a000-00000000000a')
+);
+
+select tests_record(
+  'other user CANNOT read another user''s plan_days',
+  '0',
+  (select count(*)::text from plan_days where id = '61000000-0000-4000-a000-00000000000a')
+);
+
+select tests_record(
+  'other user CANNOT read another user''s plan_activities',
+  '0',
+  (select count(*)::text from plan_activities where id = '62000000-0000-4000-a000-00000000000a')
+);
+
+-- Writing a plan against someone else's dog must fail the WITH CHECK clause.
+do $$
+begin
+  insert into training_plans (id, dog_id, plan_engine_version_id, status, daily_minutes, start_date, length_days)
+  values ('60000000-0000-4000-a000-0000000000ff', 'd0000000-0000-4000-a000-00000000000a',
+          '00000000-0000-4000-a000-000000000001', 'active', 10, current_date, 3);
+exception when others then null;
+end $$;
+
+-- Superseding someone else's plan must be invisible, not merely refused loudly.
+do $$
+begin
+  update training_plans set status = 'superseded' where id = '60000000-0000-4000-a000-00000000000a';
+exception when others then null;
+end $$;
+
+select tests_become_admin();
+
+select tests_record(
+  'other user CANNOT create a plan against another user''s dog',
+  '0',
+  (select count(*)::text from training_plans where id = '60000000-0000-4000-a000-0000000000ff')
+);
+
+select tests_record(
+  'other user CANNOT supersede another user''s plan',
+  'active',
+  (select status from training_plans where id = '60000000-0000-4000-a000-00000000000a')
+);
+
+-- The selection reason is constrained, so an unknown value cannot be written by any caller.
+do $$
+declare v_err text := 'no error';
+begin
+  begin
+    insert into plan_activities (plan_day_id, lesson_id, sort_order, estimated_minutes, selection_reason)
+    select '61000000-0000-4000-a000-00000000000a', id, 9, 3, 'because_i_said_so' from lessons where slug = 'sit';
+    v_err := 'INSERT SUCCEEDED';
+  exception when others then
+    v_err := 'rejected';
+  end;
+  perform tests_record('plan_activities rejects an unknown selection_reason', 'rejected', v_err);
+end;
+$$;
+
+-- Released before the suite continues: `training_plans_one_active_per_dog` allows a dog exactly one active plan,
+-- and a later section creates its own for the same dog. A fixture that outlived its block would make an unrelated
+-- check fail for a reason that had nothing to do with what it was testing.
+delete from plan_activities where id = '62000000-0000-4000-a000-00000000000a';
+delete from plan_days where id = '61000000-0000-4000-a000-00000000000a';
+delete from training_plans where id in ('60000000-0000-4000-a000-00000000000a', '60000000-0000-4000-a000-0000000000ff');
+
+-- Hand the suite back as Alice, which is what the checks that follow assume.
+select tests_become('aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa');
+
 -- Entitlements are server-authoritative: a client must not be able to grant itself premium.
 do $$
 declare v_err text := 'no error';
@@ -588,6 +693,9 @@ select tests_record(
 delete from auth.users where id in ('aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa', 'bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb', 'cccccccc-cccc-4ccc-cccc-cccccccccccc');
 delete from subscriptions where store_transaction_id in ('dup-tx', 'tx-alice-retain');
 delete from session_events where id = 'e0000000-0000-4000-a000-00000000000a';
+delete from plan_activities where id = '62000000-0000-4000-a000-00000000000a';
+delete from plan_days where id = '61000000-0000-4000-a000-00000000000a';
+delete from training_plans where id in ('60000000-0000-4000-a000-00000000000a', '60000000-0000-4000-a000-0000000000ff');
 delete from training_sessions where id in ('50000000-0000-4000-a000-00000000000a', '50000000-0000-4000-a000-0000000000ff');
 delete from purchase_events where store_event_id = 'evt-alice-1';
 

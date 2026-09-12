@@ -48,6 +48,32 @@ export const planDaySchema = z
   .extend(timestampedSchema.shape);
 export type PlanDay = z.infer<typeof planDaySchema>;
 
+/**
+ * Why the engine chose a given activity, in machine-readable form.
+ *
+ * Additive to the frozen Phase 0 contract, and justified: `isReview` is a boolean and cannot distinguish "this
+ * only just became eligible" from "this is brand new" from "you left this unfinished". When a recommendation
+ * looks wrong, that distinction is the whole of the answer, so it has to be recorded rather than re-derived.
+ *
+ * `isReview` is kept and stays consistent with this: it is true exactly when the reason is `spaced_review`.
+ *
+ * Two reasons a reader might expect are deliberately absent, because the content model cannot support them:
+ * there is no lesson→goal relation anywhere in the schema (`goal_id` exists only on `dog_goals`), so a
+ * `goal_priority` reason would be fabricated; and fitting the time budget is a constraint every selection passes,
+ * not a reason one was preferred.
+ */
+export const planSelectionReasonSchema = z.enum([
+  /** Started recently and left unfinished — finishing it beats starting something unrelated. */
+  "continue_unfinished",
+  /** Newly eligible because a prerequisite skill was satisfied recently. */
+  "prerequisite_unlocked",
+  /** Already completed, far enough back to be worth practising again. */
+  "spaced_review",
+  /** Not trained before, and its prerequisites are already satisfied. */
+  "new_skill",
+]);
+export type PlanSelectionReason = z.infer<typeof planSelectionReasonSchema>;
+
 /** One lesson-slot within a plan day (brief §9: 1–3 exercises/day). */
 export const planActivitySchema = z
   .object({
@@ -58,6 +84,8 @@ export const planActivitySchema = z
     estimatedMinutes: z.number().int().min(1),
     /** Distinguishes a new-skill introduction from spaced review of an already-learning skill (brief §9). */
     isReview: z.boolean(),
+    /** Machine-readable justification. See `planSelectionReasonSchema`. */
+    selectionReason: planSelectionReasonSchema,
   })
   .extend(timestampedSchema.shape);
 export type PlanActivity = z.infer<typeof planActivitySchema>;

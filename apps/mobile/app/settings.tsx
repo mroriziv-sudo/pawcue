@@ -244,6 +244,14 @@ export default function SettingsScreen() {
       {__DEV__ ? (
         <View style={{ gap: theme.space[2] }} testID="diagnostics">
           <Text variant="h3">{t("settings.diagnostics")}</Text>
+          <Card
+            padding="compact"
+            onPress={() => router.push("/dev-plan")}
+            accessibilityLabel="Plan inspector"
+            testID="open-dev-plan"
+          >
+            <Text variant="body">Plan inspector (dev only)</Text>
+          </Card>
           <Card padding="compact">
             <Text variant="caption" tone="muted" testID="diag-session">
               {t("settings.sessionStatus")}: {sessionStatus}
