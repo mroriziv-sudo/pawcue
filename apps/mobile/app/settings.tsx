@@ -83,7 +83,7 @@ export default function SettingsScreen() {
           <Text variant="h3">{t("settings.dogSection")}</Text>
           <Card
             padding="compact"
-            onPress={() => router.push("/dog")}
+            onPress={() => router.push("/dog-profile")}
             accessibilityLabel={dogProfileLabel}
             testID="open-dog-profile"
           >

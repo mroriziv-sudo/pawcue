@@ -142,7 +142,7 @@ export default function LessonOverviewScreen() {
 
       <Button
         label={t("common.cta.startTraining")}
-        onPress={() => router.push(`/train/${content.lesson.slug}`)}
+        onPress={() => router.push(`/session/${content.lesson.slug}`)}
         testID="start-training"
       />
     </ScrollView>

@@ -7,7 +7,7 @@ import {
 import { I18nextProvider } from "react-i18next";
 import { SafeAreaProvider, type Metrics } from "react-native-safe-area-context";
 import { ThemeProvider } from "@pawcue/ui";
-import ClickerScreen from "../app/index";
+import ClickerScreen from "../app/clicker";
 import { i18n } from "../src/i18n";
 import * as Haptics from "expo-haptics";
 

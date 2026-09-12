@@ -18,6 +18,11 @@ export const MIRRORED_IN_RTL = [
   "progress-arrow",
   "undo",
   "redo",
+  /**
+   * Ascending bars read as growth *along the reading direction*. In Hebrew, bars rising to the right read as
+   * decline, so this one mirrors — the shape encodes progress through time, not a physical object.
+   */
+  "nav-progress",
 ] as const;
 
 export const NEVER_MIRRORED = [
@@ -39,6 +44,11 @@ export const NEVER_MIRRORED = [
   "pause",
   // Represents a physical object — a clock face doesn't mirror.
   "clock",
+  // Primary navigation. None encode a direction of travel: a day, a stack of lessons and a dog are all
+  // orientation-independent, so mirroring them would be change for its own sake.
+  "nav-today",
+  "nav-train",
+  "nav-dog",
 ] as const;
 
 export type MirroredIcon = (typeof MIRRORED_IN_RTL)[number];

@@ -587,7 +587,7 @@ function CompletionView({ content }: { content: LessonContent }) {
           label={t("session.complete.done")}
           onPress={() => {
             void clearSession();
-            router.replace("/");
+            router.replace("/"); // back to Today
           }}
           testID="completion-done"
         />
@@ -596,7 +596,7 @@ function CompletionView({ content }: { content: LessonContent }) {
           variant="secondary"
           onPress={() => {
             void clearSession().then(() => {
-              router.replace(`/train/${content.lesson.slug}`);
+              router.replace(`/session/${content.lesson.slug}`);
             });
           }}
           testID="completion-train-again"

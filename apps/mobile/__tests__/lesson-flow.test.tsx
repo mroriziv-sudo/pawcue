@@ -10,7 +10,7 @@ import { SafeAreaProvider, type Metrics } from "react-native-safe-area-context";
 import { ThemeProvider } from "@pawcue/ui";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import LessonOverviewScreen from "../app/lesson/[slug]";
-import TrainingScreen from "../app/train/[slug]";
+import TrainingScreen from "../app/session/[slug]";
 import { i18n } from "../src/i18n";
 import { useSessionStore } from "../src/state/session-store";
 import { useTrainingLogStore } from "../src/state/training-log-store";
@@ -149,7 +149,7 @@ describe("lesson overview", () => {
     );
 
     await fireEvent.press(screen.getByTestId("start-training"));
-    expect(mockPush).toHaveBeenCalledWith("/train/name_game");
+    expect(mockPush).toHaveBeenCalledWith("/session/name_game");
   });
 });
 

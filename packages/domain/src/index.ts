@@ -4,6 +4,7 @@ export * from "./models/dog";
 export * from "./models/goals-skills";
 export * from "./models/lesson";
 export * from "./models/lesson-content";
+export * from "./lessons/lesson-status";
 export * from "./models/plan";
 export * from "./models/session";
 export * from "./models/progress";

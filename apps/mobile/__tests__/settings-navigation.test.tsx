@@ -84,7 +84,8 @@ describe("finding the dog profile", () => {
 
     await fireEvent.press(screen.getByTestId("open-dog-profile"));
 
-    expect(mockPush).toHaveBeenCalledWith("/dog");
+    // /dog is the primary destination now; the editor lives at /dog-profile.
+    expect(mockPush).toHaveBeenCalledWith("/dog-profile");
   });
 
   it("names the row after the dog rather than calling it 'Edit profile'", async () => {

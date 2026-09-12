@@ -3,7 +3,7 @@ import { AppState, type AppStateStatus } from "react-native";
 import { I18nextProvider } from "react-i18next";
 import { SafeAreaProvider, type Metrics } from "react-native-safe-area-context";
 import { ThemeProvider } from "@pawcue/ui";
-import ClickerScreen from "../app/index";
+import ClickerScreen from "../app/clicker";
 import { i18n } from "../src/i18n";
 import { useSettingsStore } from "../src/state/settings-store";
 import { resetClickerForTests } from "../src/audio/clicker-audio";
