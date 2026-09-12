@@ -97,4 +97,11 @@ export const STORAGE_KEYS = {
   onboardingSkipped: "pawcue.onboarding.skipped",
   /** Last lesson/skill catalogue seen, so Today and Train remain usable offline. */
   catalogueCache: "pawcue.content.catalogue",
+  /**
+   * The last server-verified entitlement, with the identity it was verified for and when.
+   *
+   * Ordinary tier, not secure: it grants nothing on its own. The app re-reads and re-verifies it against the
+   * server, and its age is what bounds how long it may be honoured offline.
+   */
+  entitlement: "pawcue.billing.entitlement",
 } as const;

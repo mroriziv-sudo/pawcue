@@ -122,7 +122,28 @@
       "advancedTroubleshooting": "פתרון בעיות מתקדם",
       "goalPrograms": "תוכניות ממוקדות מטרה",
       "fullHistory": "היסטוריית התקדמות מלאה"
-    }
+    },
+    "titleNoDog": "פתחו את PawCue במלואו",
+    "intro": "מנוי אחד, כל מה שלמטה כלול. אפשר לבטל בכל רגע.",
+    "choosePlan": "בחרו תוכנית",
+    "cta": "המשך",
+    "selected": "נבחר",
+    "period": {
+      "month": "חודש",
+      "year": "שנה"
+    },
+    "unlocksLessons_one": "פותח שיעור נוסף",
+    "unlocksLessons_two": "פותח {{count}} שיעורים נוספים",
+    "unlocksLessons_many": "פותח {{count}} שיעורים נוספים",
+    "unlocksLessons_other": "פותח {{count}} שיעורים נוספים",
+    "unavailableTitle": "התוכניות אינן זמינות כרגע",
+    "unavailableBody": "לא הצלחנו לטעון את אפשרויות המנוי מהחנות. שום דבר שאימנתם לא נפגע.",
+    "alreadyPremium": "אתם כבר מנויים — הכול פתוח.",
+    "verifying": "מאשרים את הרכישה…",
+    "unlockedTitle": "הכול מוכן",
+    "unlockedBody": "הפרימיום פעיל. כל השיעורים פתוחים.",
+    "linkUnavailable": "הקישור הזה עדיין לא מוגדר בגרסה הזו.",
+    "legalIntro": "החיוב מתבצע דרך חשבון החנות שלכם."
   },
   "goal": {
     "bitingNipping": {
@@ -329,7 +350,8 @@
     "diagnostics": "אבחון (לפיתוח בלבד)",
     "sessionStatus": "הפעלה",
     "dogSection": "הכלב שלכם",
-    "accountSection": "חשבון"
+    "accountSection": "חשבון",
+    "billingSection": "מנוי"
   },
   "permissions": {
     "notifications": {
@@ -473,7 +495,9 @@
     "doneToday_other": "{{count}} אימונים הושלמו היום",
     "activityDone": "הושלם היום",
     "allDoneTitle": "סיימתם את התוכנית של היום",
-    "allDoneBody": "כל הכבוד. חזרו מחר לתוכנית הבאה."
+    "allDoneBody": "כל הכבוד. חזרו מחר לתוכנית הבאה.",
+    "activityPremium": "שיעור פרימיום",
+    "premiumCta": "פתחו עם פרימיום"
   },
   "train": {
     "title": "אימון",
@@ -493,7 +517,11 @@
     "emptyBody": "לא הצלחנו לטעון את ספריית השיעורים. נסו שוב כשתהיו מחוברים.",
     "sectionReady": "מוכן לאימון",
     "sectionCompleted": "כבר נלמד",
-    "sectionLocked": "בהמשך"
+    "sectionLocked": "בהמשך",
+    "sectionPremium": "כלול בפרימיום",
+    "premiumLocked": "פרימיום",
+    "premiumHint": "חלק מ‑PawCue פרימיום.",
+    "premiumCta": "לפרטי הפרימיום"
   },
   "progress": {
     "title": "התקדמות",
@@ -540,5 +568,46 @@
     "ageMonths_other": "בן {{count}} חודשים",
     "ageUnknown": "הגיל לא הוגדר",
     "dailyGoal": "{{count}} דקות ביום"
+  },
+  "billing": {
+    "sectionTitle": "מנוי",
+    "plan": {
+      "free": "חינם",
+      "premium": "פרימיום",
+      "expired": "הפרימיום הסתיים",
+      "unknown": "בודקים את המנוי שלכם…",
+      "offline": "פרימיום — לפי הבדיקה האחרונה",
+      "unavailable": "לא הצלחנו לבדוק את המנוי שלכם"
+    },
+    "freeBody": "יש לכם את השיעורים החינמיים ותוכנית יומית שנבנית מהם.",
+    "premiumBody": "כל השיעורים והתוכנית המלאה פתוחים.",
+    "expiredBody": "היסטוריית האימונים שלכם שמורה. שיעורי הפרימיום נעולים עד לחידוש המנוי.",
+    "offlineBody": "אנחנו מסתמכים על המנוי האחרון שאושר כל עוד אין גישה לחנות.",
+    "unavailableBody": "האימונים שלכם בטוחים. נבדוק שוב כשתחזרו לרשת.",
+    "renewsOn": "מתחדש ב־{{date}}",
+    "endsOn": "גישה עד {{date}}",
+    "endedOn": "הסתיים ב־{{date}}",
+    "upgrade": "שדרגו לפרימיום",
+    "manage": "ניהול המנוי",
+    "manageHint": "שינוי או ביטול של המנוי נעשים בחשבון החנות שלכם, מחוץ ל‑PawCue.",
+    "manageUnavailable": "פתחו את הגדרות המנויים במכשיר כדי לנהל את המנוי.",
+    "retry": "בדקו שוב",
+    "checking": "בודקים…",
+    "restoring": "משחזרים…",
+    "purchase": {
+      "pending": "הרכישה ממתינה לאישור. הפרימיום ייפתח ברגע שהיא תושלם."
+    },
+    "restore": {
+      "restored": "המנוי שלכם פעיל שוב.",
+      "nothingToRestore": "לא נמצאו רכישות לשחזור בחשבון הזה."
+    },
+    "error": {
+      "alreadyOwned": "המנוי הזה כבר בבעלותכם — משחזרים אותו עכשיו.",
+      "storeUnavailable": "החנות לא מגיבה כרגע. נסו שוב בעוד רגע.",
+      "network": "לא הצלחנו להתחבר לחנות. בדקו את החיבור ונסו שוב.",
+      "notConfigured": "רכישות בתוך האפליקציה עדיין לא זמינות בגרסה הזו.",
+      "verificationFailed": "הרכישה הושלמה. אנחנו עדיין מאשרים אותה — זה עשוי לקחת דקה.",
+      "unknown": "משהו השתבש. אנא נסו שוב."
+    }
   }
 }

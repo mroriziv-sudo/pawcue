@@ -53,7 +53,40 @@ auto-renewal statement, and links to Restore Purchases / Terms / Privacy / a clo
 pre-selected deceptive option, no hidden close button — this is a hard product requirement, not a style preference,
 audited explicitly in RELEASE_CHECKLIST.md.
 
+## Entitlement states in the client
+
+`resolveEntitlement` (`packages/domain/src/billing/entitlement.ts`) turns the server's answer into the one view the
+whole app reads. Six states: `unknown`, `free`, `premium`, `expired`, `offline_cached`, `billing_unavailable`.
+Only `premium` and `offline_cached` grant access. `EntitlementView.isPremiumActive` is the only field any gate may
+read — there is no second boolean in the codebase.
+
+## Offline policy
+
+A verified premium answer is honoured for **7 days** without reconfirmation
+(`ENTITLEMENT_OFFLINE_GRACE_DAYS`) and never past its own `expiresAt`. This interval is an implementation default,
+not a value from these contracts: it is shorter than the shortest billing period sold, so a cached answer can never
+carry an offline device through a period it did not pay for. A cached _free_ answer grants nothing and is reported
+as `billing_unavailable` rather than as certainty. The cache is scoped to the user id it was verified for, and is
+written only after a successful read. Full table in
+[docs/architecture/phase-7-monetization.md](docs/architecture/phase-7-monetization.md).
+
+## Free vs premium
+
+`lessons.is_always_free` is the boundary, authored in content. The premium lock is kept **separate** from the
+prerequisite lock — a lesson can be under both, and collapsing them would show a paywall to someone whose real
+obstacle is that their dog has not learned Sit yet.
+
+## Guest → account
+
+`subscriptions` move on merge; `entitlements` are derived and recomputed by `recompute_entitlement(user_id)`. The
+original merge moved the entitlement row instead, which raised a unique violation whenever both sides had one and
+aborted the whole merge — fixed in `20260912120000_entitlement_recompute.sql`, asserted in the security suite.
+
 ## Testing
 
 Sandbox/test-track purchases for both stores, plus the full state matrix (§36 BILLING) including webhook replay
-idempotency, are required before Phase 8 is considered done — see TESTING.md.
+idempotency, still require store configuration this project does not have — see TESTING.md and the external
+configuration table in [docs/architecture/phase-7-monetization.md](docs/architecture/phase-7-monetization.md).
+Everything testable without those credentials is covered: the entitlement policy, the product reconciliation, the
+purchase and restore lifecycles, gating, data safety, the guest/account transition, and the development-only
+tooling's production guards.

@@ -9,6 +9,8 @@ import { useBootstrapStore } from "../src/state/bootstrap-store";
 import { useDogStore } from "../src/state/dog-store";
 import { CLICK_SOUNDS } from "../src/audio/click-sounds";
 import { ensureClicker, playClick } from "../src/audio/clicker-audio";
+import { BillingSection } from "../src/components/BillingSection";
+import { DevBillingPanel } from "../src/components/DevBillingPanel";
 
 /**
  * Settings — Phase 2 covers language, sound and haptics.
@@ -103,6 +105,8 @@ export default function SettingsScreen() {
           <Text variant="body">{t("account.title")}</Text>
         </Card>
       </View>
+
+      <BillingSection />
 
       <View style={{ gap: theme.space[2] }}>
         <Text variant="h3">{t("settings.language")}</Text>
@@ -236,6 +240,12 @@ export default function SettingsScreen() {
           />
         </View>
       ) : null}
+
+      {/*
+        Development-only entitlement simulator. Its own `__DEV__` gate lives inside the component, so the guard
+        holds even if this block is ever moved.
+      */}
+      <DevBillingPanel />
 
       {/*
         Development-only. Gated on __DEV__ so it cannot reach a release build, and present because the foundations

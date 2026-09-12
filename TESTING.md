@@ -76,6 +76,18 @@ pnpm test:merge
 
 - **Billing**: free user, trial, monthly, annual, expiration, cancellation, grace period, restore, refund, and
   **webhook replay idempotency** (the same store notification delivered twice must not double-apply).
+
+  As built, everything that does not need store credentials is covered without them: the entitlement policy
+  (including expiry beating an active flag, and the offline grace window), product reconciliation, the purchase and
+  restore lifecycles, premium/prerequisite gating, data safety under entitlement loss, the guest→account
+  transition, and the production guards on the development-only simulator. Server-side, the security suite asserts
+  entitlement derivation from `subscriptions` and that `recompute_entitlement` is unreachable by any client role.
+
+  What still requires **Apple sandbox / Play test track / a physical device**: a real purchase, a real restore, a
+  real renewal, refund and revocation notification, and webhook replay against live store data. The verification
+  endpoint's write path has never executed — it answers `501` without a provider credential, deliberately rather
+  than returning a plausible subscription.
+
 - **Localization**: English, Hebrew, RTL, long strings (Hebrew/German-style string expansion doesn't clip), ICU
   pluralization (see LOCALIZATION.md — Hebrew's four categories, not two), missing-translation fallback.
 - **Clicker**: audio preload, press-to-sound latency budget, rapid repeated presses (no dropped/queued-and-delayed

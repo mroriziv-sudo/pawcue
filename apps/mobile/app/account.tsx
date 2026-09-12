@@ -10,6 +10,7 @@ import {
 } from "../src/providers/SupabaseAuthProvider";
 import { useBootstrapStore } from "../src/state/bootstrap-store";
 import { useDogStore } from "../src/state/dog-store";
+import { useEntitlementStore } from "../src/state/entitlement-store";
 import { syncPendingSessions } from "../src/sync/session-sync";
 
 /**
@@ -81,6 +82,22 @@ export default function AccountScreen() {
       // Step 4 — adopt whatever this identity now owns, then flush anything queued.
       const dog = await adoptOwnedDog();
       await syncPendingSessions(dog?.id ?? null);
+
+      /**
+       * Step 5 — entitlement follows the identity, not the device.
+       *
+       * `merge_guest_session` re-parents `subscriptions` onto the account and recomputes its entitlement, so a
+       * subscription bought as a guest is now the account's. The client must ask the server again under the new
+       * id rather than keep the guest's cached answer: the cache is scoped by user id and would otherwise simply
+       * be ignored, leaving a paying user looking free until the next launch.
+       */
+      try {
+        const signedIn = await authProvider.refreshSession();
+        await useEntitlementStore.getState().initialize(signedIn.userId);
+      } catch {
+        /* The merge succeeded; a failed entitlement read is retried on the next launch and must not report one. */
+      }
+
       setMerged(true);
     } catch (error) {
       setMessage(

@@ -3,8 +3,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { Text, Card, Button, useTheme } from "@pawcue/ui";
-import { orderedSteps } from "@pawcue/domain";
+import { isPremiumLesson, orderedSteps } from "@pawcue/domain";
 import { useLessonContent } from "../../src/lessons/useLessonContent";
+import { useEntitlementStore } from "../../src/state/entitlement-store";
 
 /**
  * Lesson overview — what you are about to teach, before any training starts.
@@ -23,6 +24,7 @@ export default function LessonOverviewScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
 
   const { content, source, loading, error } = useLessonContent(slug);
+  const isPremium = useEntitlementStore((s) => s.view.isPremiumActive);
 
   if (loading) {
     return (
@@ -67,6 +69,18 @@ export default function LessonOverviewScreen() {
   }
 
   const steps = orderedSteps(content);
+
+  /**
+   * The gate, evaluated here — before the session exists.
+   *
+   * Both Today and Train already route a locked lesson to the paywall, so this is the second line rather than the
+   * first: a deep link (`pawcue://lesson/down`) reaches this screen directly, and a lesson that is only protected
+   * by the screens that link to it is not protected.
+   *
+   * Checking here and nowhere later is also what keeps a refreshed entitlement from interrupting training. The
+   * session screen never asks this question, so an answer that arrives mid-lesson cannot close one.
+   */
+  const premiumLocked = isPremiumLesson(content.lesson) && !isPremium;
 
   return (
     <ScrollView
@@ -140,11 +154,32 @@ export default function LessonOverviewScreen() {
         </View>
       </View>
 
-      <Button
-        label={t("common.cta.startTraining")}
-        onPress={() => router.push(`/session/${content.lesson.slug}`)}
-        testID="start-training"
-      />
+      {/*
+        A locked lesson still shows everything above: the goal, the time it takes, the equipment. Hiding the
+        content behind the paywall would make the decision harder, not the product more valuable — what is
+        withheld is the training, not the description of it.
+      */}
+      {premiumLocked ? (
+        <Card padding="comfortable" testID="lesson-premium-locked">
+          <View style={{ gap: theme.space[2] }}>
+            <Text variant="h3">{t("today.activityPremium")}</Text>
+            <Text variant="body" tone="muted">
+              {t("train.premiumHint")}
+            </Text>
+            <Button
+              label={t("billing.upgrade")}
+              onPress={() => router.push("/paywall")}
+              testID="lesson-premium-cta"
+            />
+          </View>
+        </Card>
+      ) : (
+        <Button
+          label={t("common.cta.startTraining")}
+          onPress={() => router.push(`/session/${content.lesson.slug}`)}
+          testID="start-training"
+        />
+      )}
     </ScrollView>
   );
 }

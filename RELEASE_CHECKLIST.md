@@ -21,8 +21,9 @@ box is actually checked against the app in hand, not just planned for.
 - [ ] **In-app purchase** — auto-renewable subscriptions only through Apple's IAP (via RevenueCat/StoreKit, see
       tech-stack-versions.md). No external payment links on iOS (Apple's external-link entitlement program is a
       separate, opt-in negotiation not assumed here).
-  - [ ] Subscription management surfaced via the standard "Manage Subscription" deep link, not a custom flow that
-        could read as obstruction.
+  - [x] Subscription management surfaced via the standard "Manage Subscription" deep link
+        (`apps.apple.com/account/subscriptions` / `play.google.com/store/account/subscriptions`), not a custom
+        in-app cancellation flow.
 - [ ] **Privacy manifest (`PrivacyInfo.xcprivacy`)** — enforced at upload since 2024, still active. Every SDK/code
       path using a "required reason" API (UserDefaults outside an app group, disk space, file timestamps, system boot
       time, active keyboard) must declare its reason. Audit this whenever a new dependency is added, not just once.
@@ -33,13 +34,19 @@ box is actually checked against the app in hand, not just planned for.
       exactly — including 2026's expanded granularity around any third-party AI data sharing (not applicable to v1,
       since no AI coach is enabled by default — confirm this stays true before submission) and the in-app
       data-deletion mechanism callout.
-- [ ] **Restore Purchases** button present and functional on the paywall.
-- [ ] **Subscription disclosure** on the paywall: price, billing period, trial length if any, price after trial,
-      auto-renewal statement, cancellation instructions — all per §33 of the brief, no exceptions.
+- [x] **Restore Purchases** button present and functional on the paywall (also in Settings → Subscription, in
+      every entitlement state). Idempotent and never reports success when nothing was restored.
+- [x] **Subscription disclosure** on the paywall: price, billing period and trial length all rendered from
+      store-provided data (no currency literal exists in `app/paywall.tsx`), plus the auto-renewal statement.
+      Asserted in `__tests__/paywall.test.tsx`, including that a trial is disclosed only when the store reports one.
+- [ ] **Store products configured** in App Store Connect / Play Console. Until they are, the paywall correctly
+      reports that no plans are available — which is honest, and unshippable.
 - [ ] **Accessibility** — VoiceOver pass on the full critical path (Phase 11 gate).
 - [ ] **Support URL** live.
 - [ ] **Terms of Use (EULA)** — either Apple's standard EULA or a custom one, linked from the paywall per store
-      requirement for auto-renewing subscriptions.
+      requirement for auto-renewing subscriptions. **Blocking:** the links exist on the paywall but
+      `EXPO_PUBLIC_TERMS_URL` / `EXPO_PUBLIC_PRIVACY_URL` are unset, so they currently say so instead of opening.
+      PawCue has no domain yet (see ARCHITECTURE.md §2 naming).
 - [ ] **Reviewer test account** — if guest mode alone doesn't let a reviewer reach premium screens, provide
       credentials/notes in the App Review submission form.
 - [ ] Age rating questionnaire completed accurately (no medical/veterinary advice claims — see PRIVACY/training
@@ -73,7 +80,11 @@ box is actually checked against the app in hand, not just planned for.
 - [ ] No fake scarcity, countdowns, pre-selected deceptive options, hidden close buttons — audited against §33 line
       by line on the actual paywall UI, not just the copy.
 - [ ] No advertising SDK, no cross-app tracking, no ATT prompt on iOS (nothing to justify it in v1).
-- [ ] `isPremium` is never a client-trusted boolean anywhere in the codebase — grep for this before every release
+- [x] `isPremium` is never a client-trusted boolean anywhere in the codebase — grep for this before every release.
+      As built: the only writer of `entitlements` is `recompute_entitlement`, which is revoked from every client
+      role; a store purchase callback moves the flow to a verification state and cannot unlock anything on its own.
+- [x] Development-only entitlement simulation cannot activate in a release build — guarded at a single chokepoint
+      and asserted by flipping `__DEV__` in `__tests__/billing-dev-guard.test.tsx`.
       build as a mechanical check, not just a design intention.
 - [ ] English + Hebrew + RTL pass on the full critical path (Phase 10 gate) before either store submission.
 - [ ] `PRIVACY.md`, `SECURITY.md`, `DATA_MAP.md` up to date with what the shipped build actually does, not what an

@@ -120,7 +120,26 @@
       "advancedTroubleshooting": "Advanced troubleshooting",
       "goalPrograms": "Goal-specific programs",
       "fullHistory": "Full progress history"
-    }
+    },
+    "titleNoDog": "Unlock the full PawCue",
+    "intro": "One subscription, everything below included. Cancel whenever you like.",
+    "choosePlan": "Choose your plan",
+    "cta": "Continue",
+    "selected": "Selected",
+    "period": {
+      "month": "month",
+      "year": "year"
+    },
+    "unlocksLessons_one": "Unlocks {{count}} more lesson",
+    "unlocksLessons_other": "Unlocks {{count}} more lessons",
+    "unavailableTitle": "Plans aren't available right now",
+    "unavailableBody": "We couldn't load subscription options from the store. Nothing you've trained is affected.",
+    "alreadyPremium": "You're already subscribed — everything is unlocked.",
+    "verifying": "Confirming your purchase…",
+    "unlockedTitle": "You're all set",
+    "unlockedBody": "Premium is active. Every lesson is unlocked.",
+    "linkUnavailable": "This link isn't set up in this build yet.",
+    "legalIntro": "Payment is charged to your store account."
   },
   "goal": {
     "bitingNipping": {
@@ -327,7 +346,8 @@
     "diagnostics": "Diagnostics (development only)",
     "sessionStatus": "Session",
     "dogSection": "Your dog",
-    "accountSection": "Account"
+    "accountSection": "Account",
+    "billingSection": "Subscription"
   },
   "permissions": {
     "notifications": {
@@ -463,7 +483,9 @@
     "doneToday_other": "{{count}} sessions done today",
     "activityDone": "Done today",
     "allDoneTitle": "That's today's plan finished",
-    "allDoneBody": "Nice work. Come back tomorrow for the next one."
+    "allDoneBody": "Nice work. Come back tomorrow for the next one.",
+    "activityPremium": "Premium lesson",
+    "premiumCta": "Unlock with Premium"
   },
   "train": {
     "title": "Train",
@@ -482,7 +504,11 @@
     "emptyBody": "We couldn't load the lesson library. Try again when you're back online.",
     "sectionReady": "Ready to train",
     "sectionCompleted": "Already learned",
-    "sectionLocked": "Coming up"
+    "sectionLocked": "Coming up",
+    "sectionPremium": "Included with Premium",
+    "premiumLocked": "Premium",
+    "premiumHint": "Part of PawCue Premium.",
+    "premiumCta": "See Premium"
   },
   "progress": {
     "title": "Progress",
@@ -522,5 +548,46 @@
     "ageMonths_other": "{{count}} months old",
     "ageUnknown": "Age not set",
     "dailyGoal": "{{count}} minutes a day"
+  },
+  "billing": {
+    "sectionTitle": "Subscription",
+    "plan": {
+      "free": "Free",
+      "premium": "Premium",
+      "expired": "Premium ended",
+      "unknown": "Checking your subscription…",
+      "offline": "Premium — from your last check",
+      "unavailable": "We couldn't check your subscription"
+    },
+    "freeBody": "You have the free lessons and a daily plan built from them.",
+    "premiumBody": "Every lesson and the full plan are unlocked.",
+    "expiredBody": "Your training history is safe. Premium lessons are locked until you subscribe again.",
+    "offlineBody": "We're using your last confirmed subscription while we can't reach the store.",
+    "unavailableBody": "Your training is safe. We'll check again when you're back online.",
+    "renewsOn": "Renews on {{date}}",
+    "endsOn": "Access until {{date}}",
+    "endedOn": "Ended on {{date}}",
+    "upgrade": "Go Premium",
+    "manage": "Manage subscription",
+    "manageHint": "Subscriptions are changed or cancelled in your store account, outside PawCue.",
+    "manageUnavailable": "Open your device's subscription settings to manage this.",
+    "retry": "Check again",
+    "checking": "Checking…",
+    "restoring": "Restoring…",
+    "purchase": {
+      "pending": "Your purchase is waiting for approval. Premium unlocks as soon as it goes through."
+    },
+    "restore": {
+      "restored": "Your subscription is active again.",
+      "nothingToRestore": "There were no purchases to restore on this account."
+    },
+    "error": {
+      "alreadyOwned": "You already own this subscription — bringing it back now.",
+      "storeUnavailable": "The store isn't responding right now. Please try again shortly.",
+      "network": "We couldn't reach the store. Check your connection and try again.",
+      "notConfigured": "In-app purchases aren't available in this build yet.",
+      "verificationFailed": "Your purchase went through. We're still confirming it — this can take a minute.",
+      "unknown": "Something went wrong. Please try again."
+    }
   }
 }

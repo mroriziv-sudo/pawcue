@@ -70,6 +70,29 @@ describe("declared Android permissions", () => {
   });
 });
 
+/**
+ * Billing added no native surface.
+ *
+ * A store SDK is the classic way a permission arrives without anyone asking for one: Play Billing pulls in
+ * `com.android.vending.BILLING`, and RevenueCat's plugin has historically added more besides. No such dependency
+ * is installed yet — the entitlement layer talks to our own server and the store seam is an unfilled interface —
+ * so the manifest must be exactly as it was. When the SDK is added, this is the test that says what it brought
+ * with it.
+ */
+describe("billing native declarations", () => {
+  const serialized = JSON.stringify(appJson);
+
+  it("declares no billing permission, because no store SDK is linked yet", () => {
+    expect(serialized).not.toMatch(/com\.android\.vending\.BILLING/);
+  });
+
+  it("adds no billing config plugin", () => {
+    const names = plugins.map((p) => (Array.isArray(p) ? p[0] : p));
+    expect(names).not.toContain("react-native-purchases");
+    expect(names).not.toContain("expo-iap");
+  });
+});
+
 describe("permissions the brief forbids outright", () => {
   const serialized = JSON.stringify(appJson);
 

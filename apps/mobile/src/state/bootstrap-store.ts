@@ -5,6 +5,7 @@ import { useSettingsStore } from "./settings-store";
 import { useDogStore } from "./dog-store";
 import { useOnboardingStore } from "./onboarding-store";
 import { useTrainingLogStore } from "./training-log-store";
+import { useEntitlementStore } from "./entitlement-store";
 import { syncPendingSessions } from "../sync/session-sync";
 
 /**
@@ -75,6 +76,21 @@ export const useBootstrapStore = create<BootstrapState>((set) => ({
           userId: session.userId,
           sessionError: null,
         });
+
+        /**
+         * Entitlement, for whichever identity just resolved.
+         *
+         * Also not awaited. A user must be able to train the free lessons before the server has said anything
+         * about their subscription, and a premium user's cached answer is read first so the app does not flash
+         * locked content on every launch. Passing the id explicitly is what scopes the cache: entitlement belongs
+         * to an identity, not to a device.
+         */
+        void useEntitlementStore
+          .getState()
+          .initialize(session.userId)
+          .catch(() => {
+            /* The store already records an unverified state; there is nothing further to report here. */
+          });
 
         /**
          * Opportunistic flush of anything trained offline.

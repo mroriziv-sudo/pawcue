@@ -13,6 +13,7 @@ import { useOnboardingStore } from "../../src/state/onboarding-store";
 import { useBootstrapStore } from "../../src/state/bootstrap-store";
 import { useSessionStore } from "../../src/state/session-store";
 import { useTrainingLogStore } from "../../src/state/training-log-store";
+import { useEntitlementStore } from "../../src/state/entitlement-store";
 import { resolveStartupRoute } from "../../src/state/startup-route";
 
 /**
@@ -40,6 +41,15 @@ export default function TodayScreen() {
   const { catalogue, loading, error } = useCatalogue();
   const completed = useTrainingLogStore((s) => s.completed);
   const activeSession = useSessionStore((s) => s.session);
+
+  /**
+   * The one premium question this screen asks.
+   *
+   * Read from the entitlement store, never computed here. The plan itself is unaffected by it — activities are
+   * chosen by the engine and then *presented* as locked or not, so a subscription changes what can be opened, not
+   * what was recommended.
+   */
+  const isPremium = useEntitlementStore((s) => s.view.isPremiumActive);
 
   /**
    * Startup routing stays on the entry screen.
@@ -107,6 +117,20 @@ export default function TodayScreen() {
   const remainingMinutes = todayView?.remainingMinutes ?? 0;
   const allDone = todayView?.allDone ?? false;
   const planPending = planStatus === "idle" || planStatus === "loading";
+
+  /**
+   * What "Start training" does.
+   *
+   * The first thing that is neither finished nor locked — so the button keeps meaning what it says partway
+   * through a day, and never opens a lesson the user cannot train. When everything left is premium, the button
+   * changes to say so rather than silently doing nothing.
+   */
+  const nextStartable = activities.find(
+    (activity) => !activity.done && !(activity.premium && !isPremium),
+  );
+  const nextLocked = activities.find(
+    (activity) => !activity.done && activity.premium && !isPremium,
+  );
 
   return (
     <ScrollView
@@ -182,63 +206,90 @@ export default function TodayScreen() {
             </Text>
           </View>
 
-          {activities.map((activity, index) => (
-            <Card
-              key={activity.lessonId}
-              padding="comfortable"
-              elevated={index === 0 && !activity.done}
-              onPress={() => router.push(`/lesson/${activity.lessonSlug}`)}
-              // Done is part of the accessible name, never conveyed by the tick alone.
-              accessibilityLabel={`${t(activity.titleKey)}. ${
-                activity.done
-                  ? t("today.activityDone")
-                  : t(
-                      `today.reason.${activity.selectionReason as PlanSelectionReason}`,
-                    )
-              }`}
-              testID={`today-activity-${activity.lessonSlug}`}
-              {...(activity.done ? { style: { opacity: 0.62 } } : {})}
-            >
-              <View style={{ gap: theme.space[2] }}>
-                <View
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: theme.space[2],
-                  }}
-                >
-                  <Text
-                    variant="small"
-                    tone={activity.done ? "success" : "brand"}
-                    testID={`today-activity-state-${activity.lessonSlug}`}
+          {activities.map((activity, index) => {
+            const locked = activity.premium && !isPremium;
+            // What the badge says. A lock is the most useful thing to know about a row, so it leads.
+            const stateLabel = locked
+              ? t("today.activityPremium")
+              : activity.done
+                ? t("today.activityDone")
+                : t(
+                    `today.reason.${activity.selectionReason as PlanSelectionReason}`,
+                  );
+
+            return (
+              <Card
+                key={activity.lessonId}
+                padding="comfortable"
+                elevated={index === 0 && !activity.done && !locked}
+                /**
+                 * A locked row opens the paywall, not the lesson.
+                 *
+                 * The destination is what makes the lock understandable rather than merely obstructive: pressing
+                 * it leads to the one thing that resolves it. Nothing routes to the lesson while it is locked, so
+                 * a premium lesson cannot be started by a stray tap.
+                 */
+                onPress={() =>
+                  router.push(
+                    locked ? "/paywall" : `/lesson/${activity.lessonSlug}`,
+                  )
+                }
+                // Both the lock and the done state are part of the accessible name, never conveyed by dimming alone.
+                accessibilityLabel={`${t(activity.titleKey)}. ${stateLabel}`}
+                testID={`today-activity-${activity.lessonSlug}`}
+                {...(activity.done || locked
+                  ? { style: { opacity: 0.62 } }
+                  : {})}
+              >
+                <View style={{ gap: theme.space[2] }}>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: theme.space[2],
+                    }}
                   >
-                    {activity.done
-                      ? t("today.activityDone")
-                      : t(`today.reason.${activity.selectionReason}`)}
-                  </Text>
-                  <Text variant="caption" tone="muted">
-                    {t("today.totalTime", { count: activity.estimatedMinutes })}
+                    <Text
+                      variant="small"
+                      tone={activity.done && !locked ? "success" : "brand"}
+                      testID={`today-activity-state-${activity.lessonSlug}`}
+                    >
+                      {stateLabel}
+                    </Text>
+                    <Text variant="caption" tone="muted">
+                      {t("today.totalTime", {
+                        count: activity.estimatedMinutes,
+                      })}
+                    </Text>
+                  </View>
+
+                  <Text variant="h3">{t(activity.titleKey)}</Text>
+                  <Text variant="small" tone="muted" numberOfLines={2}>
+                    {t(activity.goalKey)}
                   </Text>
                 </View>
+              </Card>
+            );
+          })}
 
-                <Text variant="h3">{t(activity.titleKey)}</Text>
-                <Text variant="small" tone="muted" numberOfLines={2}>
-                  {t(activity.goalKey)}
-                </Text>
-              </View>
-            </Card>
-          ))}
-
-          <Button
-            label={t("today.start")}
-            onPress={() => {
-              // Resumes at the first thing not yet done, so the button keeps meaning what it says partway through.
-              const next = activities.find((activity) => !activity.done);
-              if (next) router.push(`/lesson/${next.lessonSlug}`);
-            }}
-            testID="today-start"
-          />
+          {/*
+            One primary action, and it always does something honest: train the next thing that can be trained, or
+            — when everything left needs a subscription — say that plainly and lead to the paywall.
+          */}
+          {nextStartable ? (
+            <Button
+              label={t("today.start")}
+              onPress={() => router.push(`/lesson/${nextStartable.lessonSlug}`)}
+              testID="today-start"
+            />
+          ) : nextLocked ? (
+            <Button
+              label={t("today.premiumCta")}
+              onPress={() => router.push("/paywall")}
+              testID="today-start-premium"
+            />
+          ) : null}
         </View>
       )}
 

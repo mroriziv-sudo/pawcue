@@ -1,8 +1,15 @@
 import { z } from "zod";
+import { BILLING_PRODUCT_ORDER } from "@pawcue/config";
 import { timestampedSchema, uuidSchema } from "./shared";
 
-/** Stable internal product IDs — never a hardcoded price string anywhere in the app (brief §9 Screen 9, §15). */
-export const productIdSchema = z.enum(["premium_monthly", "premium_annual"]);
+/**
+ * Stable internal product IDs — never a hardcoded price string anywhere in the app (brief §9 Screen 9, §15).
+ *
+ * Derived from `BILLING_PRODUCTS` rather than re-listed, because `packages/config/src/billing-products.ts` claims
+ * to be "the only place a product ID literal may appear" and a second copy here is exactly the drift that claim
+ * exists to prevent: two enums that agree today and silently disagree the day a product is added.
+ */
+export const productIdSchema = z.enum(BILLING_PRODUCT_ORDER);
 export type ProductId = z.infer<typeof productIdSchema>;
 
 export const storeSchema = z.enum(["app_store", "play_store"]);

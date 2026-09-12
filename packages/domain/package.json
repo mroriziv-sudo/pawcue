@@ -10,6 +10,7 @@
     "lint": "eslint src"
   },
   "dependencies": {
+    "@pawcue/config": "workspace:*",
     "zod": "^4.5.4"
   },
   "devDependencies": {

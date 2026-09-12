@@ -3,9 +3,14 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { Text, Card, useTheme } from "@pawcue/ui";
-import { canStartLesson, type LessonStatusDetail } from "@pawcue/domain";
+import {
+  lessonGate,
+  type LessonGate,
+  type LessonStatusDetail,
+} from "@pawcue/domain";
 import { useLessonStatuses } from "../../src/lessons/useCatalogue";
 import { useDogStore } from "../../src/state/dog-store";
+import { useEntitlementStore } from "../../src/state/entitlement-store";
 import { EmptyState } from "./index";
 
 /**
@@ -25,24 +30,56 @@ export default function TrainScreen() {
 
   const dog = useDogStore((s) => s.dog);
   const { statuses, loading, error } = useLessonStatuses();
+  const entitlement = useEntitlementStore((s) => s.view);
 
+  /**
+   * Each lesson's two locks, resolved once.
+   *
+   * `lessonGate` keeps them separate: a prerequisite lock and a premium lock have different causes and different
+   * ways out, and a lesson can carry both. Nothing below collapses them into a single "locked".
+   */
+  const gated = statuses.map((detail) => ({
+    detail,
+    gate: lessonGate(detail, entitlement),
+  }));
+
+  /**
+   * Premium content gets its own section rather than being mixed into "Coming up".
+   *
+   * Sorting by state is Phase 6's structure and it still holds — but "you have not trained the prerequisite yet"
+   * and "this is part of the subscription" are not the same state, and a user who reads them as one will try to
+   * train their way to content that training cannot reach.
+   */
   const sections = [
     {
       key: "ready",
       titleKey: "train.sectionReady",
-      items: statuses.filter(
-        (item) => item.status === "unfinished" || item.status === "not_started",
+      items: gated.filter(
+        (item) =>
+          item.gate.canStart &&
+          (item.detail.status === "unfinished" ||
+            item.detail.status === "not_started"),
       ),
     },
     {
       key: "completed",
       titleKey: "train.sectionCompleted",
-      items: statuses.filter((item) => item.status === "completed"),
+      items: gated.filter(
+        (item) =>
+          item.detail.status === "completed" && !item.gate.premiumLocked,
+      ),
     },
     {
       key: "locked",
       titleKey: "train.sectionLocked",
-      items: statuses.filter((item) => item.status === "locked"),
+      items: gated.filter(
+        (item) => item.gate.prerequisiteLocked && !item.gate.premiumLocked,
+      ),
+    },
+    {
+      key: "premium",
+      titleKey: "train.sectionPremium",
+      items: gated.filter((item) => item.gate.premiumLocked),
     },
   ].filter((section) => section.items.length > 0);
 
@@ -83,22 +120,27 @@ export default function TrainScreen() {
             <Text variant="h3" testID={`train-section-${section.key}`}>
               {t(section.titleKey)}
             </Text>
-            {section.items.map((item) => (
+            {section.items.map(({ detail, gate }) => (
               <LessonCard
-                key={item.lesson.id}
-                detail={item}
+                key={detail.lesson.id}
+                detail={detail}
+                gate={gate}
                 /**
-                 * The handler exists only when the lesson can actually be started.
+                 * The handler exists only when the lesson can actually be started, and the two locks route
+                 * differently: a premium lock leads to the paywall, because that is the way out of it, while a
+                 * prerequisite lock leads nowhere — there is nothing to buy and nothing to open.
                  *
-                 * Deciding here rather than inside the card means a locked lesson has no navigation attached at
-                 * any level — not on the card, not on the component wrapping it — so there is nothing for a stray
-                 * press to find.
+                 * Deciding here rather than inside the card means a locked lesson has no navigation to the lesson
+                 * attached at any level, so there is nothing for a stray press to find.
                  */
-                {...(canStartLesson(item)
+                {...(gate.canStart
                   ? {
-                      onPress: () => router.push(`/lesson/${item.lesson.slug}`),
+                      onPress: () =>
+                        router.push(`/lesson/${detail.lesson.slug}`),
                     }
-                  : {})}
+                  : gate.premiumLocked && !gate.prerequisiteLocked
+                    ? { onPress: () => router.push("/paywall") }
+                    : {})}
               />
             ))}
           </View>
@@ -111,21 +153,26 @@ export default function TrainScreen() {
 /**
  * One lesson in the catalogue.
  *
- * A locked lesson is not pressable at all, rather than pressable-and-then-refused: `canStartLesson` is the single
- * check, and withholding `onPress` also removes the button role, so assistive technology is told the same thing
- * the visual treatment says.
+ * A lesson that cannot be started is not pressable *into the lesson*, rather than pressable-and-then-refused:
+ * withholding `onPress` also removes the button role, so assistive technology is told the same thing the visual
+ * treatment says. A premium-locked lesson is pressable, but it opens the paywall — the thing that actually
+ * resolves its lock.
+ *
+ * Both locks are stated, in that order, whenever both apply. "Premium" alone would tell a user to pay for
+ * something they still could not train.
  */
 function LessonCard({
   detail,
+  gate,
   onPress,
 }: {
   detail: LessonStatusDetail;
-  /** Absent when the lesson is locked. Its absence is what makes the card inert. */
+  gate: LessonGate;
+  /** Absent when there is nowhere useful to go. Its absence is what makes the card inert. */
   onPress?: () => void;
 }) {
   const theme = useTheme();
   const { t } = useTranslation();
-  const startable = onPress !== undefined;
 
   const statusTone =
     detail.status === "completed"
@@ -134,16 +181,30 @@ function LessonCard({
         ? "brand"
         : "muted";
 
+  // What the badge says: the premium lock is the headline when it applies, since it is the one with a way out.
+  const badgeKey = gate.premiumLocked
+    ? "train.premiumLocked"
+    : `train.status.${detail.status}`;
+
+  const accessibleState = [
+    gate.premiumLocked ? t("train.premiumLocked") : null,
+    gate.prerequisiteLocked
+      ? t("train.status.locked")
+      : gate.premiumLocked
+        ? null
+        : t(`train.status.${detail.status}`),
+  ]
+    .filter(Boolean)
+    .join(". ");
+
   return (
     <Card
       padding="compact"
       {...(onPress ? { onPress } : {})}
-      // The status is part of the accessible name, never conveyed by colour alone.
-      accessibilityLabel={`${t(detail.lesson.titleKey)}. ${t(
-        `train.status.${detail.status}`,
-      )}`}
+      // Every lock is part of the accessible name, never conveyed by colour or dimming alone.
+      accessibilityLabel={`${t(detail.lesson.titleKey)}. ${accessibleState}`}
       testID={`lesson-card-${detail.lesson.slug}`}
-      {...(startable ? {} : { style: { opacity: 0.6 } })}
+      {...(gate.canStart ? {} : { style: { opacity: 0.6 } })}
     >
       <View style={{ gap: theme.space[1] }}>
         <View
@@ -159,10 +220,10 @@ function LessonCard({
           </Text>
           <Text
             variant="caption"
-            tone={statusTone}
+            tone={gate.premiumLocked ? "brand" : statusTone}
             testID={`lesson-status-${detail.lesson.slug}`}
           >
-            {t(`train.status.${detail.status}`)}
+            {t(badgeKey)}
           </Text>
         </View>
 
@@ -186,7 +247,21 @@ function LessonCard({
           </Text>
         ) : null}
 
-        {detail.status === "locked" ? (
+        {/*
+          Each lock explains itself in its own words. Shown together when both apply, so the user learns that
+          subscribing alone will not make this lesson startable.
+        */}
+        {gate.premiumLocked ? (
+          <Text
+            variant="caption"
+            tone="muted"
+            testID={`lesson-premium-${detail.lesson.slug}`}
+          >
+            {t("train.premiumHint")}
+          </Text>
+        ) : null}
+
+        {gate.prerequisiteLocked ? (
           <Text
             variant="caption"
             tone="muted"

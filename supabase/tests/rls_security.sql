@@ -451,6 +451,155 @@ select tests_record(
   (select count(*)::text from purchase_events)
 );
 
+-- === Entitlement derivation (Phase 7) =====================================
+-- `recompute_entitlement` is SECURITY DEFINER and writes a table no client may write. PostgREST exposes every
+-- public function at /rest/v1/rpc/<name>, so an un-revoked grant would let anyone holding the publicly shipped
+-- anon key call it — the same shape as the Phase 0 `merge_guest_session` escalation.
+do $$
+declare v_err text := 'no error';
+begin
+  perform tests_become_anon();
+  begin
+    perform recompute_entitlement('aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa');
+    v_err := 'EXECUTE SUCCEEDED';
+  exception when insufficient_privilege then
+    v_err := 'rejected';
+  when others then
+    v_err := 'rejected';
+  end;
+  perform tests_record('anon CANNOT execute recompute_entitlement', 'rejected', v_err);
+end;
+$$;
+
+do $$
+declare v_err text := 'no error';
+begin
+  perform tests_become('aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa');
+  begin
+    perform recompute_entitlement('aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa');
+    v_err := 'EXECUTE SUCCEEDED';
+  exception when insufficient_privilege then
+    v_err := 'rejected';
+  when others then
+    v_err := 'rejected';
+  end;
+  perform tests_record('authenticated user CANNOT execute recompute_entitlement', 'rejected', v_err);
+end;
+$$;
+
+select tests_become_admin();
+
+-- Never subscribed: no row at all, which the client reads as free. A `false` row for every non-customer would be
+-- inventing billing records for people who have none.
+select recompute_entitlement('bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb');
+select tests_record(
+  'recompute: a user who never subscribed has no entitlement row',
+  '0',
+  (select count(*)::text from entitlements where user_id = 'bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb')
+);
+
+insert into subscriptions (id, user_id, product_id, store, status, store_transaction_id, current_period_end)
+values ('50000000-0000-4000-a000-00000000000a', 'bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb',
+        'premium_monthly', 'app_store', 'active', 'suite-tx-active', now() + interval '30 days');
+
+select recompute_entitlement('bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb');
+select tests_record(
+  'recompute: an active subscription grants premium',
+  'true',
+  (select is_premium_active::text from entitlements where user_id = 'bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb')
+);
+select tests_record(
+  'recompute: the entitlement records which subscription state granted it',
+  'active',
+  (select source from entitlements where user_id = 'bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb')
+);
+
+-- A payment retry is still an entitlement: the store is treating the subscription as live, and cutting access off
+-- mid-retry locks a paying customer out of an app they are still being billed for.
+update subscriptions set status = 'billing_retry' where id = '50000000-0000-4000-a000-00000000000a';
+select recompute_entitlement('bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb');
+select tests_record(
+  'recompute: a billing retry keeps premium active',
+  'true',
+  (select is_premium_active::text from entitlements where user_id = 'bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb')
+);
+
+-- An expiry the store has told us about ends access, and is distinguishable from never having subscribed.
+update subscriptions
+set status = 'expired', current_period_end = now() - interval '1 day'
+where id = '50000000-0000-4000-a000-00000000000a';
+select recompute_entitlement('bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb');
+select tests_record(
+  'recompute: an expired subscription revokes premium',
+  'false',
+  (select is_premium_active::text from entitlements where user_id = 'bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb')
+);
+select tests_record(
+  'recompute: an ended subscription is still distinguishable from never having had one',
+  'expired',
+  (select source from entitlements where user_id = 'bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb')
+);
+
+-- A subscription whose period ran out without the store saying so must not keep granting access on the strength
+-- of a status nobody updated.
+update subscriptions
+set status = 'active', current_period_end = now() - interval '1 day'
+where id = '50000000-0000-4000-a000-00000000000a';
+select recompute_entitlement('bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb');
+select tests_record(
+  'recompute: an active status past its own period end does not grant premium',
+  'false',
+  (select is_premium_active::text from entitlements where user_id = 'bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb')
+);
+
+-- Losing access must never cost a user their data.
+select tests_record(
+  'revoking premium leaves the dog untouched',
+  '1',
+  (select count(*)::text from dogs where id = 'd0000000-0000-4000-a000-00000000000b')
+);
+
+-- A client may read its own entitlement and nothing more — no update policy exists, so a self-grant by UPDATE is
+-- as impossible as one by INSERT.
+select tests_become('bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb');
+select tests_record(
+  'bob CAN read his own entitlement',
+  '1',
+  (select count(*)::text from entitlements)
+);
+do $$
+declare v_rows int := -1;
+begin
+  update entitlements set is_premium_active = true
+  where user_id = 'bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb';
+  get diagnostics v_rows = row_count;
+  perform tests_record('bob CANNOT update his own entitlement to premium', '0', v_rows::text);
+end;
+$$;
+select tests_record(
+  'bob''s entitlement is still not premium after the attempted update',
+  'false',
+  (select is_premium_active::text from entitlements where user_id = 'bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb')
+);
+
+select tests_become('aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa');
+select tests_record(
+  'alice CANNOT read bob''s entitlement',
+  '0',
+  (select count(*)::text from entitlements where user_id = 'bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb')
+);
+select tests_record(
+  'alice CANNOT read bob''s subscription',
+  '0',
+  (select count(*)::text from subscriptions where user_id = 'bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb')
+);
+
+select tests_become_admin();
+delete from subscriptions where id = '50000000-0000-4000-a000-00000000000a';
+delete from entitlements where user_id = 'bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb';
+
+select tests_become('aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa');
+
 -- === Nested ownership (plans/progress reached through dogs) ===============
 select tests_become_admin();
 
@@ -547,7 +696,57 @@ $$;
 insert into dogs (id, owner_user_id, name)
 values ('d0000000-0000-4000-a000-00000000000c', 'cccccccc-cccc-4ccc-cccc-cccccccccccc', 'GuestDog');
 
+/*
+  Both sides hold an entitlement, which is the case that used to break the merge outright.
+
+  `entitlements.user_id` is NOT NULL UNIQUE, and the original function did
+  `update entitlements set user_id = target where user_id = source` — a unique violation whenever both had a row,
+  failing the whole transaction and taking the dogs and training history with it. It was unreachable only because
+  nothing created entitlement rows; Phase 7 creates them.
+
+  The guest is the one with a live subscription here, so the merge also has to *keep* premium: a subscription
+  bought as a guest belongs to the account that guest became.
+*/
+insert into subscriptions (id, user_id, product_id, store, status, store_transaction_id, current_period_end)
+values
+  ('50000000-0000-4000-a000-00000000000b', 'cccccccc-cccc-4ccc-cccc-cccccccccccc',
+   'premium_annual', 'app_store', 'active', 'suite-tx-guest', now() + interval '300 days'),
+  ('50000000-0000-4000-a000-00000000000c', 'aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa',
+   'premium_monthly', 'app_store', 'expired', 'suite-tx-alice', now() - interval '10 days');
+
+select recompute_entitlement('cccccccc-cccc-4ccc-cccc-cccccccccccc');
+select recompute_entitlement('aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa');
+select tests_record(
+  'merge fixture: both sides hold an entitlement row before the merge',
+  '2',
+  (select count(*)::text from entitlements
+   where user_id in ('cccccccc-cccc-4ccc-cccc-cccccccccccc', 'aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa'))
+);
+
 select merge_guest_session('cccccccc-cccc-4ccc-cccc-cccccccccccc', 'aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa');
+
+-- The merge completed at all — before the fix, this transaction raised a unique violation here.
+select tests_record(
+  'merge survives an entitlement row on both sides',
+  '1',
+  (select count(*)::text from entitlements where user_id = 'aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa')
+);
+select tests_record(
+  'merge leaves no entitlement behind on the guest',
+  '0',
+  (select count(*)::text from entitlements where user_id = 'cccccccc-cccc-4ccc-cccc-cccccccccccc')
+);
+select tests_record(
+  'merge moves the guest''s subscription to the account',
+  'aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa',
+  (select user_id::text from subscriptions where id = '50000000-0000-4000-a000-00000000000b')
+);
+-- A subscription bought as a guest still entitles the account afterwards, recomputed rather than carried over.
+select tests_record(
+  'a subscription bought as a guest survives the merge',
+  'true',
+  (select is_premium_active::text from entitlements where user_id = 'aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa')
+);
 select tests_record(
   'legitimate merge re-parents the guest dog to the real account',
   'aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa',
@@ -692,9 +891,20 @@ select tests_record(
    from subscriptions where store_transaction_id = 'tx-alice-retain')
 );
 
+-- Entitlements are pure derived state, so they go with the profile rather than being retained like the billing
+-- record that produced them (DATA_MAP.md). Alice held one at this point: the merge above recomputed her a premium
+-- entitlement from the guest's subscription.
+select tests_record(
+  'deletion: entitlements hard-deleted (derived state, not an audit record)',
+  '0',
+  (select count(*)::text from entitlements where user_id = 'aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa')
+);
+
 -- === Cleanup ==============================================================
 delete from auth.users where id in ('aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa', 'bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb', 'cccccccc-cccc-4ccc-cccc-cccccccccccc');
-delete from subscriptions where store_transaction_id in ('dup-tx', 'tx-alice-retain');
+delete from subscriptions where store_transaction_id in (
+  'dup-tx', 'tx-alice-retain', 'suite-tx-active', 'suite-tx-guest', 'suite-tx-alice'
+);
 delete from session_events where id = 'e0000000-0000-4000-a000-00000000000a';
 delete from plan_activities where id = '62000000-0000-4000-a000-00000000000a';
 delete from plan_days where id = '61000000-0000-4000-a000-00000000000a';

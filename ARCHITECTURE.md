@@ -34,14 +34,14 @@ directory).
 Six interfaces live in `packages/domain/src/providers/`. Screens and hooks depend on the **interface**, never the
 concrete SDK:
 
-| Interface               | Concrete impl (later phase)                                                                                    | Notes                             |
-| ----------------------- | -------------------------------------------------------------------------------------------------------------- | --------------------------------- |
-| `AuthProvider`          | Supabase Auth (Apple/Google/anonymous)                                                                         | Phase 7                           |
-| `BillingProvider`       | StoreKit2-backed + Google Play Billing, behind one client lib (decision pending — see RELEASE_CHECKLIST.md §D) | Phase 8                           |
-| `NotificationProvider`  | `expo-notifications` local scheduling                                                                          | Phase 9                           |
-| `TrainingCoachProvider` | Not enabled by default. Stubbed with a `NullTrainingCoachProvider` that returns `NOT_AVAILABLE`                | Phase 10+, off by default per §10 |
-| `AnalyticsProvider`     | First-party event sink → Supabase table `app_events` via Edge Function                                         | Phase 2+                          |
-| `StorageProvider`       | Supabase Storage (dog photos)                                                                                  | Phase 6                           |
+| Interface               | Concrete impl (later phase)                                                                                 | Notes                             |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| `AuthProvider`          | `SupabaseAuthProvider` — anonymous real; Apple/Google throw until configured                                | Built                             |
+| `BillingProvider`       | `StoreBillingProvider` — entitlement real; products/purchase/restore behind `StoreBillingAdapter`, unfilled | Built (store SDK still required)  |
+| `NotificationProvider`  | `expo-notifications` local scheduling                                                                       | Phase 9                           |
+| `TrainingCoachProvider` | Not enabled by default. Stubbed with a `NullTrainingCoachProvider` that returns `NOT_AVAILABLE`             | Phase 10+, off by default per §10 |
+| `AnalyticsProvider`     | First-party event sink → Supabase table `app_events` via Edge Function                                      | Phase 2+                          |
+| `StorageProvider`       | Supabase Storage (dog photos)                                                                               | Phase 6                           |
 
 This lets us swap billing vendor, swap crash/analytics vendor, or turn on an AI coach later without touching a single
 screen.
@@ -60,9 +60,15 @@ Full state machine: [docs/architecture/state-flow.md](docs/architecture/state-fl
    single Postgres transaction (`merge_guest_session()` function) that re-parents guest rows to the authenticated
    `user_id` and is idempotent (safe to retry, safe if already merged).
 4. Paywall is reached only when the user tries to consume something beyond the free tier (Day 2+ of the plan, full
-   lesson catalog, advanced troubleshooting). Purchase updates a client-cached entitlement hint immediately for UX,
-   but the source of truth is always the server-verified `entitlements` table, refreshed via `GET /v1/entitlements`
-   and store server-to-server notifications.
+   lesson catalog, advanced troubleshooting). The source of truth is always the server-verified `entitlements`
+   table, refreshed via `GET /v1/entitlements` and store server-to-server notifications.
+
+   As built (Phase 7), the boundary that the data actually defines is `lessons.is_always_free` — the full lesson
+   catalog. "Day 2+" assumes a multi-day plan reveal the product does not currently generate, and "advanced
+   troubleshooting" has no marker in `lesson_troubleshooting`; both are recorded as open product decisions in
+   [docs/architecture/phase-7-monetization.md](docs/architecture/phase-7-monetization.md) rather than guessed at.
+   A purchase never updates a local entitlement hint: it moves the flow to a verification state and waits for the
+   server, because a client-cached grant is the one thing BILLING.md forbids.
 
 ## 6. Plan generation engine (§9)
 

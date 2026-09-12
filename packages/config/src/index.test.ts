@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { apiRoutes, BILLING_PRODUCTS, DEFAULT_FEATURE_FLAGS } from "./index";
+import {
+  apiRoutes,
+  BILLING_PRODUCTS,
+  BILLING_PRODUCT_ORDER,
+  BILLING_PRODUCT_PERIODS,
+  DEFAULT_FEATURE_FLAGS,
+  isKnownProductId,
+} from "./index";
 
 describe("BILLING_PRODUCTS", () => {
   it("exposes exactly the two stable product IDs the brief requires", () => {
@@ -7,6 +14,31 @@ describe("BILLING_PRODUCTS", () => {
       monthly: "premium_monthly",
       annual: "premium_annual",
     });
+  });
+
+  it("offers the smallest immediate charge first", () => {
+    // Presentation order is fixed here so no screen can reorder the choices to steer a decision.
+    expect(BILLING_PRODUCT_ORDER).toEqual([
+      "premium_monthly",
+      "premium_annual",
+    ]);
+  });
+
+  it("declares every product's billing period", () => {
+    expect(BILLING_PRODUCT_PERIODS).toEqual({
+      premium_monthly: "month",
+      premium_annual: "year",
+    });
+    // A product with no declared period could reach the store-required renewal disclosure without one.
+    for (const id of BILLING_PRODUCT_ORDER) {
+      expect(BILLING_PRODUCT_PERIODS[id]).toBeDefined();
+    }
+  });
+
+  it("recognises only the products this app sells", () => {
+    expect(isKnownProductId("premium_monthly")).toBe(true);
+    expect(isKnownProductId("premium_lifetime")).toBe(false);
+    expect(isKnownProductId("")).toBe(false);
   });
 });
 

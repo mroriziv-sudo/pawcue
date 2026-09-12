@@ -1,7 +1,7 @@
 # Edge Functions
 
-Implementations land in **Phase 4** (core API) and **Phase 7** (auth/merge). This directory intentionally contains
-no function code yet.
+`auth-merge-guest` is implemented; `purchases-verify` is implemented and refuses to grant anything until a store
+provider credential exists (see below).
 
 Each function lives in its own directory with an `index.ts`; `supabase functions deploy` picks up directories, so a
 Markdown spec like this one is never deployed. That is deliberate for the spec below: a stub `index.ts` for an
@@ -9,11 +9,12 @@ auth-critical endpoint could be deployed accidentally and would then be a live, 
 
 ---
 
-## `auth-merge-guest` → `POST /v1/auth/merge-guest` (Phase 7) — SECURITY CRITICAL
+## `auth-merge-guest` → `POST /v1/auth/merge-guest` — SECURITY CRITICAL
 
-> **Implementation TODO (Phase 7).** Do not implement this endpoint without satisfying every rule below, and do not
-> mark Phase 7 complete until the seven test cases in [TESTING.md](../../TESTING.md#auth-merge-guest-security-cases)
-> pass. Related: [AUTH.md](../../AUTH.md), [DATABASE.md](../../DATABASE.md), [SECURITY.md](../../SECURITY.md).
+> **Implemented.** The rules below are normative and the seven test cases in
+> [TESTING.md](../../TESTING.md#auth-merge-guest-security-cases) run against the deployed function (`pnpm
+test:merge`). Related: [AUTH.md](../../AUTH.md), [DATABASE.md](../../DATABASE.md),
+> [SECURITY.md](../../SECURITY.md).
 
 ### Why this endpoint carries the whole authorization burden
 
@@ -64,3 +65,48 @@ X-Guest-Authorization: Bearer <anonymous session JWT>  ← required, verified, s
 
 Carrying the guest token in its own header rather than the body keeps rule 3 structural: there is no ID in the body
 for the handler to be tempted to trust.
+
+---
+
+## `purchases-verify` → `POST /v1/purchases/verify` — SECURITY CRITICAL
+
+The only path by which a user becomes premium. `entitlements` and `subscriptions` have no client write policy, and
+`recompute_entitlement` is revoked from `public`/`anon`/`authenticated`, so this handler under the service role is
+the entire boundary between a claim and the row that decides access.
+
+### Non-negotiable rules
+
+1. **Identity comes from the verified caller JWT.** There is no user id in the body and no path where one could
+   reach a write — the same structural rule as `auth-merge-guest`.
+2. **The client never states its entitlement.** A body field such as `isPremium`, a status, an expiry or a price is
+   not read. The body carries a `storeTransactionId`: a question, not an answer.
+3. **The store is the authority.** `verifyWithProvider` asks the provider and its answer is what gets written —
+   including the product, so a client cannot buy the cheap one and claim the expensive one. The provider's answer
+   is itself validated against the product/status enums before any write.
+4. **Idempotent.** Keyed on `store_transaction_id` (unique, upserted) and `store_event_id` (unique). A retry, a
+   duplicate callback and a replayed webhook converge on the same rows and the same `200`.
+5. **Entitlement is derived, never assembled here.** `recompute_entitlement(user_id)` reads `subscriptions` and
+   decides. The response reads the resulting row back rather than reporting what was intended.
+6. **Rate limited**, with uniform failure text.
+
+### Shape
+
+```
+POST /v1/purchases/verify
+Authorization: Bearer <caller's JWT>     ← required, verified, supplies the OWNER
+{ "storeTransactionId": "..." }          ← the transaction to verify; never an entitlement claim
+
+200  { verified, isPremiumActive, source, expiresAt }  — read back from `entitlements`
+400  malformed body / missing transaction id
+401  missing or invalid caller JWT
+429  rate limited
+501  PROVIDER_NOT_CONFIGURED — no provider credential in this deployment; nothing verified, nothing granted
+502  the provider returned a product or status outside the schema's enums
+```
+
+### External configuration still required
+
+`REVENUECAT_SECRET_API_KEY` (a server secret — never an `EXPO_PUBLIC_` name) plus the RevenueCat project, App Store
+Connect and Play Console setup listed in `docs/architecture/phase-7-monetization.md`. Until that exists,
+`verifyWithProvider` returns null and the endpoint answers `501`. It is deliberately **not** stubbed to return a
+plausible subscription: that would make the write path look exercised when it has never run.

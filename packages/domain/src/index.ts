@@ -12,6 +12,11 @@ export * from "./models/billing";
 export * from "./models/content";
 export * from "./models/analytics";
 
+export * from "./billing/entitlement";
+export * from "./billing/access";
+export * from "./billing/product-catalogue";
+export * from "./billing/purchase-flow";
+
 export * from "./providers/auth-provider";
 export * from "./providers/billing-provider";
 export * from "./providers/notification-provider";

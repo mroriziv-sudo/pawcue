@@ -1,4 +1,4 @@
-import type { PlanningCatalogue } from "@pawcue/domain";
+import { isPremiumLesson, type PlanningCatalogue } from "@pawcue/domain";
 import type { StoredPlan } from "./plan-repository";
 
 /**
@@ -88,6 +88,14 @@ export interface TodayActivityView {
   sortOrder: number;
   /** True once a session for this lesson has been completed on the plan's own day. */
   done: boolean;
+  /**
+   * True when the lesson is outside the free tier.
+   *
+   * A property of the content, not of the user — whether it is *locked* depends on entitlement, which this view
+   * deliberately does not know about. The plan engine is entitlement-blind by design: a plan that changed shape
+   * with a subscription would make "what should I train today" a billing question.
+   */
+  premium: boolean;
 }
 
 export interface TodayView {
@@ -151,6 +159,7 @@ export function buildTodayView(
           selectionReason: activity.selectionReason,
           sortOrder: activity.sortOrder,
           done: doneLessonIds.has(activity.lessonId),
+          premium: isPremiumLesson(lesson),
         },
       ];
     });

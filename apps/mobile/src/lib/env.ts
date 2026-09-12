@@ -19,4 +19,11 @@ export const env = {
   supabaseUrl: asOptionalString(process.env.EXPO_PUBLIC_SUPABASE_URL),
   supabaseAnonKey: asOptionalString(process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY),
   apiBaseUrl: asOptionalString(process.env.EXPO_PUBLIC_API_BASE_URL) ?? "",
+  /**
+   * Terms of Use and Privacy Policy, required on the paywall for an auto-renewing subscription
+   * (RELEASE_CHECKLIST.md §A). Absent here because PawCue has no domain yet — the app says so rather than
+   * shipping a dead link, and neither store will accept a build without them.
+   */
+  termsUrl: asOptionalString(process.env.EXPO_PUBLIC_TERMS_URL),
+  privacyUrl: asOptionalString(process.env.EXPO_PUBLIC_PRIVACY_URL),
 } as const;
