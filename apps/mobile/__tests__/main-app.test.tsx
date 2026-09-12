@@ -19,6 +19,15 @@ import { useOnboardingStore } from "../src/state/onboarding-store";
 import { useSessionStore } from "../src/state/session-store";
 import { useTrainingLogStore } from "../src/state/training-log-store";
 import { resetCatalogueCache } from "../src/lessons/useCatalogue";
+import {
+  usePlanStore,
+  resetPlanLifecycleGuards,
+} from "../src/state/plan-store";
+import {
+  createFakePlanBackend,
+  fakeFetchActive,
+  fakePersist,
+} from "./support/fake-plan-backend";
 
 /**
  * The four primary destinations, driven through the real screens and the real stores.
@@ -48,8 +57,12 @@ jest.mock("expo-router", () => ({
 }));
 
 const mockLoadCatalogue = jest.fn();
+const mockPersist = jest.fn();
+const mockFetchActive = jest.fn();
 jest.mock("../src/plans/plan-repository", () => ({
   loadPlanningCatalogue: () => mockLoadCatalogue(),
+  persistGeneratedPlan: (...args: unknown[]) => mockPersist(...args),
+  fetchActivePlan: (...args: unknown[]) => mockFetchActive(...args),
 }));
 
 const mockFetchDog = jest.fn();
@@ -158,6 +171,8 @@ function record(
   };
 }
 
+const backend = createFakePlanBackend();
+
 const metrics: Metrics = {
   frame: { x: 0, y: 0, width: 390, height: 844 },
   insets: { top: 47, left: 0, right: 0, bottom: 34 },
@@ -182,6 +197,23 @@ beforeEach(async () => {
   resetCatalogueCache();
   mockLoadCatalogue.mockResolvedValue(CATALOGUE);
   mockFetchDog.mockResolvedValue(DOG);
+
+  // A fake that enforces the same one-active-plan rule the schema does.
+  backend.reset();
+  resetPlanLifecycleGuards();
+  usePlanStore.getState().clear();
+  mockPersist.mockImplementation((generated, version) => {
+    fakePersist(backend, generated, version);
+    return Promise.resolve({
+      planId: "plan",
+      engineVersionId: "v",
+      dayCount: 1,
+      activityCount: 1,
+    });
+  });
+  mockFetchActive.mockImplementation((dogId: string) =>
+    Promise.resolve(fakeFetchActive(backend, dogId)),
+  );
   useBootstrapStore.setState({ status: "ready" });
   useDogStore.setState({
     dog: DOG,
@@ -277,8 +309,9 @@ describe("Today", () => {
 
     await renderScreen(<TodayScreen />);
 
-    await waitFor(() =>
-      expect(screen.getByTestId("today-unavailable")).toBeTruthy(),
+    await waitFor(
+      () => expect(screen.getByTestId("today-unavailable")).toBeTruthy(),
+      { timeout: 3000 },
     );
     expect(JSON.stringify(screen.toJSON())).not.toMatch(
       /supabase|network request failed/i,

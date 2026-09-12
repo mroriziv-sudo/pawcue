@@ -95,4 +95,6 @@ export const STORAGE_KEYS = {
   activeDogId: "pawcue.dog.activeId",
   /** Set when the user chooses the clicker over creating a profile, so the choice survives a relaunch. */
   onboardingSkipped: "pawcue.onboarding.skipped",
+  /** Last lesson/skill catalogue seen, so Today and Train remain usable offline. */
+  catalogueCache: "pawcue.content.catalogue",
 } as const;

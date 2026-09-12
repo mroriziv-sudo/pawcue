@@ -95,9 +95,7 @@ tooling is kept rather than deleted — it is useful for QA — but it cannot re
 
 ## Deferred to Phase 7+
 
-- Plan **persistence**. Today generates from live history on each visit, which is correct and cheap; the Phase 5
-  persistence path (`persistGeneratedPlan`, `fetchActivePlan`) exists and is unused by the UI. Storing the plan
-  matters once a plan needs to be stable across devices or referenced by `plan_activity_id` on a session.
-- Offline lesson browsing. Today and Train need the catalogue, which is cached per-lesson (Phase 3) but not as a
-  whole; a cold start with no network shows an honest unavailable state rather than a stale list.
+- `plan_activity_id` on `training_sessions`. A session started from Today is not yet linked to the plan activity
+  that suggested it. The column exists and is nullable; linking it would let Progress attribute training to a
+  plan, which no surface needs yet.
 - Apple/Google sign-in, conflict resolution, and everything else Phase 4 recorded as external configuration.

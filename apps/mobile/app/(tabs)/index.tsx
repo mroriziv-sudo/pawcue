@@ -1,15 +1,13 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Redirect, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { Text, Card, Button, useTheme } from "@pawcue/ui";
-import {
-  RulesBasedTrainingPlanGenerator,
-  type PlanSelectionReason,
-} from "@pawcue/domain";
+import type { PlanSelectionReason } from "@pawcue/domain";
 import { useCatalogue } from "../../src/lessons/useCatalogue";
-import { buildPlanInput } from "../../src/plans/plan-inputs";
+import { buildTodayView } from "../../src/plans/plan-lifecycle";
+import { usePlanStore } from "../../src/state/plan-store";
 import { useDogStore } from "../../src/state/dog-store";
 import { useOnboardingStore } from "../../src/state/onboarding-store";
 import { useBootstrapStore } from "../../src/state/bootstrap-store";
@@ -56,28 +54,44 @@ export default function TodayScreen() {
     draft,
   });
 
-  /**
-   * The plan is regenerated only when something it depends on actually changes.
-   *
-   * Without this it would rebuild on every render — and because the generator is pure, an unmemoised call is pure
-   * waste rather than a correctness bug, which is exactly the kind of thing that goes unnoticed until a list gets
-   * long. `today` is the date string, not a Date, so a re-render inside the same day is not a new input.
-   */
   const today = new Date().toISOString().slice(0, 10);
-  const plan = useMemo(() => {
-    if (!catalogue || !dog) return null;
-    const generator = new RulesBasedTrainingPlanGenerator(catalogue);
-    return generator.generateWithDiagnostics(
-      buildPlanInput({
-        dog,
-        completed,
-        catalogue,
-        activeSession,
-        today: new Date(`${today}T00:00:00Z`),
-        lengthDays: 1,
-      }),
+  const plan = usePlanStore((s) => s.plan);
+  const planStatus = usePlanStore((s) => s.status);
+  const ensurePlanForToday = usePlanStore((s) => s.ensurePlanForToday);
+
+  /**
+   * Asks once per dog per day whether the persisted plan is still good.
+   *
+   * The store decides; this only asks. The guard inside it means a re-render, a tab switch or two screens
+   * mounting together cannot produce a second plan — regeneration is driven by the rules in `plan-lifecycle.ts`,
+   * never by component lifecycle.
+   */
+  useEffect(() => {
+    if (!dog || !catalogue) return;
+    void ensurePlanForToday({ dog, catalogue, activeSession, today });
+  }, [dog, catalogue, activeSession, today, ensurePlanForToday]);
+
+  /**
+   * What today looks like: the persisted plan, with anything already finished ticked off.
+   *
+   * Completing an activity does **not** rebuild the plan — the day's list would shift under the user as they
+   * worked through it, and every completion would write a new row. The plan is a commitment; finishing it is
+   * progress through it.
+   */
+  const todayView = useMemo(() => {
+    if (!plan || !catalogue) return null;
+    return buildTodayView(
+      plan,
+      catalogue,
+      completed
+        .filter((record) => record.status === "completed")
+        .map((record) => ({
+          lessonId: record.lessonId,
+          endedAt: record.endedAt,
+        })),
+      today,
     );
-  }, [catalogue, dog, completed, activeSession, today]);
+  }, [plan, catalogue, completed, today]);
 
   const sessionsToday = completed.filter(
     (record) =>
@@ -89,10 +103,10 @@ export default function TodayScreen() {
     return <Redirect href="/onboarding/steps" />;
   }
 
-  const activities = plan?.generated.days[0]?.activities ?? [];
-  const totalMinutes = plan?.generated.days[0]?.day.totalMinutes ?? 0;
-  const lessonFor = (lessonId: string) =>
-    catalogue?.lessons.find((lesson) => lesson.id === lessonId) ?? null;
+  const activities = todayView?.activities ?? [];
+  const remainingMinutes = todayView?.remainingMinutes ?? 0;
+  const allDone = todayView?.allDone ?? false;
+  const planPending = planStatus === "idle" || planStatus === "loading";
 
   return (
     <ScrollView
@@ -126,16 +140,28 @@ export default function TodayScreen() {
           onPress={() => router.push("/onboarding")}
           testID="today-no-dog"
         />
-      ) : loading ? (
-        <ActivityIndicator
-          color={theme.colors.brand.primary}
-          testID="today-loading"
-        />
-      ) : error || !catalogue ? (
+      ) : error || (!loading && !catalogue) || planStatus === "unavailable" ? (
+        /**
+         * Checked before the pending case on purpose.
+         *
+         * With no catalogue the plan effect never runs, so its status stays `idle` — and treating idle as "still
+         * loading" would leave a spinner on screen forever instead of saying what went wrong.
+         */
         <EmptyState
           title={t("today.unavailableTitle")}
           body={t("today.unavailableBody")}
           testID="today-unavailable"
+        />
+      ) : loading || planPending ? (
+        <ActivityIndicator
+          color={theme.colors.brand.primary}
+          testID="today-loading"
+        />
+      ) : allDone ? (
+        <EmptyState
+          title={t("today.allDoneTitle")}
+          body={t("today.allDoneBody")}
+          testID="today-all-done"
         />
       ) : activities.length === 0 ? (
         <EmptyState
@@ -152,60 +178,64 @@ export default function TodayScreen() {
           <View style={{ gap: theme.space[1] }}>
             <Text variant="h3">{t("today.planTitle")}</Text>
             <Text variant="small" tone="muted" testID="today-total-time">
-              {t("today.totalTime", { count: totalMinutes })}
+              {t("today.totalTime", { count: remainingMinutes })}
             </Text>
           </View>
 
-          {activities.map((activity, index) => {
-            const lesson = lessonFor(activity.lessonId);
-            // A plan can outlive the content it references; showing a blank row would be worse than omitting it.
-            if (!lesson) return null;
-
-            return (
-              <Card
-                key={activity.lessonId}
-                padding="comfortable"
-                elevated={index === 0}
-                onPress={() => router.push(`/lesson/${lesson.slug}`)}
-                accessibilityLabel={`${t(lesson.titleKey)}. ${t(
-                  `today.reason.${activity.selectionReason satisfies PlanSelectionReason}`,
-                )}`}
-                testID={`today-activity-${lesson.slug}`}
-              >
-                <View style={{ gap: theme.space[2] }}>
-                  <View
-                    style={{
-                      flexDirection: "row",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      gap: theme.space[2],
-                    }}
+          {activities.map((activity, index) => (
+            <Card
+              key={activity.lessonId}
+              padding="comfortable"
+              elevated={index === 0 && !activity.done}
+              onPress={() => router.push(`/lesson/${activity.lessonSlug}`)}
+              // Done is part of the accessible name, never conveyed by the tick alone.
+              accessibilityLabel={`${t(activity.titleKey)}. ${
+                activity.done
+                  ? t("today.activityDone")
+                  : t(
+                      `today.reason.${activity.selectionReason as PlanSelectionReason}`,
+                    )
+              }`}
+              testID={`today-activity-${activity.lessonSlug}`}
+              {...(activity.done ? { style: { opacity: 0.62 } } : {})}
+            >
+              <View style={{ gap: theme.space[2] }}>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: theme.space[2],
+                  }}
+                >
+                  <Text
+                    variant="small"
+                    tone={activity.done ? "success" : "brand"}
+                    testID={`today-activity-state-${activity.lessonSlug}`}
                   >
-                    <Text variant="small" tone="brand">
-                      {t(`today.reason.${activity.selectionReason}`)}
-                    </Text>
-                    <Text variant="caption" tone="muted">
-                      {t("today.totalTime", {
-                        count: activity.estimatedMinutes,
-                      })}
-                    </Text>
-                  </View>
-
-                  <Text variant="h3">{t(lesson.titleKey)}</Text>
-                  <Text variant="small" tone="muted" numberOfLines={2}>
-                    {t(lesson.goalKey)}
+                    {activity.done
+                      ? t("today.activityDone")
+                      : t(`today.reason.${activity.selectionReason}`)}
+                  </Text>
+                  <Text variant="caption" tone="muted">
+                    {t("today.totalTime", { count: activity.estimatedMinutes })}
                   </Text>
                 </View>
-              </Card>
-            );
-          })}
+
+                <Text variant="h3">{t(activity.titleKey)}</Text>
+                <Text variant="small" tone="muted" numberOfLines={2}>
+                  {t(activity.goalKey)}
+                </Text>
+              </View>
+            </Card>
+          ))}
 
           <Button
             label={t("today.start")}
             onPress={() => {
-              const first = activities[0];
-              const lesson = first ? lessonFor(first.lessonId) : null;
-              if (lesson) router.push(`/lesson/${lesson.slug}`);
+              // Resumes at the first thing not yet done, so the button keeps meaning what it says partway through.
+              const next = activities.find((activity) => !activity.done);
+              if (next) router.push(`/lesson/${next.lessonSlug}`);
             }}
             testID="today-start"
           />

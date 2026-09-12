@@ -460,7 +460,10 @@
     "unavailableTitle": "Can't build a plan right now",
     "unavailableBody": "We couldn't reach the lesson library. Your training is safe — try again when you're back online.",
     "doneToday_one": "{{count}} session done today",
-    "doneToday_other": "{{count}} sessions done today"
+    "doneToday_other": "{{count}} sessions done today",
+    "activityDone": "Done today",
+    "allDoneTitle": "That's today's plan finished",
+    "allDoneBody": "Nice work. Come back tomorrow for the next one."
   },
   "train": {
     "title": "Train",

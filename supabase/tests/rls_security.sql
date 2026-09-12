@@ -669,7 +669,10 @@ delete from auth.users where id = 'aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa';
 
 select tests_record('deletion: profile hard-deleted',        '0', (select count(*)::text from profiles where id = 'aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa'));
 select tests_record('deletion: dogs hard-deleted (cascade)', '0', (select count(*)::text from dogs where owner_user_id = 'aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa'));
-select tests_record('deletion: training_plans hard-deleted', '0', (select count(*)::text from training_plans));
+-- Scoped to this suite's own fixture, like the checks above it. A global count was valid when the suite was the
+-- only thing creating plans; the app now persists real ones, so counting everything made a cascade check depend
+-- on unrelated data.
+select tests_record('deletion: training_plans hard-deleted', '0', (select count(*)::text from training_plans where id = 'e0000000-0000-4000-a000-00000000000a'));
 select tests_record('deletion: progress hard-deleted',       '0', (select count(*)::text from progress));
 select tests_record('deletion: streaks hard-deleted',        '0', (select count(*)::text from streaks));
 

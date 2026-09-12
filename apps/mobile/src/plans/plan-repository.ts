@@ -8,6 +8,14 @@ import {
   type Skill,
 } from "@pawcue/domain";
 import { requireSupabase } from "../lib/supabase";
+import { z } from "zod";
+import { appStorage, STORAGE_KEYS } from "../lib/storage";
+
+/** Validates a cached catalogue before it is trusted, the same way content is validated on the way in. */
+const planningCatalogueSchema = z.object({
+  lessons: z.array(lessonSchema),
+  skills: z.array(skillSchema),
+});
 
 /**
  * Training plan persistence, through RLS.
@@ -94,6 +102,25 @@ function toSkill(row: SkillRow): Skill {
  * be newly recommended. Both tables are public-read catalogue content, so this works for a guest.
  */
 export async function loadPlanningCatalogue(): Promise<PlanningCatalogue> {
+  try {
+    const catalogue = await fetchCatalogueFromNetwork();
+    await writeCatalogueCache(catalogue);
+    return catalogue;
+  } catch (error) {
+    /**
+     * Offline falls back to the last catalogue seen.
+     *
+     * Today and Train are unusable without it, and a persisted plan that cannot resolve its lesson titles is no
+     * better than no plan. The cache is the same pattern lesson content already uses. Nothing is fabricated: with
+     * no cache at all the error propagates and the screens say so.
+     */
+    const cached = await readCatalogueCache();
+    if (cached) return cached;
+    throw error;
+  }
+}
+
+async function fetchCatalogueFromNetwork(): Promise<PlanningCatalogue> {
   const client = requireSupabase();
 
   const [lessonsResult, skillsResult] = await Promise.all([
@@ -112,6 +139,31 @@ export async function loadPlanningCatalogue(): Promise<PlanningCatalogue> {
     lessons: (lessonsResult.data as LessonRow[]).map(toLesson),
     skills: (skillsResult.data as SkillRow[]).map(toSkill),
   };
+}
+
+async function readCatalogueCache(): Promise<PlanningCatalogue | null> {
+  try {
+    const raw = await appStorage.getItem(STORAGE_KEYS.catalogueCache);
+    if (!raw) return null;
+    const parsed = planningCatalogueSchema.safeParse(JSON.parse(raw));
+    // A cache written by an older content shape is discarded rather than repaired.
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}
+
+async function writeCatalogueCache(
+  catalogue: PlanningCatalogue,
+): Promise<void> {
+  try {
+    await appStorage.setItem(
+      STORAGE_KEYS.catalogueCache,
+      JSON.stringify(catalogue),
+    );
+  } catch {
+    /* A cache write failure must never fail the screen that just loaded successfully. */
+  }
 }
 
 /**
