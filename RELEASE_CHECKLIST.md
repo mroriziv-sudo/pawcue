@@ -57,8 +57,9 @@ box is actually checked against the app in hand, not just planned for.
 - [ ] **Target API level 36 (Android 16)** — mandatory for new app submissions/updates since **2026-08-31**
       (extension to 2026-11-01 available). This deadline has already passed as of today; do not plan around it as
       "upcoming."
-- [ ] **Play Billing Library v8+** — mandatory on the same 2026-08-31 deadline. Confirm whichever billing SDK
-      (RevenueCat or expo-iap) vendors a v8-compatible Play Billing dependency before locking Phase 8.
+- [ ] **Play Billing Library v8+** — mandatory on the same 2026-08-31 deadline. `react-native-purchases@10.9.1`
+      is installed; **confirm its vendored Play Billing version is ≥ 8** from the Android release build's
+      dependency report before Play submission (not verifiable from a prebuild; store configuration).
   - [ ] Subscription cancellation reachable in **≤2 taps** from the subscription management screen (2026 Play policy
         requirement post-Epic-settlement).
 - [ ] **Data Safety form** — completed to match `DATA_MAP.md` exactly, including the 2026 stricter "Android ID"
@@ -101,27 +102,26 @@ source, which is exactly why they need a checklist entry.
       plugin explicitly (`microphonePermission: false`, `recordAudioAndroid: false`,
       `enableBackgroundRecording: false`, `enableBackgroundPlayback: false`) and locked by
       `apps/mobile/__tests__/app-config.test.ts`. **Re-audit the generated manifests after any dependency upgrade.**
-- [ ] **`SYSTEM_ALERT_WINDOW` must not ship.** React Native declares it in its _debug_ manifest, but
-      `expo-dev-client` puts it in the **main** manifest, so a release build that still carries `expo-dev-client`
-      would request "draw over other apps" — a Play Store review flag for an app with no such feature. Before
-      submission: build the production profile and assert the merged release manifest contains no
-      `SYSTEM_ALERT_WINDOW`, and that `expo-dev-client` is absent from the release binary.
-- [ ] **`READ_EXTERNAL_STORAGE` / `WRITE_EXTERNAL_STORAGE`** arrive transitively from `expo-file-system`, capped at
-      `android:maxSdkVersion="32"` so they are inert on the API 33+ devices we target. Confirm they are still
-      capped, and declare them accurately in the Data Safety form if they survive.
+- [x] **`SYSTEM_ALERT_WINDOW` must not ship.** Confirmed present in the **main** manifest of a plain prebuild
+      (from `expo-dev-menu`). `plugins/withReleaseHardening.js` blocks it with `tools:node="remove"` for the
+      production profile, which survives library manifest merging; verified on a hardened prebuild on 2026-09-12.
+      Re-verify on the actual Android release bundle before Play submission.
+- [x] **`READ_EXTERNAL_STORAGE` / `WRITE_EXTERNAL_STORAGE`** arrive transitively from `expo-file-system`, capped at
+      `android:maxSdkVersion="32"`. Confirmed still capped on the 2026-09-12 prebuild. Declare them in the Data
+      Safety form (they are declared, even if inert on API 33+).
 - [ ] **`MODIFY_AUDIO_SETTINGS` is intentionally kept** — a normal, auto-granted Android permission needed to
       configure the audio session. Not privacy-sensitive and not on the brief's forbidden list.
 - [x] **`NSFaceIDUsageDescription` removed.** `expo-secure-store` injects it by default, but the app stores tokens
       without `requireAuthentication`, so Face ID is never invoked. A usage description for a capability the app
       never exercises is exactly what App Store review asks about. Fixed with `faceIDPermission: false`, confirmed
       absent from a regenerated `Info.plist`, and locked by `apps/mobile/__tests__/app-config.test.ts`.
-- [ ] **`ios.infoPlist.ITSAppUsesNonExemptEncryption`** is unset; EAS warns that App Store Connect will require it
-      to be answered manually before testing. Set it explicitly (almost certainly `false`) rather than answering it
-      by hand each submission.
-- [ ] **`NSLocalNetworkUsageDescription` / `NSBonjourServices` / `NSAllowsArbitraryLoads` / `RCTMetroPort` must not
-      ship.** These are Metro/dev-client entries in the generated debug `Info.plist`. Local-network access in
-      particular triggers a user-visible iOS prompt and is a review question. Assert they are absent from the
-      release binary's `Info.plist`, alongside the `SYSTEM_ALERT_WINDOW` check above.
+- [x] **`ios.infoPlist.ITSAppUsesNonExemptEncryption`** is set to `false` by the release-hardening plugin for
+      production builds (the app uses only platform TLS). Confirmed on the hardened prebuild.
+- [x] **`NSLocalNetworkUsageDescription` / `NSBonjourServices` / `NSAllowsArbitraryLoads` / `RCTMetroPort` must not
+      ship.** All present in a plain prebuild (from `expo-dev-launcher`), plus an `NSAllowsLocalNetworking` ATS
+      exception. Removed at prebuild by `plugins/withReleaseHardening.js` for production; the pure transform is
+      tested in `__tests__/release-hardening.test.ts` and the hardened prebuild was audited on 2026-09-12: zero
+      `NS*UsageDescription` keys, ATS `{ NSAllowsArbitraryLoads: false }` only. Re-verify on the archive.
 
 ## Product decisions that must be closed before release
 
@@ -136,3 +136,47 @@ source, which is exactly why they need a checklist entry.
 This checklist is not "done" until every box above is checked **against the actual build being submitted**, in the
 release phase (Phase 12+), by re-reading the live Apple/Google documentation on that day — this document is a
 starting point verified 2026-09-09, not a substitute for that final pass.
+
+## Phase 9 audit (2026-09-12) — classification of every open item
+
+Read against the repository as built at Phase 9. Categories: **complete** · **externally blocked** (needs an
+account, console or credential the repository cannot hold) · **physical device** · **content/design** · **store
+configuration** · **code blocker** (a code change belongs in the release phase).
+
+| Item                                           | Class               | Note                                                                                  |
+| ---------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------- |
+| Xcode 26 / iOS 26 SDK toolchain                | externally blocked  | EAS production image; confirmed when the first production build runs                  |
+| Sign in with Apple (4.8) + private relay       | code blocker        | Provider throws `ProviderNotConfiguredError`; needs Apple capability + implementation |
+| In-app purchase via IAP only                   | complete            | RevenueCat over StoreKit 2; no external payment path exists                           |
+| Manage-subscription deep link                  | complete            |                                                                                       |
+| Privacy manifest (`PrivacyInfo.xcprivacy`)     | code blocker        | Must be generated/audited on the production archive for required-reason APIs          |
+| Account deletion in-app                        | code blocker        | `apiRoutes.accountDelete()` exists; no endpoint or screen                             |
+| Privacy Policy URL live                        | externally blocked  | No domain; `EXPO_PUBLIC_PRIVACY_URL` unset                                            |
+| App Privacy questionnaire                      | store configuration | Fill from DATA_MAP.md                                                                 |
+| Restore Purchases                              | complete            | Reachable on paywall and Settings; real store restore pending sandbox                 |
+| Subscription disclosure from store data        | complete            | Price/period/trial from RevenueCat product; verified by tests, sandbox pending        |
+| Store products configured                      | store configuration | `premium_monthly` / `premium_annual` in App Store Connect + RevenueCat offering       |
+| Accessibility VoiceOver pass                   | physical device     |                                                                                       |
+| Support URL live                               | externally blocked  | No domain                                                                             |
+| Terms of Use linked                            | externally blocked  | No domain; `EXPO_PUBLIC_TERMS_URL` unset                                              |
+| Reviewer test account                          | store configuration | Guest mode reaches the paywall; note this in the review form                          |
+| Age rating                                     | store configuration |                                                                                       |
+| Android target API 36                          | store configuration | Set by Expo SDK 57 defaults; confirm on the release bundle                            |
+| Play Billing v8+                               | store configuration | Confirm the SDK's vendored version on the release bundle                              |
+| Cancellation ≤ 2 taps                          | complete            | Settings → Manage subscription → store                                                |
+| Data Safety form                               | store configuration |                                                                                       |
+| Account deletion web URL                       | externally blocked  | No domain                                                                             |
+| Play privacy policy / content rating           | store configuration |                                                                                       |
+| Permission declarations match manifest         | complete            | Hardened prebuild audited; `BILLING` added by RevenueCat with a product reason        |
+| Binary scanning (no obfuscation)               | complete            | Hermes bytecode only; no dynamic code loading                                         |
+| No dark patterns on paywall                    | complete            | Audited in Phases 7–8                                                                 |
+| No ad SDK / ATT                                | complete            | None present; `NSUserTrackingUsageDescription` absent                                 |
+| `isPremium` never client-trusted               | complete            | Server-derived; verify/webhook fail closed; 14 endpoint cases                         |
+| Dev entitlement simulation cannot ship         | complete            | `__DEV__` chokepoint; `billing-dev-guard`, `production-guards` tests                  |
+| EN/HE/RTL full pass                            | physical device     | Simulator pass done in Phase 8; device pass outstanding                               |
+| PRIVACY/SECURITY/DATA_MAP current              | content/design      | Re-read at submission                                                                 |
+| Clicker sound decision                         | content/design      | C — Crisp preferred; not finalised                                                    |
+| Remove dev clicker selector                    | content/design      | Gated and asserted absent from release; decision pending                              |
+| Production Supabase project                    | externally blocked  | EAS `production` env currently points at the **staging** project — must be replaced   |
+| RevenueCat secrets on the Supabase project     | externally blocked  | `REVENUECAT_SECRET_API_KEY`, `REVENUECAT_WEBHOOK_AUTH` unset; endpoints answer `501`  |
+| Apple Developer signing for a production build | externally blocked  | Needs the Apple account; see the Phase 9 report for the exact steps                   |

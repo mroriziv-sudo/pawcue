@@ -7,6 +7,7 @@ import { useOnboardingStore } from "./onboarding-store";
 import { useTrainingLogStore } from "./training-log-store";
 import { useSessionStore } from "./session-store";
 import { useEntitlementStore } from "./entitlement-store";
+import { configureRevenueCat } from "../billing/revenuecat-adapter";
 import { syncPendingSessions } from "../sync/session-sync";
 
 /**
@@ -78,6 +79,18 @@ export const useBootstrapStore = create<BootstrapState>((set) => ({
               : "authenticated",
           userId: session.userId,
           sessionError: null,
+        });
+
+        /**
+         * Store billing follows the identity.
+         *
+         * RevenueCat's `appUserID` is the Supabase user id, so a purchase is attributed to the same identity the
+         * server verifies it against. Configured before entitlement is read so that a purchase-then-relaunch
+         * finds the SDK already logged in. Never awaited: a store SDK that cannot start must not delay the app,
+         * and without a key this is a no-op that leaves billing honestly unavailable.
+         */
+        void configureRevenueCat(session.userId).catch(() => {
+          /* The provider keeps throwing BillingNotConfiguredError; the paywall says plans are unavailable. */
         });
 
         /**

@@ -11,6 +11,7 @@ import {
 import { useBootstrapStore } from "../src/state/bootstrap-store";
 import { useDogStore } from "../src/state/dog-store";
 import { useEntitlementStore } from "../src/state/entitlement-store";
+import { identifyRevenueCat } from "../src/billing/revenuecat-adapter";
 import { syncPendingSessions } from "../src/sync/session-sync";
 
 /**
@@ -93,6 +94,12 @@ export default function AccountScreen() {
        */
       try {
         const signedIn = await authProvider.refreshSession();
+        /*
+          The store SDK follows first, so the subscription bought as a guest is transferred to the account before
+          the server is asked what the account is entitled to. Order matters: reading entitlement first would
+          answer for an account RevenueCat has not yet attributed the purchase to.
+        */
+        await identifyRevenueCat(signedIn.userId);
         await useEntitlementStore.getState().initialize(signedIn.userId);
       } catch {
         /* The merge succeeded; a failed entitlement read is retried on the next launch and must not report one. */

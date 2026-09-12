@@ -64,6 +64,15 @@ describe("expo-secure-store native declarations", () => {
   });
 });
 
+describe("export compliance", () => {
+  it("answers ITSAppUsesNonExemptEncryption statically, so no upload is held for a manual answer", () => {
+    // The release-hardening plugin sets this too; declaring it here as well is what EAS CLI checks before a build.
+    expect(appJson.expo.ios.infoPlist.ITSAppUsesNonExemptEncryption).toBe(
+      false,
+    );
+  });
+});
+
 describe("declared Android permissions", () => {
   it("requests no permissions of its own", () => {
     expect(appJson.expo.android.permissions).toEqual([]);

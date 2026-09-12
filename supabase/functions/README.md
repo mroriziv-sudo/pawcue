@@ -1,7 +1,9 @@
 # Edge Functions
 
-`auth-merge-guest` is implemented; `purchases-verify` is implemented and refuses to grant anything until a store
-provider credential exists (see below).
+`auth-merge-guest`, `purchases-verify` and `revenuecat-webhook` are implemented. The two billing functions refuse
+to grant anything until the RevenueCat secrets exist on the project (see below). Their shared logic lives in
+`_shared/`; the pure mapping there is Vitest-tested (`pnpm test`), and both deployed endpoints are exercised by
+`pnpm test:billing`.
 
 Each function lives in its own directory with an `index.ts`; `supabase functions deploy` picks up directories, so a
 Markdown spec like this one is never deployed. That is deliberate for the spec below: a stub `index.ts` for an
@@ -80,9 +82,10 @@ the entire boundary between a claim and the row that decides access.
    reach a write — the same structural rule as `auth-merge-guest`.
 2. **The client never states its entitlement.** A body field such as `isPremium`, a status, an expiry or a price is
    not read. The body carries a `storeTransactionId`: a question, not an answer.
-3. **The store is the authority.** `verifyWithProvider` asks the provider and its answer is what gets written —
-   including the product, so a client cannot buy the cheap one and claim the expensive one. The provider's answer
-   is itself validated against the product/status enums before any write.
+3. **The store is the authority.** The handler fetches the caller's subscriber from RevenueCat's REST API with the
+   secret key and writes what it answers — including the product, so a client cannot buy the cheap one and claim
+   the expensive one. A named transaction the subscriber does not hold is refused (`409`). The provider's answer
+   is mapped and validated in `_shared/revenuecat-mapping.ts` before any write.
 4. **Idempotent.** Keyed on `store_transaction_id` (unique, upserted) and `store_event_id` (unique). A retry, a
    duplicate callback and a replayed webhook converge on the same rows and the same `200`.
 5. **Entitlement is derived, never assembled here.** `recompute_entitlement(user_id)` reads `subscriptions` and
@@ -106,7 +109,46 @@ Authorization: Bearer <caller's JWT>     ← required, verified, supplies the OW
 
 ### External configuration still required
 
-`REVENUECAT_SECRET_API_KEY` (a server secret — never an `EXPO_PUBLIC_` name) plus the RevenueCat project, App Store
-Connect and Play Console setup listed in `docs/architecture/phase-7-monetization.md`. Until that exists,
-`verifyWithProvider` returns null and the endpoint answers `501`. It is deliberately **not** stubbed to return a
+`REVENUECAT_SECRET_API_KEY` (a server secret — never an `EXPO_PUBLIC_` name), set with `supabase secrets set`.
+Until it exists the endpoint answers `501` and writes nothing. It is deliberately **not** stubbed to return a
 plausible subscription: that would make the write path look exercised when it has never run.
+
+---
+
+## `revenuecat-webhook` → `POST /revenuecat-webhook` — SECURITY CRITICAL
+
+RevenueCat's server-to-server notifications: renewals, expirations, refunds, billing issues, cancellations,
+transfers. This is what keeps `entitlements` true while the app is closed.
+
+### Non-negotiable rules
+
+1. **Authenticated by shared secret.** The `Authorization` header must equal `REVENUECAT_WEBHOOK_AUTH`
+   (constant-time compare). Unconfigured → `501`, everything refused.
+2. **The event is a trigger, not a source of truth.** The handler re-fetches every affected subscriber from
+   RevenueCat and re-derives state through the same mapping `purchases-verify` uses. Event fields never become
+   subscription state.
+3. **Idempotent on the event id.** `purchase_events.store_event_id = rc-event:<id>` is claimed first; a duplicate
+   delivery returns `200` without touching subscriptions. A processing failure releases the claim and answers
+   `5xx` so RevenueCat retries.
+4. **Only this app's identities are written.** RevenueCat anonymous ids in `transferred_from` are skipped.
+5. **`TRANSFER` re-parents by transaction id** — the new owner's reconcile moves the row, the old owner's
+   reconcile recomputes them without it.
+
+### Shape
+
+```
+POST /revenuecat-webhook
+Authorization: <REVENUECAT_WEBHOOK_AUTH>          ← exactly the value configured in the RevenueCat dashboard
+{ "event": { "id", "type", "app_user_id", ... } } ← RevenueCat's standard webhook body
+
+200  { received, outcomes }  or  { received, duplicate: true }  or  { received, ignored: "<type>" }
+400  malformed body / no event id
+401  wrong secret
+501  PROVIDER_NOT_CONFIGURED — no secret on the project; nothing accepted
+502  a subscriber could not be re-fetched; claim released, RevenueCat will retry
+```
+
+### External configuration still required
+
+`REVENUECAT_WEBHOOK_AUTH` and `REVENUECAT_SECRET_API_KEY` via `supabase secrets set`, and the webhook URL
+(`<project>/functions/v1/revenuecat-webhook`) with that Authorization value entered in the RevenueCat dashboard.

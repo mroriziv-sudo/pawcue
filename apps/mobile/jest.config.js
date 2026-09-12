@@ -22,5 +22,13 @@ module.exports = {
     "<rootDir>/**/*.test.[jt]s?(x)",
   ],
   testPathIgnorePatterns: ["/node_modules/", "/dist/", "/.expo/"],
+  moduleNameMapper: {
+    /**
+     * The RevenueCat SDK binds a native module at call time and has no Jest-safe entry point. Mapped explicitly
+     * rather than relying on the root `__mocks__` convention, which the jest-expo preset does not honour for
+     * packages resolved through pnpm's virtual store.
+     */
+    "^react-native-purchases$": "<rootDir>/__mocks__/react-native-purchases.ts",
+  },
   collectCoverageFrom: ["app/**/*.{ts,tsx}", "src/**/*.{ts,tsx}"],
 };

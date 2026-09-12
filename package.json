@@ -21,7 +21,8 @@
     "db:types": "supabase gen types typescript --linked > packages/domain/src/generated/database.types.ts",
     "db:verify": "pnpm db:reset && pnpm db:test && pnpm db:advisors",
     "test:mobile": "pnpm --filter @pawcue/mobile run test",
-    "test:merge": "node --env-file=.env.local supabase/tests/merge-guest-security.mjs"
+    "test:merge": "node --env-file=.env.local supabase/tests/merge-guest-security.mjs",
+    "test:billing": "node --env-file=.env.local supabase/tests/billing-endpoints-security.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.20.1",

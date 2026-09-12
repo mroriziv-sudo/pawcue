@@ -1,0 +1,7 @@
+{
+  "name": "@pawcue/edge-functions",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Test project for the pure, Deno-free modules shared by the Edge Functions. Deno runs the functions; Vitest runs these."
+}

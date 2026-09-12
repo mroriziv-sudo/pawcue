@@ -26,4 +26,15 @@ export const env = {
    */
   termsUrl: asOptionalString(process.env.EXPO_PUBLIC_TERMS_URL),
   privacyUrl: asOptionalString(process.env.EXPO_PUBLIC_PRIVACY_URL),
+  /**
+   * RevenueCat *public* SDK keys (`appl_…`, `goog_…`). Publishable by design, like the Supabase anon key: they
+   * identify the app to the store SDK and grant nothing a device could not do anyway. The secret key (`sk_…`) is
+   * server-side only and must never acquire an `EXPO_PUBLIC_` name — see `revenuecat-adapter.ts`.
+   */
+  revenueCatIosKey: asOptionalString(
+    process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY,
+  ),
+  revenueCatAndroidKey: asOptionalString(
+    process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY,
+  ),
 } as const;

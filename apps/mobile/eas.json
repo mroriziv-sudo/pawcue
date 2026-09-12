@@ -1,7 +1,7 @@
 {
   "cli": {
     "version": ">= 24.0.0",
-    "appVersionSource": "local"
+    "appVersionSource": "remote"
   },
   "build": {
     "development-simulator": {
@@ -11,6 +11,34 @@
         "simulator": true
       },
       "node": "24.21.0"
+    },
+    "preview-simulator": {
+      "extends": "production",
+      "distribution": "internal",
+      "environment": "preview",
+      "ios": {
+        "simulator": true
+      },
+      "env": {
+        "PAWCUE_RELEASE_HARDENING": "1"
+      },
+      "autoIncrement": false
+    },
+    "production": {
+      "distribution": "store",
+      "developmentClient": false,
+      "autoIncrement": true,
+      "environment": "production",
+      "node": "24.21.0",
+      "ios": {
+        "simulator": false
+      },
+      "android": {
+        "buildType": "app-bundle"
+      }
     }
+  },
+  "submit": {
+    "production": {}
   }
 }

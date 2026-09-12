@@ -22,26 +22,33 @@ Centralized in `packages/config/src/billing-products.ts`: `premium_monthly`, `pr
 read from `BillingProvider.getAvailableProducts()` (store-localized, formatted) — never a literal `"$39.99"` (brief
 §9).
 
-## Entitlement lifecycle
+## Entitlement lifecycle (implemented — Phase 7 client, Phase 9 store + server)
 
 ```
-purchase/restore → BillingProvider.purchase()/restorePurchases()
+purchase/restore → StoreBillingProvider → RevenueCat adapter (react-native-purchases)
+                        │  reports only { storeTransactionId, productId } — never entitlement
+                        ▼
+        POST /v1/purchases/verify   ──────────┐   RevenueCat webhook → POST /revenuecat-webhook
+          caller id from the JWT               │     event id claimed in purchase_events (idempotent)
+          asks RevenueCat REST API (secret key)│     every touched subscriber re-fetched from RevenueCat
+                        │                      │                        │
+                        ▼                      ▼                        ▼
+        subscriptions rows upserted, keyed by store_transaction_id; user_id from the verified identity
                         │
                         ▼
-        RevenueCat webhook → Edge Function `purchases/verify` (or push-based webhook handler)
+        recompute_entitlement(user_id) — the only writer of `entitlements`; revoked from every client role
                         │
                         ▼
-        subscriptions row upserted, keyed by store_transaction_id (idempotent — brief §36 webhook replay)
-                        │
-                        ▼
-        entitlements row recomputed from current subscriptions state
-                        │
-                        ▼
-        client re-fetches GET /v1/entitlements (or receives a realtime update)
+        client re-reads its own entitlements row through RLS (cached per identity, bounded by expires_at)
 ```
+
+Without `REVENUECAT_SECRET_API_KEY` both endpoints answer `501` and write nothing. There is no development
+branch that grants anything. Full detail, identity lifecycle and the external steps still required:
+[docs/architecture/phase-9-store-billing.md](docs/architecture/phase-9-store-billing.md).
 
 States handled end to end (brief §15, §36): `trialing`, `active`, `grace_period`, `billing_retry`, `cancelled`,
-`expired`, `refunded`, `revoked`. Server notification handling is prepared for both **App Store Server
+`expired`, `refunded`, `revoked`. `cancelled` **entitles until `current_period_end`** — turning off auto-renew
+keeps the paid period (Phase 9 migration; the Phase 7 rule revoked early). Server notification handling is prepared for both **App Store Server
 Notifications v2** and **Google Play Real-Time Developer Notifications** — RevenueCat normalizes both into one
 webhook shape, which is itself a large part of its value for v1 (see tech-stack-versions.md).
 

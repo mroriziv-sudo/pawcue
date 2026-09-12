@@ -552,6 +552,56 @@ select tests_record(
   (select is_premium_active::text from entitlements where user_id = 'bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb')
 );
 
+-- Phase 9: turning off auto-renew keeps access until the paid period ends. The store keeps serving a cancelled
+-- subscription to its end date; revoking it early would take back something already paid for.
+update subscriptions
+set status = 'cancelled', current_period_end = now() + interval '10 days', cancelled_at = now()
+where id = '50000000-0000-4000-a000-00000000000a';
+select recompute_entitlement('bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb');
+select tests_record(
+  'recompute: a cancelled subscription stays premium until its period end',
+  'true',
+  (select is_premium_active::text from entitlements where user_id = 'bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb')
+);
+select tests_record(
+  'recompute: the entitlement says it is cancelled, so the UI can show "access until"',
+  'cancelled',
+  (select source from entitlements where user_id = 'bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb')
+);
+
+-- ...and not one day past it.
+update subscriptions
+set current_period_end = now() - interval '1 day'
+where id = '50000000-0000-4000-a000-00000000000a';
+select recompute_entitlement('bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb');
+select tests_record(
+  'recompute: a cancelled subscription past its period end does not grant premium',
+  'false',
+  (select is_premium_active::text from entitlements where user_id = 'bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb')
+);
+
+-- A cancellation with no end date is not a state the stores produce, and must not entitle forever.
+update subscriptions
+set current_period_end = null
+where id = '50000000-0000-4000-a000-00000000000a';
+select recompute_entitlement('bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb');
+select tests_record(
+  'recompute: a cancelled subscription with no period end does not grant premium',
+  'false',
+  (select is_premium_active::text from entitlements where user_id = 'bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb')
+);
+
+-- Refunds and revocations never entitle, whatever their dates say.
+update subscriptions
+set status = 'refunded', current_period_end = now() + interval '10 days'
+where id = '50000000-0000-4000-a000-00000000000a';
+select recompute_entitlement('bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb');
+select tests_record(
+  'recompute: a refunded subscription does not grant premium even inside its period',
+  'false',
+  (select is_premium_active::text from entitlements where user_id = 'bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb')
+);
+
 -- Losing access must never cost a user their data.
 select tests_record(
   'revoking premium leaves the dog untouched',
