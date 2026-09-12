@@ -59,8 +59,8 @@ insert into lessons (id, slug, skill_id, title_key, goal_key, estimated_minutes,
   ('00000000-0000-4000-a000-0000000020ac', 'potty_foundation',     '00000000-0000-4000-a000-0000000010a0', 'lesson.pottyFoundation.title',      'lesson.pottyFoundation.goal',      3,  '{treats}',                1, true,  '00000000-0000-4000-a000-0000000000c1');
 
 -- ---------------------------------------------------------------------------
--- lesson_steps — fully authored for Name Game (brief §4 Screen 2) and Sit (brief §6 example); other lessons get a
--- minimal 3-step scaffold, ready for full content authoring as a content-only follow-up.
+-- lesson_steps — Name Game (brief §4 Screen 2) and Sit (brief §6 example) were authored first; the other eleven
+-- followed in the Phase 8 content follow-up, below.
 -- ---------------------------------------------------------------------------
 insert into lesson_steps (lesson_id, step_order, instruction_key, requires_clicker_press, repetition_target) values
   ('00000000-0000-4000-a000-0000000020a0', 0, 'lesson.nameGame.step1', false, null),
@@ -73,14 +73,58 @@ insert into lesson_steps (lesson_id, step_order, instruction_key, requires_click
   ('00000000-0000-4000-a000-0000000020a1', 1, 'lesson.sit.step2', false, null),
   ('00000000-0000-4000-a000-0000000020a1', 2, 'lesson.sit.step3', true,  5);
 
-insert into lesson_steps (lesson_id, step_order, instruction_key, requires_clicker_press, repetition_target)
--- repetition_target is cast explicitly: an untyped NULL resolves to text and collides with the integer in the
--- third branch ("UNION types text and integer cannot be matched").
-select id, 0, slug || '.step1', false, null::smallint from lessons where slug not in ('name_game', 'sit')
-union all
-select id, 1, slug || '.step2', true, null::smallint from lessons where slug not in ('name_game', 'sit')
-union all
-select id, 2, slug || '.step3', false, 5::smallint from lessons where slug not in ('name_game', 'sit');
+-- The remaining eleven lessons, authored (Phase 8 content follow-up). Every instruction key is a literal under
+-- `lesson.*` so the content-conformance test can resolve it in both locales; the computed `slug || '.stepN'`
+-- scaffold this replaces produced keys no audit could see and no locale could translate.
+--
+-- Clicker steps only appear where the lesson's equipment lists the clicker. Calm Settle, Loose Leash, Jumping,
+-- Biting, Crate and Potty are authored around a spoken marker instead, because a step that demands a click in a
+-- lesson whose equipment says "treats" is asking for a tool the user was told they would not need.
+insert into lesson_steps (lesson_id, step_order, instruction_key, requires_clicker_press, repetition_target) values
+  -- down — treats, clicker
+  ('00000000-0000-4000-a000-0000000020a2', 0, 'lesson.down.step1',                 false, null),
+  ('00000000-0000-4000-a000-0000000020a2', 1, 'lesson.down.step2',                 false, null),
+  ('00000000-0000-4000-a000-0000000020a2', 2, 'lesson.down.step3',                 true,  5),
+  -- come — treats, clicker, leash
+  ('00000000-0000-4000-a000-0000000020a3', 0, 'lesson.come.step1',                 false, null),
+  ('00000000-0000-4000-a000-0000000020a3', 1, 'lesson.come.step2',                 false, null),
+  ('00000000-0000-4000-a000-0000000020a3', 2, 'lesson.come.step3',                 true,  5),
+  -- stay — treats, clicker
+  ('00000000-0000-4000-a000-0000000020a4', 0, 'lesson.stay.step1',                 false, null),
+  ('00000000-0000-4000-a000-0000000020a4', 1, 'lesson.stay.step2',                 true,  null),
+  ('00000000-0000-4000-a000-0000000020a4', 2, 'lesson.stay.step3',                 false, 5),
+  -- leave_it — treats, clicker
+  ('00000000-0000-4000-a000-0000000020a5', 0, 'lesson.leaveIt.step1',              false, null),
+  ('00000000-0000-4000-a000-0000000020a5', 1, 'lesson.leaveIt.step2',              true,  null),
+  ('00000000-0000-4000-a000-0000000020a5', 2, 'lesson.leaveIt.step3',              false, 5),
+  -- place — treats, clicker, mat
+  ('00000000-0000-4000-a000-0000000020a6', 0, 'lesson.place.step1',                false, null),
+  ('00000000-0000-4000-a000-0000000020a6', 1, 'lesson.place.step2',                true,  null),
+  ('00000000-0000-4000-a000-0000000020a6', 2, 'lesson.place.step3',                false, 5),
+  -- calm_settle — mat only; quiet praise, no clicker, a small number of calm moments
+  ('00000000-0000-4000-a000-0000000020a7', 0, 'lesson.calmSettle.step1',           false, null),
+  ('00000000-0000-4000-a000-0000000020a7', 1, 'lesson.calmSettle.step2',           false, null),
+  ('00000000-0000-4000-a000-0000000020a7', 2, 'lesson.calmSettle.step3',           false, 3),
+  -- loose_leash_foundation — treats, leash
+  ('00000000-0000-4000-a000-0000000020a8', 0, 'lesson.looseLeashFoundation.step1', false, null),
+  ('00000000-0000-4000-a000-0000000020a8', 1, 'lesson.looseLeashFoundation.step2', false, null),
+  ('00000000-0000-4000-a000-0000000020a8', 2, 'lesson.looseLeashFoundation.step3', false, 5),
+  -- jumping_foundation — treats
+  ('00000000-0000-4000-a000-0000000020a9', 0, 'lesson.jumpingFoundation.step1',    false, null),
+  ('00000000-0000-4000-a000-0000000020a9', 1, 'lesson.jumpingFoundation.step2',    false, null),
+  ('00000000-0000-4000-a000-0000000020a9', 2, 'lesson.jumpingFoundation.step3',    false, 5),
+  -- biting_foundation — treats
+  ('00000000-0000-4000-a000-0000000020aa', 0, 'lesson.bitingFoundation.step1',     false, null),
+  ('00000000-0000-4000-a000-0000000020aa', 1, 'lesson.bitingFoundation.step2',     false, null),
+  ('00000000-0000-4000-a000-0000000020aa', 2, 'lesson.bitingFoundation.step3',     false, 5),
+  -- crate_foundation — treats, crate
+  ('00000000-0000-4000-a000-0000000020ab', 0, 'lesson.crateFoundation.step1',      false, null),
+  ('00000000-0000-4000-a000-0000000020ab', 1, 'lesson.crateFoundation.step2',      false, null),
+  ('00000000-0000-4000-a000-0000000020ab', 2, 'lesson.crateFoundation.step3',      false, 5),
+  -- potty_foundation — treats; a routine followed through the day, so no in-session repetition count
+  ('00000000-0000-4000-a000-0000000020ac', 0, 'lesson.pottyFoundation.step1',      false, null),
+  ('00000000-0000-4000-a000-0000000020ac', 1, 'lesson.pottyFoundation.step2',      false, null),
+  ('00000000-0000-4000-a000-0000000020ac', 2, 'lesson.pottyFoundation.step3',      false, null);
 
 -- ---------------------------------------------------------------------------
 -- lesson_troubleshooting — the core differentiator (brief §7). Fully authored for Name Game and Sit;

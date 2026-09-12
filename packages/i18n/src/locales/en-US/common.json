@@ -225,47 +225,80 @@
     },
     "down": {
       "title": "Down",
-      "goal": "Teach your dog to lie down on cue."
+      "goal": "Teach your dog to lie down on cue.",
+      "step1": "Start with your dog in a sit. Hold a treat right at their nose.",
+      "step2": "Lower the treat slowly straight down to the floor, then draw it a little forward along the ground.",
+      "step3": "The moment their elbows touch the floor, click and reward. Repeat."
     },
     "come": {
       "title": "Come",
-      "goal": "Build a reliable recall in low-distraction settings."
+      "goal": "Build a reliable recall in low-distraction settings.",
+      "step1": "In a quiet room, clip on the leash and take a few steps back from your dog.",
+      "step2": "Say their name, then “come”, in a bright, happy voice. Crouch or pat your legs if it helps.",
+      "step3": "The moment they reach you, click and reward — then let them go and try again."
     },
     "stay": {
       "title": "Stay",
-      "goal": "Teach your dog to hold a position until released."
+      "goal": "Teach your dog to hold a position until released.",
+      "step1": "Ask your dog to sit. Show an open palm and say “stay”.",
+      "step2": "Wait one second. If they hold the sit, click and reward while they’re still sitting.",
+      "step3": "Say a release word like “okay” and let them move. Repeat, adding a second each time."
     },
     "leaveIt": {
       "title": "Leave It",
-      "goal": "Teach your dog to disengage from something on cue."
+      "goal": "Teach your dog to disengage from something on cue.",
+      "step1": "Close a treat in your fist and let your dog sniff, lick, or paw at it. Say “leave it” once.",
+      "step2": "The moment they stop and pull their nose away, click.",
+      "step3": "Reward from your other hand — never from the fist they left alone. Repeat."
     },
     "place": {
       "title": "Place",
-      "goal": "Teach your dog to go to and stay on a mat or bed."
+      "goal": "Teach your dog to go to and stay on a mat or bed.",
+      "step1": "Put the mat on the floor and toss a treat onto it. Say “place” as your dog steps on.",
+      "step2": "When all four paws are on the mat, click and reward — on the mat.",
+      "step3": "Ask for a down on the mat, reward, then release with “okay”. Repeat."
     },
     "calmSettle": {
       "title": "Calm Settle",
-      "goal": "Help your dog relax on cue, even with distractions nearby."
+      "goal": "Help your dog relax on cue, even with distractions nearby.",
+      "step1": "Sit near your dog’s mat with something quiet to do. Don’t ask for anything — just wait.",
+      "step2": "When your dog lies down on their own, say “settle” softly and give slow, gentle praise.",
+      "step3": "Each time they stay relaxed a little longer, praise quietly again. Keep your voice and hands calm."
     },
     "looseLeashFoundation": {
       "title": "Loose Leash Foundation",
-      "goal": "Build the first habits for a pull-free walk."
+      "goal": "Build the first habits for a pull-free walk.",
+      "step1": "Clip on the leash indoors. Stand still and wait until the leash goes slack.",
+      "step2": "The moment it’s loose, say “yes” and give a treat right at your side.",
+      "step3": "Take one step. If the leash stays loose, say “yes” and reward again. Add steps slowly."
     },
     "jumpingFoundation": {
       "title": "Jumping Foundation",
-      "goal": "Teach a calm greeting instead of jumping up."
+      "goal": "Teach a calm greeting instead of jumping up.",
+      "step1": "Have a treat ready before you greet your dog. Keep your hands low and your voice calm.",
+      "step2": "If they jump up, stay still and quiet — the greeting pauses. The moment all four paws are on the floor, say “yes”.",
+      "step3": "Reward low, at nose height, while all four paws stay down. Repeat."
     },
     "bitingFoundation": {
       "title": "Biting Foundation",
-      "goal": "Redirect mouthing toward appropriate outlets."
+      "goal": "Redirect mouthing toward appropriate outlets.",
+      "step1": "Keep a chew toy within reach whenever you play with your puppy.",
+      "step2": "When teeth touch skin, go still and quiet for a moment, then offer the toy instead.",
+      "step3": "The moment they chew the toy, say “yes” and reward. Repeat."
     },
     "crateFoundation": {
       "title": "Crate Foundation",
-      "goal": "Build a positive first association with the crate."
+      "goal": "Build a positive first association with the crate.",
+      "step1": "Leave the crate door open with a soft blanket inside. Drop a few treats just inside the doorway.",
+      "step2": "When your dog steps in on their own, say “yes” and drop another treat inside. Leave the door open.",
+      "step3": "Toss a treat to the back of the crate. Each time they go in, say “yes” and reward. Keep the door open."
     },
     "pottyFoundation": {
       "title": "Potty Foundation",
-      "goal": "Start a consistent, reward-based potty routine."
+      "goal": "Start a consistent, reward-based potty routine.",
+      "step1": "Take your dog to the same outdoor spot right after waking, eating, and playing.",
+      "step2": "Stand quietly and wait. As they start to go, say a cue like “go potty”.",
+      "step3": "The moment they finish, say “yes” and reward right there — not back indoors."
     }
   },
   "troubleshoot": {

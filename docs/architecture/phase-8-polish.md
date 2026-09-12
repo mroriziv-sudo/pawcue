@@ -136,17 +136,45 @@ All four dev surfaces remain `__DEV__`-gated and asserted by tests that flip the
 
 ## Remaining gaps
 
-- **Scaffold step instructions leak their keys.** The Phase 3 seed authors full steps for Name Game and Sit only;
-  the other eleven lessons get a three-step scaffold whose instruction keys are `<slug>.step1..3` with no
-  translation, so the training screen shows `potty_foundation.step2` as the instruction. This is a labelled
-  content follow-up in `supabase/seed.sql`, and it is the largest thing standing between this build and a release.
-  It was **not** papered over with generic copy — inventing training instructions is a content decision, and brief
-  §10 restricts generated training advice — and it was not hidden behind a fallback string that would conceal
-  missing content from QA. Content authoring, EN and HE, is required before submission.
-
 - **Illustration.** `lesson_steps.illustrationAssetKey` exists and no lesson has artwork; the slot reserves layout
   and renders the key in development. DESIGN_SYSTEM.md's illustration style is unbuilt.
 - **Completion motion.** The design system asks for a checkmark path draw; the mark is static because the vector
   library for it is not a dependency, and a scale-in would be decoration rather than comprehension.
 - **Dark mode.** Deliberately not implemented (DESIGN_SYSTEM.md); the token layer is ready for one `darkTheme` map.
 - **Streaks.** Server-derived by contract and still unpopulated, so still omitted rather than invented.
+
+## Content follow-up — the scaffold steps
+
+Eleven lessons shipped with a three-step scaffold whose instruction keys were _computed_ in the seed
+(`slug || '.step1'`), so the training screen showed `potty_foundation.step2` as an instruction. Computed keys were
+also why nothing caught it: no literal audit could see them and no locale could translate them.
+
+**Authored** (`packages/i18n`, EN and HE, 33 steps): Down, Come, Stay, Leave It, Place, Calm Settle, Loose Leash
+Foundation, Jumping Foundation, Biting Foundation, Crate Foundation, Potty Foundation. Three steps each, one action
+per step, positive reinforcement throughout — a marker (click or spoken "yes" / "יופי") followed by a reward. The
+Hebrew is written, not translated: plural imperative and "הכלב שלכם" as the authored Name Game and Sit already use.
+
+**Structure corrected alongside the copy.** The scaffold demanded a clicker press on step 2 of every lesson,
+including the six whose equipment list has no clicker — a step that requires a tool the user was told they would
+not need. Clicker steps now appear only where the lesson lists the clicker; the rest use a spoken marker. Potty
+Foundation has no in-session repetition count (it is a routine followed through the day), and Calm Settle asks for
+three calm moments rather than five.
+
+**Published two ways.** `supabase/seed.sql` now holds explicit rows for a fresh environment, and
+`supabase/content/2026-09-12-lesson-steps-authored.sql` applies the same change to a live one by `UPDATE` keyed on
+(lesson, step_order) — so every step id is stable, `session_events.lesson_step_id` stays attached, and a paused
+lesson on a device still resumes. Applied to staging: 13 lessons, 40 steps, 0 scaffold keys remaining.
+
+**Two validators, both shown to fail on the old seed:**
+
+- `packages/i18n/src/content-conformance.test.ts` walks every `*_key` literal in the seed and asserts it resolves
+  in both locales to something that is not the key, not placeholder copy and not a pasted key fragment; refuses
+  any computed key; and checks the authored steps for aversive-method language.
+- `apps/mobile/__tests__/lesson-content-renders.test.tsx` parses the seed's lesson and step rows, builds each
+  lesson's content, and drives the real training screen through every step to completion in EN and HE, asserting
+  each instruction the user reads is a sentence and — in Hebrew — actually Hebrew.
+
+**Observed during acceptance, not a content defect:** injecting several `pawcue://session/<slug>` deep links into
+an already-running app stacks session screens sharing one store, and a lesson can appear mid-way or completed
+without a tap. Nothing in the product pushes a second session screen; a clean launch opens every lesson at step 1
+with an empty event log. Recorded here so the next person driving the app by URL does not chase it.
