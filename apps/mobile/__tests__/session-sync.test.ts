@@ -54,7 +54,8 @@ function completedRecord(index: number) {
     lessonId: "00000000-0000-4000-a000-000000000001",
     lessonSlug: "name_game",
     startedAt: "2026-09-11T10:00:00.000Z",
-    completedAt: "2026-09-11T10:03:00.000Z",
+    endedAt: "2026-09-11T10:03:00.000Z",
+    status: "completed" as const,
     stepsCompleted: 4,
     repetitionsLogged: 5,
     clickerPresses: 1,
@@ -277,10 +278,15 @@ describe("surviving a process restart", () => {
     expect(mockCalls).toHaveLength(0);
   });
 
-  it("reads a Phase 3 record that predates the events field without losing it", async () => {
-    // Records written before sync existed carry no events. They must still sync, not be dropped.
+  it("reads a record written before abandonment and events existed", async () => {
+    // Older builds stored `completedAt`, no `status`, and no events. Such a record is a completed session by
+    // construction and must be read forward, not dropped — a user's training history cannot be lost to a schema
+    // change.
     const legacy = { ...completedRecord(1) } as Record<string, unknown>;
     delete legacy.events;
+    delete legacy.endedAt;
+    delete legacy.status;
+    legacy.completedAt = "2026-09-11T10:03:00.000Z";
     await AsyncStorage.setItem(
       STORAGE_KEYS.completedSessions,
       JSON.stringify([legacy]),
@@ -290,6 +296,30 @@ describe("surviving a process restart", () => {
 
     const outcome = await syncPendingSessions(DOG);
     expect(outcome).toEqual({ status: "synced", sessions: 1, events: 0 });
-    expect(rowsFor("training_sessions")).toHaveLength(1);
+    expect(rowsFor("training_sessions")[0]).toMatchObject({
+      status: "completed",
+      completed_at: "2026-09-11T10:03:00.000Z",
+    });
+  });
+
+  it("writes an abandoned attempt as abandoned, with no completion time", async () => {
+    useTrainingLogStore.setState({
+      completed: [
+        {
+          ...completedRecord(1),
+          status: "abandoned" as const,
+          endedAt: "2026-09-11T10:02:00.000Z",
+        },
+      ],
+    });
+
+    await syncPendingSessions(DOG);
+
+    // `training_sessions.status` has allowed 'abandoned' since Phase 0; writing it as completed would make the
+    // row claim something that did not happen.
+    expect(rowsFor("training_sessions")[0]).toMatchObject({
+      status: "abandoned",
+      completed_at: null,
+    });
   });
 });

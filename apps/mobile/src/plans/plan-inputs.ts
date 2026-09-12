@@ -5,7 +5,8 @@ import type {
   PlanningCatalogue,
   TrainingPlanGeneratorInput,
 } from "@pawcue/domain";
-import type { CompletedSessionRecord } from "../state/training-log-store";
+import type { TrainingSessionState } from "@pawcue/domain";
+import type { TrainingSessionRecord } from "../state/training-log-store";
 
 /**
  * Builds the planner's input from what PawCue actually knows about a dog.
@@ -21,6 +22,9 @@ import type { CompletedSessionRecord } from "../state/training-log-store";
  *    engine could not rank a lesson by them. Goal-aware planning needs a content change, not just a question.
  *  - **`dog_skills`.** The table exists but nothing writes it. Known skills are therefore derived from completed
  *    sessions, which is a true statement about what the dog has been taught rather than an invented one.
+ *
+ * Abandoned sessions are no longer in this list: they are persisted, and `continue_unfinished` is reachable from
+ * real data.
  *  - **Age appropriateness.** `ageBucket` is derived honestly from the birthdate, but no lesson carries an age
  *    or developmental field, so the engine has nothing to match it against and deliberately ignores it. Inventing
  *    a rule here would be inventing veterinary advice.
@@ -62,7 +66,7 @@ export function ageBucketFor(
  * lesson is not learning it.
  */
 export function knownSkillIdsFromHistory(
-  completed: CompletedSessionRecord[],
+  completed: TrainingSessionRecord[],
   catalogue: PlanningCatalogue,
 ): string[] {
   const byLesson = new Map(
@@ -71,6 +75,9 @@ export function knownSkillIdsFromHistory(
   const skills = new Set<string>();
 
   for (const record of completed) {
+    // Only a completed lesson taught its skill. An abandoned attempt is training history, not a skill learned,
+    // and treating it as one would unlock prerequisites the dog has not actually met.
+    if (record.status !== "completed") continue;
     const lesson = byLesson.get(record.lessonId);
     if (lesson) skills.add(lesson.skillId);
   }
@@ -81,8 +88,17 @@ export function knownSkillIdsFromHistory(
 
 export interface BuildPlanInputArgs {
   dog: Dog;
-  completed: CompletedSessionRecord[];
+  completed: TrainingSessionRecord[];
   catalogue: PlanningCatalogue;
+  /**
+   * The session the user is part-way through, if any.
+   *
+   * Included as unfinished work in its own right. A paused session is the most common way a lesson is left
+   * incomplete, and waiting for it to be displaced by another lesson before the planner noticed would leave the
+   * commonest case invisible. It is reported without being marked abandoned — it has not been abandoned, it is
+   * simply not finished.
+   */
+  activeSession?: TrainingSessionState | null;
   /** Injected so a plan built "today" is reproducible in a test. */
   today: Date;
   lengthDays?: number;
@@ -92,9 +108,37 @@ export function buildPlanInput({
   dog,
   completed,
   catalogue,
+  activeSession = null,
   today,
   lengthDays = 7,
 }: BuildPlanInputArgs): TrainingPlanGeneratorInput {
+  const history = completed.map((record) => ({
+    lessonId: record.lessonId,
+    // The Phase 0 input pairs one end-time with a flag rather than two mutually exclusive fields.
+    completedAt: record.endedAt,
+    wasAbandoned: record.status === "abandoned",
+  }));
+
+  /**
+   * An in-progress session is anchored to when it started.
+   *
+   * It has no end time — it has not ended. `startedAt` is the honest anchor, and recency is all the planner reads
+   * from it. Skipped when the same session has already been logged, so a session that was displaced and then
+   * re-opened cannot appear twice.
+   */
+  if (
+    activeSession &&
+    activeSession.status === "in_progress" &&
+    activeSession.events.length > 0 &&
+    !completed.some((record) => record.sessionId === activeSession.sessionId)
+  ) {
+    history.push({
+      lessonId: activeSession.lessonId,
+      completedAt: activeSession.startedAt,
+      wasAbandoned: true,
+    });
+  }
+
   return {
     dogId: dog.id,
     ageBucket: ageBucketFor(dog, today),
@@ -102,13 +146,7 @@ export function buildPlanInput({
     secondaryGoalIds: [],
     knownSkillIds: knownSkillIdsFromHistory(completed, catalogue),
     dailyMinutes: dog.dailyTrainingMinutes ?? DEFAULT_DAILY_MINUTES,
-    recentSessionSummaries: completed.map((record) => ({
-      lessonId: record.lessonId,
-      completedAt: record.completedAt,
-      // The local log records completed sessions only; abandonment is not yet persisted, so no session can be
-      // reported as unfinished. `continue_unfinished` is therefore unreachable from real data today.
-      wasAbandoned: false,
-    })),
+    recentSessionSummaries: history,
     startDate: today.toISOString().slice(0, 10),
     lengthDays,
   };

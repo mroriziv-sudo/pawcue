@@ -14,8 +14,10 @@ import {
   type TrainingSessionState,
   type TransitionFailure,
 } from "@pawcue/domain";
+import { trainingSessionStateSchema } from "@pawcue/domain";
 import { appStorage, STORAGE_KEYS } from "../lib/storage";
 import { uuidV4 } from "../lib/uuid";
+import { useTrainingLogStore } from "./training-log-store";
 
 /**
  * The React-facing wrapper around the session engine.
@@ -57,6 +59,31 @@ export interface SessionStoreState {
   closeTroubleshooting: (content: LessonContent, optionId: string) => void;
   abandon: (content: LessonContent) => void;
   clear: () => Promise<void>;
+}
+
+/**
+ * Records a displaced in-progress session as abandoned.
+ *
+ * This is the moment a session genuinely ends without finishing: the stored one cannot be resumed into the lesson
+ * now being opened, so the user has moved on. Nothing else in the app ever transitioned a session to `abandoned`,
+ * which is why the planner's highest-priority rule could not fire from real data.
+ *
+ * Two guards keep the history honest. A session that is already completed or abandoned is left alone — it has a
+ * record already. A session with no events is dropped rather than recorded: opening a lesson screen and leaving
+ * is not unfinished work, and logging it would make the planner nag about something the user never started.
+ */
+async function archiveDisplacedSession(stored: unknown): Promise<void> {
+  const parsed = trainingSessionStateSchema.safeParse(stored);
+  if (!parsed.success) return;
+
+  const state = parsed.data;
+  if (state.status !== "in_progress") return;
+  if (state.events.length === 0) return;
+
+  const result = abandonSession(state, engineContext);
+  if (result.ok) {
+    await useTrainingLogStore.getState().record(result.state);
+  }
 }
 
 async function persist(session: TrainingSessionState | null): Promise<void> {
@@ -126,7 +153,8 @@ export const useSessionStore = create<SessionStoreState>((set, get) => {
           return;
         }
         // Anything the engine will not vouch for is discarded rather than repaired, so a stale session can never
-        // be resumed into a lesson it no longer matches.
+        // be resumed into a lesson it no longer matches — but real work is recorded before it is dropped.
+        await archiveDisplacedSession(stored);
         await persist(null);
       }
 

@@ -1,7 +1,7 @@
 import { requireSupabase } from "../lib/supabase";
 import {
   useTrainingLogStore,
-  type CompletedSessionRecord,
+  type TrainingSessionRecord,
 } from "../state/training-log-store";
 
 /**
@@ -42,7 +42,7 @@ export type SyncOutcome =
 let inFlight: Promise<SyncOutcome> | null = null;
 
 async function flushOne(
-  record: CompletedSessionRecord,
+  record: TrainingSessionRecord,
   dogId: string,
 ): Promise<number> {
   const client = requireSupabase();
@@ -53,9 +53,13 @@ async function flushOne(
       dog_id: dogId,
       lesson_id: record.lessonId,
       plan_activity_id: null,
-      status: "completed",
+      // The real outcome. `training_sessions.status` has allowed 'abandoned' since Phase 0, so an abandoned
+      // attempt is stored as what it was rather than mislabelled as a completion.
+      status: record.status,
       started_at: record.startedAt,
-      completed_at: record.completedAt,
+      // Null for an abandoned attempt: it has an end time, but it was never completed, and writing one would make
+      // the row claim something that did not happen.
+      completed_at: record.status === "completed" ? record.endedAt : null,
     },
     { onConflict: "id" },
   );

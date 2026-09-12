@@ -23,12 +23,27 @@ import { appStorage, STORAGE_KEYS } from "../lib/storage";
  * that none of it has reached the server.
  */
 
-export const completedSessionSchema = z.object({
+/**
+ * One finished attempt at a lesson — completed **or** abandoned.
+ *
+ * Both outcomes are recorded because both are real training history. `trainingSessionStatusSchema`,
+ * `session_events.session_abandoned` and `training_sessions.status` have described abandonment since Phase 0;
+ * until now nothing wrote it, which is why the planner's highest-priority rule could never fire from real data.
+ */
+export const trainingSessionRecordSchema = z.object({
   sessionId: z.string(),
   lessonId: z.string(),
   lessonSlug: z.string(),
   startedAt: z.string(),
-  completedAt: z.string(),
+  /**
+   * When the attempt ended, however it ended.
+   *
+   * Matches the Phase 0 planner input, whose `recentSessionSummaries` pairs a single timestamp with a
+   * `wasAbandoned` flag rather than carrying two mutually exclusive fields.
+   */
+  endedAt: z.string(),
+  /** Completed sessions behave exactly as before; `abandoned` is the new case. */
+  status: z.enum(["completed", "abandoned"]),
   stepsCompleted: z.number().int().min(0),
   repetitionsLogged: z.number().int().min(0),
   clickerPresses: z.number().int().min(0),
@@ -47,22 +62,70 @@ export const completedSessionSchema = z.object({
    */
   events: z.array(pendingSessionEventSchema).optional(),
 });
-export type CompletedSessionRecord = z.infer<typeof completedSessionSchema>;
+export type TrainingSessionRecord = z.infer<typeof trainingSessionRecordSchema>;
 
-const storedLogSchema = z.array(completedSessionSchema);
+/**
+ * Reads a stored record written before abandonment existed.
+ *
+ * Those rows carry `completedAt` and no `status`. They are, by construction, completed sessions — so they are
+ * read forward rather than discarded. A user with training history from an earlier build must not lose it to a
+ * schema change.
+ */
+const storedRecordSchema = z.union([
+  trainingSessionRecordSchema,
+  z
+    .object({
+      sessionId: z.string(),
+      lessonId: z.string(),
+      lessonSlug: z.string(),
+      startedAt: z.string(),
+      completedAt: z.string(),
+      stepsCompleted: z.number().int().min(0),
+      repetitionsLogged: z.number().int().min(0),
+      clickerPresses: z.number().int().min(0),
+      troubleshootingViewed: z.number().int().min(0),
+      syncedToServer: z.boolean(),
+      events: z.array(pendingSessionEventSchema).optional(),
+    })
+    .transform((legacy) => ({
+      ...legacy,
+      endedAt: legacy.completedAt,
+      status: "completed" as const,
+    })),
+]);
 
-/** Summarises a finished session into the record above. Counts come from the event log, not from UI state. */
+const storedLogSchema = z.array(storedRecordSchema);
+
+/**
+ * Summarises a finished session. Counts come from the event log, not from UI state.
+ *
+ * An abandoned session ends at its `session_abandoned` event — the append-only log is the only honest record of
+ * when the attempt actually stopped, since nothing sets `completedAt` on a session that was never completed.
+ */
 export function summariseSession(
   session: TrainingSessionState,
-): CompletedSessionRecord | null {
-  if (session.status !== "completed" || !session.completedAt) return null;
+): TrainingSessionRecord | null {
+  if (session.status === "in_progress") return null;
+
+  const abandonedAt = session.events.find(
+    (event) => event.type === "session_abandoned",
+  )?.occurredAt;
+  const endedAt =
+    session.status === "completed"
+      ? session.completedAt
+      : (abandonedAt ?? null);
+
+  // Without an end time the record would be unorderable against the rest of the history, which is worse than
+  // not recording it.
+  if (!endedAt) return null;
 
   return {
     sessionId: session.sessionId,
     lessonId: session.lessonId,
     lessonSlug: session.lessonSlug,
     startedAt: session.startedAt,
-    completedAt: session.completedAt,
+    endedAt,
+    status: session.status,
     stepsCompleted: session.completedStepIds.length,
     repetitionsLogged: session.events.filter(
       (event) => event.type === "repetition_logged",
@@ -77,13 +140,14 @@ export function summariseSession(
 }
 
 interface TrainingLogState {
-  completed: CompletedSessionRecord[];
+  /** Every finished attempt, completed and abandoned alike. */
+  completed: TrainingSessionRecord[];
   hydrated: boolean;
 
   hydrate: () => Promise<void>;
   record: (session: TrainingSessionState) => Promise<void>;
-  /** Completed sessions not yet written to the server. The queue the sync drains. */
-  pendingSync: () => CompletedSessionRecord[];
+  /** Sessions not yet written to the server. The queue the sync drains. */
+  pendingSync: () => TrainingSessionRecord[];
   completionsFor: (lessonSlug: string) => number;
   /** Marks sessions confirmed by the server and releases the event payloads they no longer need. */
   markSynced: (sessionIds: string[]) => Promise<void>;
@@ -115,7 +179,25 @@ export const useTrainingLogStore = create<TrainingLogState>((set, get) => ({
       return;
     }
 
-    const completed = [...get().completed, summary];
+    /**
+     * At most one unfinished attempt per lesson, and only the latest.
+     *
+     * Someone can start and drop the same lesson repeatedly; keeping every attempt would grow the log without
+     * telling the planner anything it does not already know from the most recent one. Completed records are never
+     * touched — they are history, and an older completion still counts.
+     */
+    const kept =
+      summary.status === "abandoned"
+        ? get().completed.filter(
+            (item) =>
+              !(
+                item.status === "abandoned" &&
+                item.lessonId === summary.lessonId
+              ),
+          )
+        : get().completed;
+
+    const completed = [...kept, summary];
     set({ completed });
     try {
       await appStorage.setItem(
@@ -150,7 +232,9 @@ export const useTrainingLogStore = create<TrainingLogState>((set, get) => ({
   },
 
   completionsFor: (lessonSlug) =>
-    get().completed.filter((item) => item.lessonSlug === lessonSlug).length,
+    get().completed.filter(
+      (item) => item.lessonSlug === lessonSlug && item.status === "completed",
+    ).length,
 
   clear: async () => {
     set({ completed: [] });

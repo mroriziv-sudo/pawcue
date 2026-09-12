@@ -113,10 +113,33 @@ Recorded rather than fabricated. Each would change the plan if it existed:
   be inventing veterinary advice.
 - **`dog_skills`.** The table exists and nothing writes it. Known skills are derived from completed sessions,
   which is a true statement about what the dog has been taught.
-- **Abandoned sessions.** The local log records completions only, so `continue_unfinished` is fully implemented
-  and tested but unreachable from real data until abandonment is persisted.
 - **Repetition counts and attempts.** Recorded per session, but the engine does not read them: there is no
   content field expressing what a "good enough" rep count means for a lesson.
+
+## Unfinished work (Phase 5 follow-up)
+
+`continue_unfinished` is the highest-priority rule, and for the length of Phase 5 it could not fire from real
+data. The contracts had described abandonment since Phase 0 — `trainingSessionStatusSchema`, the
+`session_abandoned` event, the `training_sessions.status` check — and the engine's `abandonSession` was
+implemented and tested. **Nothing ever called it**, and the local log rejected anything that was not completed.
+
+Two real paths now produce it:
+
+- **A displaced session.** When a stored in-progress session cannot be resumed into the lesson now being opened,
+  the user has moved on: it is abandoned through the engine and written to the log. Guarded twice — a session
+  that already completed is left alone, and one with no events is dropped, because opening a lesson screen and
+  leaving is not unfinished work.
+- **A paused session.** The active in-progress session is reported to the planner as unfinished in its own right,
+  without being marked abandoned — it has not been abandoned, it is simply not finished. Waiting for it to be
+  displaced would leave the commonest case invisible.
+
+The log holds both outcomes in one model (`TrainingSessionRecord`, with `status` and `endedAt`); there is no
+second history. At most one abandoned record is kept per lesson, the latest. Completed records are never touched,
+and a later completion supersedes an earlier abandonment through the rule the engine already had. Records written
+by earlier builds carry `completedAt` and no `status`; they are read forward as completions rather than discarded.
+
+Abandoned attempts sync like any other: `training_sessions.status` has allowed `abandoned` since Phase 0, and
+`completed_at` is written null, because the attempt has an end time but was never completed.
 
 ## Deliberately deferred to Phase 6+
 

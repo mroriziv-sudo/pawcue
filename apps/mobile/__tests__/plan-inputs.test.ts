@@ -4,7 +4,7 @@ import {
   knownSkillIdsFromHistory,
 } from "../src/plans/plan-inputs";
 import type { Dog, PlanningCatalogue } from "@pawcue/domain";
-import type { CompletedSessionRecord } from "../src/state/training-log-store";
+import type { TrainingSessionRecord } from "../src/state/training-log-store";
 
 /**
  * Building the planner's input from what the app actually knows.
@@ -89,14 +89,16 @@ function dog(overrides: Partial<Dog> = {}): Dog {
 
 function completion(
   lessonId: string,
-  completedAt: string,
-): CompletedSessionRecord {
+  endedAt: string,
+  status: TrainingSessionRecord["status"] = "completed",
+): TrainingSessionRecord {
   return {
-    sessionId: `${lessonId}-session`,
+    sessionId: `${lessonId}-${status}-session`,
     lessonId,
     lessonSlug: "name_game",
-    startedAt: completedAt,
-    completedAt,
+    startedAt: endedAt,
+    endedAt,
+    status,
     stepsCompleted: 4,
     repetitionsLogged: 5,
     clickerPresses: 1,
@@ -130,7 +132,7 @@ describe("age bucket", () => {
 });
 
 describe("known skills", () => {
-  it("derives them from completed lessons", () => {
+  it("derives them from completed lessons only", () => {
     // `dog_skills` exists but nothing writes it; a finished lesson genuinely did teach its skill.
     const known = knownSkillIdsFromHistory([completion(ID(10), TS)], CATALOGUE);
     expect(known).toEqual([ID(1)]);
@@ -202,17 +204,28 @@ describe("building the input", () => {
     ]);
   });
 
-  it("reports no abandoned sessions, because abandonment is not persisted yet", () => {
-    // Stated as a fact rather than guessed at: the local log records completions only.
+  it("reports an abandoned attempt as unfinished", () => {
     const input = buildPlanInput({
       dog: dog(),
-      completed: [completion(ID(10), TS)],
+      completed: [completion(ID(10), TS, "abandoned")],
       catalogue: CATALOGUE,
       today: TODAY,
     });
-    expect(input.recentSessionSummaries.every((s) => !s.wasAbandoned)).toBe(
-      true,
-    );
+
+    expect(input.recentSessionSummaries).toEqual([
+      { lessonId: ID(10), completedAt: TS, wasAbandoned: true },
+    ]);
+  });
+
+  it("does not treat an abandoned attempt as a skill learned", () => {
+    // Starting a lesson is not learning it; counting it would unlock prerequisites the dog has not met.
+    const input = buildPlanInput({
+      dog: dog(),
+      completed: [completion(ID(10), TS, "abandoned")],
+      catalogue: CATALOGUE,
+      today: TODAY,
+    });
+    expect(input.knownSkillIds).toEqual([]);
   });
 
   it("produces the same input for the same state", () => {

@@ -11,6 +11,7 @@ import {
 import { loadPlanningCatalogue } from "../src/plans/plan-repository";
 import { buildPlanInput } from "../src/plans/plan-inputs";
 import { useDogStore } from "../src/state/dog-store";
+import { useSessionStore } from "../src/state/session-store";
 import { useTrainingLogStore } from "../src/state/training-log-store";
 
 /**
@@ -31,6 +32,7 @@ export default function DevPlanScreen() {
 
   const dog = useDogStore((s) => s.dog);
   const completed = useTrainingLogStore((s) => s.completed);
+  const activeSession = useSessionStore((s) => s.session);
 
   const [result, setResult] = useState<GeneratedPlanWithDiagnostics | null>(
     null,
@@ -60,6 +62,7 @@ export default function DevPlanScreen() {
               dog,
               completed,
               catalogue: loaded,
+              activeSession,
               today: new Date(),
             }),
           ),
@@ -75,7 +78,7 @@ export default function DevPlanScreen() {
     return () => {
       active = false;
     };
-  }, [dog, completed]);
+  }, [dog, completed, activeSession]);
 
   if (!__DEV__) return null;
 
