@@ -423,22 +423,43 @@ enabled = true
 # ref equals its `project_id`; for every other project the base config above is what applies. Everything not
 # restated here is inherited from the base.
 #
-# `project_id` below is a syntactically valid placeholder that matches no project, until the production project
-# exists (docs/release/production-supabase.md). Replace it with the real 20-character ref — and record the same
-# ref in supabase/environments.json — before running `pnpm release:supabase:production --push-config`; the script
-# refuses to push config while the two disagree.
+# `project_id` is the production project's ref (created 2026-09-13; docs/release/production-supabase.md). It must
+# equal `production` in supabase/environments.json — `pnpm release:supabase:production --push-config` refuses to
+# push config while the two disagree.
 # -----------------------------------------------------------------------------
 [remotes.production]
-project_id = "zzzzzzzzzzzzzzzzzzzz"
+project_id = "juhkjelqfrbbhgzmedgs"
 
 [remotes.production.auth]
 # The product has no email/password sign-in, and the anon key is public: an open password sign-up is an unused
 # attack surface. Guests (anonymous sign-in) and Sign in with Apple are the only ways in.
 enable_signup = true
 enable_anonymous_sign_ins = true
+# The base values above are local-development defaults (127.0.0.1). A native app with no email flows never uses
+# these; they are pinned to the hosted project's own values so a config push does not overwrite them.
+site_url = "http://localhost:3000"
+additional_redirect_urls = []
 
 [remotes.production.auth.email]
 enable_signup = false
+# Pinned to the hosted defaults (unused with sign-up off), not the local template's.
+enable_confirmations = true
+max_frequency = "1m0s"
+otp_length = 8
+
+[remotes.production.auth.mfa.totp]
+# Hosted default. No MFA UI exists in the product; leaving the platform setting alone is the non-decision.
+enroll_enabled = true
+verify_enabled = true
+
+[remotes.production.db.pooler]
+# The hosted project's sized defaults, not the local template's.
+default_pool_size = 15
+max_client_conn = 200
+
+[remotes.production.storage.analytics]
+enabled = true
+max_namespaces = 10
 
 [remotes.production.auth.rate_limit]
 # One anonymous identity per launch on a new device is the product's only anonymous-sign-in pattern.

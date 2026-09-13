@@ -1,5 +1,5 @@
 {
-  "$comment": "Supabase project refs per environment. Refs are public (the URL ships in the app); keys and passwords never live here. `production` stays null until the project exists — see docs/release/production-supabase.md.",
+  "$comment": "Supabase project refs per environment. Refs are public (the URL ships in the app); keys and passwords never live here. production was created on 2026-09-13 — see docs/release/production-supabase.md.",
   "staging": "ccqitncejkgsaborfubc",
-  "production": null
+  "production": "juhkjelqfrbbhgzmedgs"
 }

@@ -103,13 +103,16 @@ staging and carries no legal URLs.
 
 ## Production Supabase
 
-Creating the project via CLI was blocked by the operator's tooling policy, so it is a manual step
-(`docs/release/production-supabase.md` §1). Everything after it is scripted: `pnpm release:supabase:production`
-links, pushes migrations, seeds the catalogue only when empty, deploys the four functions, prints the config diff
-and re-links to staging; `--push-config` applies the `[remotes.production]` auth overrides (password sign-up off,
-anonymous on, Apple on) and refuses unless the block's `project_id` matches. `tools/db/guard.mjs` now stands in
-front of `db:reset` and `db:test` so neither can run against anything but staging. The smoke test that validates
-the result is self-cleaning and passed 45/45 on staging.
+Creating the project via CLI was blocked by the operator's tooling policy, so the account owner created
+`juhkjelqfrbbhgzmedgs` in the dashboard. Everything after that ran from the repository on 2026-09-13:
+`pnpm release:supabase:production` linked (the CLI's login role needs no database password), applied 5/5
+migrations, seeded the catalogue once, deployed the four functions; `--push-config` applied the
+`[remotes.production]` auth overrides (password sign-up off, anonymous on, Apple on with `com.pawcue.app`) — after
+the block was extended to pin hosted defaults so the local template's `127.0.0.1` values could not overwrite them.
+The EAS `production` environment now names the production project. The smoke suite passed 45/45 on staging and
+45/45 on production; the advisors report no ERROR-level findings; the project holds catalogue rows and nothing
+else. `tools/db/guard.mjs` stands in front of `db:reset` and `db:test` so neither can run against anything but
+staging, and the CLI was re-linked to staging at the end.
 
 ## What was genuinely tested
 
@@ -125,7 +128,6 @@ the result is self-cleaning and passed 45/45 on staging.
 
 ## PENDING EXTERNAL VALIDATION
 
-The real Apple sign-in handshake · the Apple provider on the production Supabase project · a production build
-passing the environment guard (needs the production project, legal URLs and the RevenueCat key) · account
-deletion erasing a real RevenueCat subscriber · the archive's privacy manifest on a device build · everything
-listed in `docs/release/revenuecat-setup.md`.
+The real Apple sign-in handshake · a production build passing the environment guard (still needs legal URLs and
+the RevenueCat key) · account deletion erasing a real RevenueCat subscriber · the archive's privacy manifest on a
+device build · everything listed in `docs/release/revenuecat-setup.md`.

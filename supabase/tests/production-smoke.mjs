@@ -111,7 +111,11 @@ async function createGuest() {
   };
 }
 
-async function count(table) {
+/**
+ * Exact row count via PostgREST's Content-Range. One retry: right after a config push restarts the platform's
+ * services, a single request can come back without the header (seen once on production, 2026-09-13).
+ */
+async function count(table, attempt = 1) {
   const response = await fetch(`${URL}/rest/v1/${table}?select=id`, {
     headers: {
       apikey: ANON,
@@ -122,7 +126,15 @@ async function count(table) {
   });
   const range = response.headers.get("content-range") ?? "";
   const total = Number(range.split("/")[1]);
-  return Number.isFinite(total) ? total : -1;
+  if (Number.isFinite(total)) return total;
+  if (attempt < 2) {
+    await new Promise((r) => setTimeout(r, 1500));
+    return count(table, attempt + 1);
+  }
+  console.log(
+    `    (count of ${table}: HTTP ${response.status}, content-range "${range}")`,
+  );
+  return -1;
 }
 
 async function main() {

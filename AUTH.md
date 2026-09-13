@@ -10,9 +10,10 @@
   `supabase.auth.signInWithIdToken({ provider: "apple", nonce })`. Only the email scope is requested — nothing
   displays a name. Apple's own button (`ASAuthorizationAppleIDButton`) is rendered where available, with the
   design-system button as the fallback. External configuration still required: the Sign in with Apple capability
-  on the App ID (needs the Apple Developer membership) and the Apple provider enabled on the Supabase project with
-  client id `com.pawcue.app` (`supabase/config.toml` `[remotes.production]`). Until then the provider reports
-  "not available in this build" — never a fake success.
+  on the App ID (set up during the EAS credentials step now that the membership is active) and the Apple provider
+  on the Supabase project — **enabled on production on 2026-09-13** with client id `com.pawcue.app`
+  (`supabase/config.toml` `[remotes.production]`). Until a signed build carries the entitlement, the provider
+  reports "not available in this build" — never a fake success.
 - **Continue with Google** — Google Sign-In. Not yet configured; throws `ProviderNotConfiguredError`.
 
 All three resolve to the same `profiles` row shape (`auth.users` + `profiles`, see DATABASE.md) — the app's data
