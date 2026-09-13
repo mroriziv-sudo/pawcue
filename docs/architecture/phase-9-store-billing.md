@@ -105,8 +105,10 @@ On merge, `identifyRevenueCat` runs **before** the entitlement re-read, so the s
 RevenueCat has already attributed the purchase to. RevenueCat's project setting "restore behaviour" must be
 **Transfer to new App User ID** (the default) for the guest → account transfer to happen.
 
-Sign-out has no UI yet (AUTH.md describes it; nothing builds it). `resetRevenueCatIdentity` is the hook and is
-tested; wiring it is part of building sign-out.
+Sign-out and account deletion were built in Phase 9.5 (`src/state/account-lifecycle.ts`): both call
+`resetRevenueCatIdentity` before the token is dropped, and the next bootstrap configures the SDK for the fresh
+guest. Account deletion also erases the RevenueCat customer server-side, before the auth row
+(`docs/architecture/phase-9-5-release-blockers.md`).
 
 ## Production build
 

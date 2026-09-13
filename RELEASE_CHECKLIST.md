@@ -12,9 +12,11 @@ box is actually checked against the app in hand, not just planned for.
 - [ ] **Sign in with Apple (Guideline 4.8)** — required _because_ we also offer Google sign-in (third-party/social
       login triggers the requirement). Must meet: (a) collect only name + email, (b) support Apple's private-relay
       "Hide My Email," (c) no tracking without consent. Use Apple's official button component/styling, not a custom
-      lookalike.
-  - [ ] Handle Apple private relay email correctly server-side (forwarding domain, no assumption the email is
-        stable/human-readable).
+      lookalike. **Code complete (Phase 9.5):** native flow, nonce-bound, email scope only, Apple's own button
+      where available (`src/providers/apple-sign-in.ts`). Unchecked because the App ID capability needs the Apple
+      membership and the Supabase provider needs enabling; the real handshake has not run.
+  - [x] Handle Apple private relay email correctly server-side (forwarding domain, no assumption the email is
+        stable/human-readable). Derived by the profile trigger (migration `20260913120000`); 3 SQL cases.
   - [ ] Korea-based developer note: if we ever have a KR-registered developer entity, a server-to-server notification
         endpoint for the Services ID is required as of 2026-01-01 — not applicable to a US-registered developer
         account, confirm which entity actually owns the App Store Connect account before shipping.
@@ -24,12 +26,19 @@ box is actually checked against the app in hand, not just planned for.
   - [x] Subscription management surfaced via the standard "Manage Subscription" deep link
         (`apps.apple.com/account/subscriptions` / `play.google.com/store/account/subscriptions`), not a custom
         in-app cancellation flow.
-- [ ] **Privacy manifest (`PrivacyInfo.xcprivacy`)** — enforced at upload since 2024, still active. Every SDK/code
+- [x] **Privacy manifest (`PrivacyInfo.xcprivacy`)** — enforced at upload since 2024, still active. Every SDK/code
       path using a "required reason" API (UserDefaults outside an app group, disk space, file timestamps, system boot
       time, active keyboard) must declare its reason. Audit this whenever a new dependency is added, not just once.
-- [ ] **Account deletion** — in-app path (Settings → Account → Delete Account) implemented per §14 of the brief,
-      before submission (Apple requires this for any app supporting account creation).
-- [ ] **Privacy Policy URL** live and accessible before submission.
+      **Audited 2026-09-13** on the Phase 9 release artifact with `pnpm release:privacy-audit`: found
+      `ExpoFileSystem.framework` using DiskSpace with no declaration anywhere; declared in `app.json`
+      (`ios.privacyManifests`) with `E174.1`, verified on a hardened prebuild and against the artifact's binaries.
+      Pinned by `__tests__/privacy-manifest.test.ts`. **Re-run the audit on the final archive's `.app`.**
+- [x] **Account deletion** — in-app path (Settings → Account → Delete account and data) implemented in Phase 9.5
+      per §14 of the brief: explicit acknowledgement before the destructive button enables, server deletes the
+      verified JWT's subject only, RevenueCat customer erased first, local state cleared only after confirmation,
+      guests included. `pnpm test:delete` 44/44 against the deployed function.
+- [ ] **Privacy Policy URL** live and accessible before submission. Draft ready for review:
+      `docs/legal/privacy-policy.md` (placeholders for operator, contact, domain, region). Needs a domain.
 - [ ] **App Privacy ("nutrition label") questionnaire** in App Store Connect filled out to match `DATA_MAP.md`
       exactly — including 2026's expanded granularity around any third-party AI data sharing (not applicable to v1,
       since no AI coach is enabled by default — confirm this stays true before submission) and the in-app
@@ -44,9 +53,10 @@ box is actually checked against the app in hand, not just planned for.
 - [ ] **Accessibility** — VoiceOver pass on the full critical path (Phase 11 gate).
 - [ ] **Support URL** live.
 - [ ] **Terms of Use (EULA)** — either Apple's standard EULA or a custom one, linked from the paywall per store
-      requirement for auto-renewing subscriptions. **Blocking:** the links exist on the paywall but
-      `EXPO_PUBLIC_TERMS_URL` / `EXPO_PUBLIC_PRIVACY_URL` are unset, so they currently say so instead of opening.
-      PawCue has no domain yet (see ARCHITECTURE.md §2 naming).
+      requirement for auto-renewing subscriptions. Draft ready for review: `docs/legal/terms-of-use.md`, including
+      Apple's minimum EULA terms. **Blocking:** the links exist on the paywall (and in Settings, when set) but
+      `EXPO_PUBLIC_TERMS_URL` / `EXPO_PUBLIC_PRIVACY_URL` are unset, so they currently say so instead of opening;
+      a production build now refuses to start without both. PawCue has no domain yet (see ARCHITECTURE.md §2).
 - [ ] **Reviewer test account** — if guest mode alone doesn't let a reviewer reach premium screens, provide
       credentials/notes in the App Review submission form.
 - [ ] Age rating questionnaire completed accurately (no medical/veterinary advice claims — see PRIVACY/training
@@ -65,9 +75,9 @@ box is actually checked against the app in hand, not just planned for.
 - [ ] **Data Safety form** — completed to match `DATA_MAP.md` exactly, including the 2026 stricter "Android ID"
       (now explicit "Device or other IDs") and collection-vs-sharing distinction for any SDK data flows (crash
       reporting, if enabled).
-- [ ] **Account deletion — in-app** (§14) **and a public, login-free, HTTPS web URL** (`/delete-account`, §14) linked
-      from the Data Safety form. The web route must go directly to the deletion request flow, not a marketing
-      homepage.
+- [ ] **Account deletion — in-app** (§14, **done**) **and a public, login-free, HTTPS web URL** (`/delete-account`,
+      §14) linked from the Data Safety form. The web route must go directly to the deletion request flow, not a
+      marketing homepage. Page drafted: `docs/legal/delete-account-page.md`; needs a domain.
 - [ ] **Privacy Policy URL** live and accessible before submission.
 - [ ] **Content rating questionnaire** completed accurately.
 - [ ] **Permission declarations** match exactly what the manifest actually requests — no unused permissions (we
@@ -137,46 +147,51 @@ This checklist is not "done" until every box above is checked **against the actu
 release phase (Phase 12+), by re-reading the live Apple/Google documentation on that day — this document is a
 starting point verified 2026-09-09, not a substitute for that final pass.
 
-## Phase 9 audit (2026-09-12) — classification of every open item
+## Phase 9.5 release-blocker matrix (2026-09-13)
 
-Read against the repository as built at Phase 9. Categories: **complete** · **externally blocked** (needs an
-account, console or credential the repository cannot hold) · **physical device** · **content/design** · **store
-configuration** · **code blocker** (a code change belongs in the release phase).
+Every remaining item, classified. Categories: **DONE** · **WAITING FOR APPLE MEMBERSHIP** · **REQUIRES MY MANUAL
+CONFIGURATION** · **REQUIRES PHYSICAL IPHONE** · **REQUIRES TESTFLIGHT / APPLE SANDBOX** · **REQUIRES GOOGLE
+PLAY** · **REQUIRES LEGAL/CONTENT DECISION** · **TRUE CODE BLOCKER**. (The Phase 9 table this replaces is in git
+history at `f0aeb65`.)
 
-| Item                                           | Class               | Note                                                                                  |
-| ---------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------- |
-| Xcode 26 / iOS 26 SDK toolchain                | externally blocked  | EAS production image; confirmed when the first production build runs                  |
-| Sign in with Apple (4.8) + private relay       | code blocker        | Provider throws `ProviderNotConfiguredError`; needs Apple capability + implementation |
-| In-app purchase via IAP only                   | complete            | RevenueCat over StoreKit 2; no external payment path exists                           |
-| Manage-subscription deep link                  | complete            |                                                                                       |
-| Privacy manifest (`PrivacyInfo.xcprivacy`)     | code blocker        | Must be generated/audited on the production archive for required-reason APIs          |
-| Account deletion in-app                        | code blocker        | `apiRoutes.accountDelete()` exists; no endpoint or screen                             |
-| Privacy Policy URL live                        | externally blocked  | No domain; `EXPO_PUBLIC_PRIVACY_URL` unset                                            |
-| App Privacy questionnaire                      | store configuration | Fill from DATA_MAP.md                                                                 |
-| Restore Purchases                              | complete            | Reachable on paywall and Settings; real store restore pending sandbox                 |
-| Subscription disclosure from store data        | complete            | Price/period/trial from RevenueCat product; verified by tests, sandbox pending        |
-| Store products configured                      | store configuration | `premium_monthly` / `premium_annual` in App Store Connect + RevenueCat offering       |
-| Accessibility VoiceOver pass                   | physical device     |                                                                                       |
-| Support URL live                               | externally blocked  | No domain                                                                             |
-| Terms of Use linked                            | externally blocked  | No domain; `EXPO_PUBLIC_TERMS_URL` unset                                              |
-| Reviewer test account                          | store configuration | Guest mode reaches the paywall; note this in the review form                          |
-| Age rating                                     | store configuration |                                                                                       |
-| Android target API 36                          | store configuration | Set by Expo SDK 57 defaults; confirm on the release bundle                            |
-| Play Billing v8+                               | store configuration | Confirm the SDK's vendored version on the release bundle                              |
-| Cancellation ≤ 2 taps                          | complete            | Settings → Manage subscription → store                                                |
-| Data Safety form                               | store configuration |                                                                                       |
-| Account deletion web URL                       | externally blocked  | No domain                                                                             |
-| Play privacy policy / content rating           | store configuration |                                                                                       |
-| Permission declarations match manifest         | complete            | Hardened prebuild audited; `BILLING` added by RevenueCat with a product reason        |
-| Binary scanning (no obfuscation)               | complete            | Hermes bytecode only; no dynamic code loading                                         |
-| No dark patterns on paywall                    | complete            | Audited in Phases 7–8                                                                 |
-| No ad SDK / ATT                                | complete            | None present; `NSUserTrackingUsageDescription` absent                                 |
-| `isPremium` never client-trusted               | complete            | Server-derived; verify/webhook fail closed; 14 endpoint cases                         |
-| Dev entitlement simulation cannot ship         | complete            | `__DEV__` chokepoint; `billing-dev-guard`, `production-guards` tests                  |
-| EN/HE/RTL full pass                            | physical device     | Simulator pass done in Phase 8; device pass outstanding                               |
-| PRIVACY/SECURITY/DATA_MAP current              | content/design      | Re-read at submission                                                                 |
-| Clicker sound decision                         | content/design      | C — Crisp preferred; not finalised                                                    |
-| Remove dev clicker selector                    | content/design      | Gated and asserted absent from release; decision pending                              |
-| Production Supabase project                    | externally blocked  | EAS `production` env currently points at the **staging** project — must be replaced   |
-| RevenueCat secrets on the Supabase project     | externally blocked  | `REVENUECAT_SECRET_API_KEY`, `REVENUECAT_WEBHOOK_AUTH` unset; endpoints answer `501`  |
-| Apple Developer signing for a production build | externally blocked  | Needs the Apple account; see the Phase 9 report for the exact steps                   |
+| Item                                                   | Class                               | Note                                                                                                                                                                                                                                        |
+| ------------------------------------------------------ | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| In-app purchase via IAP only                           | DONE                                | RevenueCat over StoreKit 2; no external payment path                                                                                                                                                                                        |
+| Manage-subscription deep link; cancellation ≤ 2 taps   | DONE                                |                                                                                                                                                                                                                                             |
+| Restore Purchases                                      | DONE                                | Real store restore is sandbox-pending (below)                                                                                                                                                                                               |
+| Subscription disclosure from store data                | DONE                                |                                                                                                                                                                                                                                             |
+| Account deletion in-app                                | DONE                                | Phase 9.5; 44 server + 12 UI cases                                                                                                                                                                                                          |
+| Sign-out                                               | DONE                                | Phase 9.5; shares the local reset with deletion                                                                                                                                                                                             |
+| Private-relay email handling                           | DONE                                | Server-derived; 3 SQL cases                                                                                                                                                                                                                 |
+| Privacy manifest declarations                          | DONE                                | DiskSpace gap found and closed; archive re-check is a TestFlight item                                                                                                                                                                       |
+| Permission declarations match manifest                 | DONE                                | Hardened prebuilds re-audited 2026-09-13 after adding Apple auth + crypto: unchanged                                                                                                                                                        |
+| Dev tooling / entitlement simulation cannot ship       | DONE                                | `production-guards`, `billing-dev-guard`, release hardening                                                                                                                                                                                 |
+| Production environment fails safely                    | DONE                                | `assertProductionEnvironment` blocks a store build with staging URL, missing keys or legal URLs                                                                                                                                             |
+| `isPremium` never client-trusted                       | DONE                                |                                                                                                                                                                                                                                             |
+| No dark patterns; no ad SDK / ATT                      | DONE                                |                                                                                                                                                                                                                                             |
+| Binary scanning (no obfuscation)                       | DONE                                | Hermes bytecode only                                                                                                                                                                                                                        |
+| Sign in with Apple — code                              | DONE                                | Real handshake not run — see next two rows                                                                                                                                                                                                  |
+| Sign in with Apple — App ID capability                 | WAITING FOR APPLE MEMBERSHIP        | EAS enables it on the App ID when credentials are set up; entitlement already in the build config                                                                                                                                           |
+| Xcode 26 / iOS 26 toolchain on a production build      | WAITING FOR APPLE MEMBERSHIP        | Confirmed when the first signed production build runs                                                                                                                                                                                       |
+| Apple distribution certificate / provisioning          | WAITING FOR APPLE MEMBERSHIP        | Do not retry until the membership is active                                                                                                                                                                                                 |
+| App Store Connect app record, subscription products    | WAITING FOR APPLE MEMBERSHIP        | Then `docs/release/revenuecat-setup.md` App Store Connect steps                                                                                                                                                                             |
+| Production Supabase project                            | REQUIRES MY MANUAL CONFIGURATION    | Create it (dashboard/CLI), record the ref, run `pnpm release:supabase:production` — `docs/release/production-supabase.md`                                                                                                                   |
+| Apple provider enabled on production Supabase          | REQUIRES MY MANUAL CONFIGURATION    | `--push-config` or the dashboard, client id `com.pawcue.app`                                                                                                                                                                                |
+| RevenueCat project, offering, keys, webhook            | REQUIRES MY MANUAL CONFIGURATION    | `docs/release/revenuecat-setup.md`; secrets via `supabase secrets set`, public key via `eas env:set`                                                                                                                                        |
+| EAS `production` env → production Supabase             | REQUIRES MY MANUAL CONFIGURATION    | Currently staging; the build guard refuses until replaced                                                                                                                                                                                   |
+| Privacy Policy / Terms / Support / delete-account URLs | REQUIRES LEGAL/CONTENT DECISION     | Drafts in `docs/legal/`; need review, an operator name/contact, and a domain; then `eas env:set` both URLs                                                                                                                                  |
+| Hebrew legal texts                                     | REQUIRES LEGAL/CONTENT DECISION     | English governs until decided                                                                                                                                                                                                               |
+| App Privacy questionnaire / Data Safety form           | REQUIRES MY MANUAL CONFIGURATION    | Fill from DATA_MAP.md and `app.json` privacy manifest (they agree by test)                                                                                                                                                                  |
+| Age rating, category, reviewer notes, screenshots      | REQUIRES LEGAL/CONTENT DECISION     | Draft in `docs/release/app-store-launch-pack.md`; ASO validation pending                                                                                                                                                                    |
+| Clicker sound decision; remove dev selector            | REQUIRES LEGAL/CONTENT DECISION     | Gated and asserted absent from release builds; the product decision is open                                                                                                                                                                 |
+| Real purchase / restore / renewal / refund / transfer  | REQUIRES TESTFLIGHT / APPLE SANDBOX | Every item in `docs/release/revenuecat-setup.md` "PENDING EXTERNAL VALIDATION"                                                                                                                                                              |
+| Real Sign in with Apple handshake + merge              | REQUIRES TESTFLIGHT / APPLE SANDBOX | Also needs a physical device for Apple's sheet                                                                                                                                                                                              |
+| Privacy manifest on the final archive                  | REQUIRES TESTFLIGHT / APPLE SANDBOX | `pnpm release:privacy-audit <archive .app>`                                                                                                                                                                                                 |
+| Account deletion against a real RevenueCat subscriber  | REQUIRES TESTFLIGHT / APPLE SANDBOX |                                                                                                                                                                                                                                             |
+| VoiceOver pass; EN/HE/RTL device pass; clicker latency | REQUIRES PHYSICAL IPHONE            | Simulator passes done; device passes outstanding                                                                                                                                                                                            |
+| Play Billing v8+, target API 36, Play Console products | REQUIRES GOOGLE PLAY                | Confirm the SDK's vendored Billing version on the release bundle                                                                                                                                                                            |
+| Google sign-in                                         | REQUIRES LEGAL/CONTENT DECISION     | Not built (needs OAuth client ids + provider). Its button is now behind `googleSignInEnabled` (off), so no non-functional control ships; an Apple-only launch is compliant. **Decision:** launch Apple-only, or build Google before launch. |
+| Guest-merge conflict resolution                        | REQUIRES LEGAL/CONTENT DECISION     | `409` is surfaced honestly with a clear message; "keep guest / keep account" is not built. A dead end only for a user who trained on two identities and signs in with the second — acceptable for launch or not is a product call.          |
+
+**TRUE CODE BLOCKER: none.** Every remaining item is waiting on the Apple membership, on manual configuration,
+on a device or store environment, or on a decision.

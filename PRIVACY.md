@@ -12,10 +12,16 @@ Location, microphone, contacts, Bluetooth, motion data, health data, or any adve
 
 ## What we do collect, and why
 
-See [DATA_MAP.md](DATA_MAP.md) for the exhaustive field-level list. In summary: an identity (guest or Apple/Google
-sign-in), a dog profile the user chooses to create, training activity needed to compute the plan/progress/streak
-shown back to the user, and first-party product analytics events (closed enum, no free-text properties — brief
-§29) needed to run the product. Optional dog photo upload is opt-in, initiated only by an explicit tap (brief §18).
+See [DATA_MAP.md](DATA_MAP.md) for the exhaustive field-level list. In summary: an identity (guest, or Sign in with
+Apple — email scope only, no name), a dog profile the user chooses to create, training activity needed to compute
+the plan/progress/streak shown back to the user, and subscription state. The schema also provides for first-party
+product analytics events (closed enum, no free-text properties — brief §29) and an optional dog photo; **neither is
+written by the app as built** — nothing calls `app_events`, and no photo picker or camera permission exists. Both
+must be added to this document, DATA_MAP.md, the privacy manifest (`app.json` → `ios.privacyManifests`) and the
+published policy before they ship.
+
+The user-facing texts are drafted from this behaviour in [docs/legal/](docs/legal/README.md) — Privacy Policy,
+Terms of Use and the `/delete-account` page — and are not published until reviewed and hosted at a real domain.
 
 ## Guest mode
 
@@ -29,7 +35,8 @@ forced login" principle — the tradeoff is explicit, not hidden).
 - **Supabase** (database, auth, storage, edge functions) — infrastructure processor, not a data recipient in the
   advertising sense.
 - **RevenueCat** (billing) — receives purchase/subscription data necessary for entitlement verification; see
-  BILLING.md. No training/behavioral data is shared with it.
+  BILLING.md. No training/behavioral data is shared with it. Its customer record is deleted (`DELETE
+/v1/subscribers/{id}`) as the first step of account deletion.
 - **Apple / Google** (sign-in, IAP) — identity and purchase data flows only, standard for any app using their
   platform sign-in/IAP.
 - **Crash/observability provider** — not selected yet (brief §40 requires the interface to exist before a vendor is
@@ -46,9 +53,20 @@ must be updated before that flag is flipped, not after.
 
 ## Retention and deletion
 
-Deleting an account (Settings → Account → Delete Account, or the web `/delete-account` route) hard-deletes all
-personal training data. Billing/audit records are retained with the personal link removed — see DATABASE.md and
-DATA_MAP.md for exactly which tables and why. See AUTH.md for the full deletion pipeline.
+Deleting an account (Settings → Account → Delete account and data — implemented in Phase 9.5 for guests and
+accounts alike; the web `/delete-account` route is drafted and awaits a domain) hard-deletes all personal training
+data and the RevenueCat customer. Billing/audit records are retained with the personal link removed — see
+DATABASE.md and DATA_MAP.md for exactly which tables and why. See AUTH.md for the full deletion pipeline. On the
+device, everything identity-scoped is cleared; language, sound and haptics are kept as device preferences.
+
+### Apple privacy manifest
+
+`app.json` → `ios.privacyManifests` declares the required-reason APIs the release binary uses (UserDefaults
+CA92.1, FileTimestamp C617.1, SystemBootTime 35F9.1, DiskSpace E174.1) and the collected data types above (user
+id, email, user content, purchase history — all linked, none for tracking; `NSPrivacyTracking` false). The
+DiskSpace entry exists because `ExpoFileSystem.framework` references the API and ships no manifest of its own —
+found by `tools/release/audit-privacy-manifest.mjs` on the Phase 9 release artifact. Asserted by
+`__tests__/privacy-manifest.test.ts`; re-run the audit script on every archive.
 
 ## Medical/behavioral disclaimer
 

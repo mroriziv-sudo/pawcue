@@ -35,6 +35,8 @@ interface OnboardingState {
   setField: (id: OnboardingFieldId, value: string | number | undefined) => void;
   goToStep: (index: number) => void;
   reset: () => Promise<void>;
+  /** Forgets the draft *and* the "skipped" choice. For a new identity on this device, nothing is pre-answered. */
+  forget: () => Promise<void>;
 }
 
 async function persist(draft: OnboardingDraft): Promise<void> {
@@ -93,5 +95,13 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
   reset: async () => {
     set({ draft: {}, stepIndex: 0 });
     await appStorage.removeItem(STORAGE_KEYS.onboardingDraft);
+  },
+
+  forget: async () => {
+    set({ draft: {}, stepIndex: 0, skipped: false });
+    await Promise.all([
+      appStorage.removeItem(STORAGE_KEYS.onboardingDraft),
+      appStorage.removeItem(STORAGE_KEYS.onboardingSkipped),
+    ]);
   },
 }));

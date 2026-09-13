@@ -3,7 +3,11 @@ import appJson from "../app.json";
 import {
   DEV_ONLY_ANDROID_PERMISSIONS,
   DEV_SERVER_KEYS,
+  NON_PRODUCTION_SUPABASE_REFS,
+  assertProductionEnvironment,
   hardenInfoPlist,
+  productionBuildRequested,
+  productionEnvironmentProblems,
   releaseHardeningRequested,
 } from "../plugins/withReleaseHardening";
 
@@ -190,5 +194,114 @@ describe("app identity", () => {
     expect(
       (appJson.expo.android as Record<string, unknown>)["versionCode"],
     ).toBeUndefined();
+  });
+});
+
+describe("production environment guard", () => {
+  /** Everything a store build needs, pointed at a production project. */
+  function fitEnv(): Record<string, string | undefined> {
+    return {
+      EAS_BUILD_PROFILE: "production",
+      EAS_BUILD_PLATFORM: "ios",
+      EXPO_PUBLIC_SUPABASE_URL: "https://prodprodprodprodprod.supabase.co",
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: "anon",
+      EXPO_PUBLIC_REVENUECAT_IOS_KEY: "appl_publishable",
+      EXPO_PUBLIC_TERMS_URL: "https://example.com/terms",
+      EXPO_PUBLIC_PRIVACY_URL: "https://example.com/privacy",
+    };
+  }
+
+  it("accepts a complete production environment", () => {
+    expect(productionEnvironmentProblems(fitEnv())).toEqual([]);
+    expect(() => assertProductionEnvironment(fitEnv())).not.toThrow();
+  });
+
+  it("refuses the staging Supabase project in a store build", () => {
+    const env = fitEnv();
+    env["EXPO_PUBLIC_SUPABASE_URL"] =
+      `https://${NON_PRODUCTION_SUPABASE_REFS[0]}.supabase.co`;
+    expect(productionEnvironmentProblems(env).join("\n")).toMatch(
+      /staging project/,
+    );
+  });
+
+  it("lists every missing value at once", () => {
+    const problems = productionEnvironmentProblems({
+      EAS_BUILD_PROFILE: "production",
+      EAS_BUILD_PLATFORM: "ios",
+    });
+    expect(problems).toEqual(
+      expect.arrayContaining([
+        "EXPO_PUBLIC_SUPABASE_URL is not set",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY is not set",
+        "EXPO_PUBLIC_TERMS_URL is not set",
+        "EXPO_PUBLIC_PRIVACY_URL is not set",
+        "EXPO_PUBLIC_REVENUECAT_IOS_KEY is not set",
+      ]),
+    );
+    expect(problems).not.toContain(
+      "EXPO_PUBLIC_REVENUECAT_ANDROID_KEY is not set",
+    );
+  });
+
+  it("requires the Android store key for an Android build and both when the platform is unknown", () => {
+    const android = fitEnv();
+    android["EAS_BUILD_PLATFORM"] = "android";
+    expect(productionEnvironmentProblems(android)).toEqual([
+      "EXPO_PUBLIC_REVENUECAT_ANDROID_KEY is not set",
+    ]);
+
+    const unknown = fitEnv();
+    delete unknown["EAS_BUILD_PLATFORM"];
+    expect(productionEnvironmentProblems(unknown)).toEqual([
+      "EXPO_PUBLIC_REVENUECAT_ANDROID_KEY is not set",
+    ]);
+  });
+
+  it("refuses a secret key under a public name", () => {
+    const env = fitEnv();
+    env["EXPO_PUBLIC_REVENUECAT_IOS_KEY"] = "sk_secret";
+    const problems = productionEnvironmentProblems(env);
+    expect(problems.join("\n")).toMatch(/never put a secret key here/);
+    expect(problems.join("\n")).toMatch(/secret key under a public name/);
+  });
+
+  it("requires https for the backend and the legal links", () => {
+    const env = fitEnv();
+    env["EXPO_PUBLIC_SUPABASE_URL"] = "http://prodprodprodprodprod.supabase.co";
+    env["EXPO_PUBLIC_TERMS_URL"] = "http://example.com/terms";
+    const problems = productionEnvironmentProblems(env);
+    expect(problems).toContain(
+      "EXPO_PUBLIC_SUPABASE_URL must be an https:// URL",
+    );
+    expect(problems).toContain("EXPO_PUBLIC_TERMS_URL must be an https:// URL");
+  });
+
+  it("only runs for the EAS production profile, so local prebuilds and simulator audits keep working", () => {
+    expect(productionBuildRequested({ EAS_BUILD_PROFILE: "production" })).toBe(
+      true,
+    );
+    expect(
+      productionBuildRequested({ EAS_BUILD_PROFILE: "preview-simulator" }),
+    ).toBe(false);
+    expect(productionBuildRequested({ PAWCUE_RELEASE_HARDENING: "1" })).toBe(
+      false,
+    );
+    expect(productionBuildRequested({})).toBe(false);
+    // An empty environment is fine for anything that is not a production build.
+    expect(() => assertProductionEnvironment({})).not.toThrow();
+    expect(() =>
+      assertProductionEnvironment({ EAS_BUILD_PROFILE: "preview-simulator" }),
+    ).not.toThrow();
+  });
+
+  it("fails a production build with every problem named", () => {
+    expect(() =>
+      assertProductionEnvironment({
+        EAS_BUILD_PROFILE: "production",
+        EAS_BUILD_PLATFORM: "ios",
+        EXPO_PUBLIC_SUPABASE_URL: `https://${NON_PRODUCTION_SUPABASE_REFS[0]}.supabase.co`,
+      }),
+    ).toThrow(/EXPO_PUBLIC_TERMS_URL is not set[\s\S]*staging project/);
   });
 });

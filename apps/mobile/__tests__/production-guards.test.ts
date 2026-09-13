@@ -5,6 +5,7 @@ import {
   setDevEntitlementState,
 } from "../src/billing/dev-billing";
 import { isStoreBillingConfigured } from "../src/billing/store-billing-provider";
+import { installAccountDevBridge } from "../src/state/account-lifecycle";
 
 /**
  * The developer surfaces, checked against a release build's `__DEV__`.
@@ -19,12 +20,14 @@ import { isStoreBillingConfigured } from "../src/billing/store-billing-provider"
 const globalRef = globalThis as typeof globalThis & {
   __DEV__: boolean;
   __clickerDiag?: unknown;
+  __accountDev?: unknown;
 };
 const originalDev = globalRef.__DEV__;
 
 afterEach(() => {
   globalRef.__DEV__ = originalDev;
   delete globalRef.__clickerDiag;
+  delete globalRef.__accountDev;
   delete process.env["EXPO_PUBLIC_CLICKER_DIAG"];
 });
 
@@ -48,6 +51,11 @@ describe("in a release build", () => {
     installDevStoreAdapter(true);
     expect(isStoreBillingConfigured()).toBe(false);
   });
+
+  it("does not expose sign-out or account deletion on the global scope", () => {
+    installAccountDevBridge();
+    expect(globalRef.__accountDev).toBeUndefined();
+  });
 });
 
 describe("in a development build", () => {
@@ -58,5 +66,10 @@ describe("in a development build", () => {
   it("installs the diagnostic harness so the guard above is not passing vacuously", () => {
     installClickerDiagnostics();
     expect(globalRef.__clickerDiag).toBeDefined();
+  });
+
+  it("installs the account bridge, for the same reason", () => {
+    installAccountDevBridge();
+    expect(globalRef.__accountDev).toBeDefined();
   });
 });

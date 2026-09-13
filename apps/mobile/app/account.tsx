@@ -4,35 +4,48 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { Text, Card, Button, useTheme } from "@pawcue/ui";
+import { DEFAULT_FEATURE_FLAGS } from "@pawcue/config";
 import {
   authProvider,
+  AppleSignInCancelledError,
   ProviderNotConfiguredError,
+  SignInFailedError,
 } from "../src/providers/SupabaseAuthProvider";
 import { useBootstrapStore } from "../src/state/bootstrap-store";
 import { useDogStore } from "../src/state/dog-store";
 import { useEntitlementStore } from "../src/state/entitlement-store";
 import { identifyRevenueCat } from "../src/billing/revenuecat-adapter";
 import { syncPendingSessions } from "../src/sync/session-sync";
+import { AppleSignInButton } from "../src/components/AppleSignInButton";
+import {
+  restartAsGuest,
+  signOutAndForget,
+} from "../src/state/account-lifecycle";
 
 /**
- * Account transition — guest to a permanent account.
+ * Account — guest to a permanent account, and what a permanent account can do.
  *
  * The screen exists at all only because the guest experience comes first: nothing here is required to use the
  * product, and the copy says so. The value offered is honest — an account is where the training history stops
  * being tied to one device.
  *
- * ## What happens on success, in order
+ * ## What happens on sign-in, in order
  *
  *  1. The **guest access token is captured before sign-in**, because signing in replaces the stored session and
  *     the merge needs the guest's own token as proof of ownership. Capturing it afterwards is impossible.
- *  2. The provider signs in, producing the permanent identity.
+ *  2. The provider signs in, producing the permanent identity. Sign in with Apple is real (native, nonce-bound,
+ *     verified by Supabase); cancelling Apple's sheet returns here silently. Google is still not configured and
+ *     says so.
  *  3. `mergeGuestSession` posts both tokens; the server derives both sides from the verified tokens and never
  *     from anything this client says.
  *  4. The dog is re-read under the new identity and any queued training is flushed.
+ *  5. Store billing and entitlement follow the identity.
  *
- * Apple and Google are wired to the provider and deliberately **not stubbed to succeed**. Without an Apple
- * Developer account and configured OAuth clients they raise `ProviderNotConfiguredError`, which this screen
- * reports plainly. A fake success here would make the merge look exercised when it never ran.
+ * ## Signed in
+ *
+ * A signed-in user is not offered sign-in again — the merge endpoint would rightly refuse a permanent account as
+ * a source. They can sign out of this device (server data untouched) or go to the deletion screen. Guests can
+ * reach deletion too: a guest owns a dog and a history, and "erase my data" is theirs to ask for.
  */
 export default function AccountScreen() {
   const theme = useTheme();
@@ -44,10 +57,12 @@ export default function AccountScreen() {
   const adoptOwnedDog = useDogStore((s) => s.adoptOwnedDog);
 
   const [busy, setBusy] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [merged, setMerged] = useState(false);
 
   const isGuest = sessionStatus === "anonymous";
+  const isSignedIn = sessionStatus === "authenticated";
 
   const signIn = async (provider: "apple" | "google") => {
     setBusy(true);
@@ -58,7 +73,7 @@ export default function AccountScreen() {
       const guestToken = guest.accessToken;
       const guestUserId = guest.userId;
 
-      // Step 2 — the provider. Throws if it is not configured for this build.
+      // Step 2 — the provider. Throws if it is not configured for this build, or if the user cancelled.
       if (provider === "apple") await authProvider.signInWithApple();
       else await authProvider.signInWithGoogle();
 
@@ -101,19 +116,42 @@ export default function AccountScreen() {
         */
         await identifyRevenueCat(signedIn.userId);
         await useEntitlementStore.getState().initialize(signedIn.userId);
+        useBootstrapStore.setState({
+          sessionStatus: "authenticated",
+          userId: signedIn.userId,
+          sessionError: null,
+        });
       } catch {
         /* The merge succeeded; a failed entitlement read is retried on the next launch and must not report one. */
       }
 
       setMerged(true);
     } catch (error) {
+      if (error instanceof AppleSignInCancelledError) {
+        // The user closed Apple's sheet. Nothing happened, so nothing is reported.
+        return;
+      }
       setMessage(
         error instanceof ProviderNotConfiguredError
           ? t("account.notConfigured")
-          : t("account.conflictTitle"),
+          : error instanceof SignInFailedError
+            ? t("account.signInFailed")
+            : t("account.failed"),
       );
     } finally {
       setBusy(false);
+    }
+  };
+
+  const signOut = async () => {
+    setSigningOut(true);
+    setMessage(null);
+    try {
+      await signOutAndForget();
+      await restartAsGuest();
+    } catch {
+      setSigningOut(false);
+      setMessage(t("account.failed"));
     }
   };
 
@@ -142,6 +180,46 @@ export default function AccountScreen() {
             testID="account-done"
           />
         </View>
+      ) : isSignedIn ? (
+        <View style={{ gap: theme.space[3] }} testID="account-signed-in">
+          <Text variant="h1" testID="account-title">
+            {t("account.signedInAs")}
+          </Text>
+          <Text variant="body" tone="muted">
+            {t("account.signedInBody")}
+          </Text>
+          <Card padding="compact">
+            <Text variant="small" tone="muted">
+              {t("account.signOutBody")}
+            </Text>
+          </Card>
+          <Button
+            label={signingOut ? t("account.signingOut") : t("account.signOut")}
+            variant="secondary"
+            loading={signingOut}
+            onPress={() => void signOut()}
+            testID="sign-out"
+          />
+          {message ? (
+            <Text variant="small" tone="error" testID="account-message">
+              {message}
+            </Text>
+          ) : null}
+          <Button
+            label={t("account.deleteEntry")}
+            variant="tertiary"
+            disabled={signingOut}
+            onPress={() => router.push("/delete-account")}
+            testID="open-delete-account"
+          />
+          <Button
+            label={t("common.cta.close")}
+            variant="secondary"
+            disabled={signingOut}
+            onPress={() => router.back()}
+            testID="account-later"
+          />
+        </View>
       ) : (
         <>
           <Text variant="h1" testID="account-title">
@@ -160,19 +238,25 @@ export default function AccountScreen() {
           ) : null}
 
           <View style={{ gap: theme.space[2] }}>
-            <Button
+            <AppleSignInButton
               label={t("account.apple")}
               onPress={() => void signIn("apple")}
               loading={busy}
               testID="sign-in-apple"
             />
-            <Button
-              label={t("account.google")}
-              variant="secondary"
-              onPress={() => void signIn("google")}
-              loading={busy}
-              testID="sign-in-google"
-            />
+            {/*
+              Google is behind a flag until its provider exists. A button that can only answer "not available"
+              is a non-functional control, and shipping one is a review rejection, not a feature.
+            */}
+            {DEFAULT_FEATURE_FLAGS.googleSignInEnabled ? (
+              <Button
+                label={t("account.google")}
+                variant="secondary"
+                onPress={() => void signIn("google")}
+                loading={busy}
+                testID="sign-in-google"
+              />
+            ) : null}
           </View>
 
           {message ? (
@@ -186,6 +270,18 @@ export default function AccountScreen() {
             variant="secondary"
             onPress={() => router.back()}
             testID="account-later"
+          />
+
+          {/*
+            Deletion is reachable for a guest too. It sits last, as a text button, after the way out: it must be
+            findable (Apple and Google both require it) without ever reading as the next step.
+          */}
+          <Button
+            label={t("account.deleteEntry")}
+            variant="tertiary"
+            disabled={busy}
+            onPress={() => router.push("/delete-account")}
+            testID="open-delete-account"
           />
         </>
       )}

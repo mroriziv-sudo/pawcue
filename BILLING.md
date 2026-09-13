@@ -89,6 +89,15 @@ obstacle is that their dog has not learned Sit yet.
 original merge moved the entitlement row instead, which raised a unique violation whenever both sides had one and
 aborted the whole merge — fixed in `20260912120000_entitlement_recompute.sql`, asserted in the security suite.
 
+## Account deletion and sign-out
+
+Deleting an account (Phase 9.5) erases the RevenueCat customer (`DELETE /v1/subscribers/{id}`) **before** the auth
+row, then the schema nulls `subscriptions.user_id` / `purchase_events.user_id` and drops `entitlements`. The store
+subscription itself is untouched — it belongs to the Apple ID / Google account — and the UI says so. A reinstall
+that restores purchases attaches the receipt to the new identity through the ordinary verify path. Sign-out and
+deletion both `logOut()` the SDK before the next identity is configured, so no `CustomerInfo` cache crosses
+identities.
+
 ## Testing
 
 Sandbox/test-track purchases for both stores, plus the full state matrix (§36 BILLING) including webhook replay

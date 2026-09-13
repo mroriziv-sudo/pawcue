@@ -9,7 +9,7 @@ import {
 /**
  * The server's conversation with RevenueCat.
  *
- * Two operations, both under the service role and both server-side only:
+ * Three operations, all under the service role and all server-side only:
  *
  *   - `fetchSubscriber` asks RevenueCat's REST API what a subscriber holds, authenticated with the **secret** API
  *     key. This is the only authority on purchases the app recognises. `CustomerInfo` on the device is a cache
@@ -17,6 +17,7 @@ import {
  *   - `reconcileSubscriber` writes what RevenueCat said into `subscriptions`, keyed on the store's transaction id,
  *     and asks `recompute_entitlement` to decide what that means. Keying on the transaction id is what makes a
  *     verify call, a restore, a webhook and a replay of any of them converge on the same rows.
+ *   - `deleteSubscriber` erases the customer on RevenueCat's side when the account is deleted.
  *
  * The secret key is read from the function's environment and never returned, logged, or echoed. When it is
  * absent, `fetchSubscriber` returns `{ kind: "not_configured" }` and every caller fails closed: nothing is written
@@ -57,6 +58,45 @@ export async function fetchSubscriber(
   const body = (await response.json()) as { subscriber?: RcSubscriber };
   if (!body.subscriber) return { kind: "provider_error", status: 502 };
   return { kind: "found", subscriber: body.subscriber };
+}
+
+export type SubscriberDeletion =
+  /** RevenueCat confirmed the customer is gone — or never existed, which is the same end state. */
+  | { kind: "deleted" }
+  /** No secret key: nothing could have been verified for this user, so there is nothing to erase here. */
+  | { kind: "not_configured" }
+  | { kind: "provider_error"; status: number };
+
+/**
+ * Erases a customer from RevenueCat as part of account deletion.
+ *
+ * `DELETE /v1/subscribers/{id}` permanently removes the customer record and its attributes on RevenueCat's side.
+ * It does not — cannot — cancel the store subscription: that belongs to the Apple ID or Google account, and the
+ * user manages it there. If they reinstall, "Restore Purchases" attaches the store's receipt to whatever identity
+ * the new install has, through the same verification path as any restore.
+ *
+ * 404 is success: idempotency for the retry after a dropped response, and the common case for a user who never
+ * opened the paywall.
+ */
+export async function deleteSubscriber(
+  appUserId: string,
+  secretApiKey: string,
+): Promise<SubscriberDeletion> {
+  if (!secretApiKey) return { kind: "not_configured" };
+
+  const response = await fetch(
+    `${REVENUECAT_API}/subscribers/${encodeURIComponent(appUserId)}`,
+    {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${secretApiKey}`,
+        "Content-Type": "application/json",
+      },
+    },
+  );
+
+  if (response.ok || response.status === 404) return { kind: "deleted" };
+  return { kind: "provider_error", status: response.status };
 }
 
 export interface ReconcileResult {

@@ -15,7 +15,7 @@ only — it's the loop for a single PR-sized change.
   version always produces byte-identical output, checked via a snapshot test, not just "looks reasonable."
 - **Auth**: guest, Apple, Google, logout, merge, duplicate-merge-is-idempotent, expired token, account deletion —
   run against a local Supabase instance, not mocked at the HTTP layer, so RLS is actually exercised.
-- **Database**: implemented in [`supabase/tests/rls_security.sql`](supabase/tests/rls_security.sql) — 49 checks
+- **Database**: implemented in [`supabase/tests/rls_security.sql`](supabase/tests/rls_security.sql) — 93 checks
   covering anonymous/public catalog access, own-data access, cross-user denial (read/update/delete/ownership
   forgery), unauthorized writes to server-authoritative tables (`entitlements`, `subscriptions`,
   `purchase_events`), the `merge_guest_session` privilege-escalation regression, guest-merge correctness and
@@ -26,7 +26,7 @@ only — it's the loop for a single PR-sized change.
 
   ```
   pnpm db:reset      # replay every migration from zero + seed — proves reproducibility
-  pnpm db:test       # the 49-check suite
+  pnpm db:test       # the 93-check suite (guarded: refuses unless staging is the linked project)
   pnpm db:advisors   # Supabase's own security/performance linter — must be clean
   pnpm db:verify     # all three in order
   pnpm db:types      # regenerate packages/domain/src/generated/database.types.ts
@@ -73,6 +73,22 @@ These run against the **deployed** function with real JWTs and real rows:
 ```
 pnpm test:merge
 ```
+
+### `account-delete` security cases (Phase 9.5)
+
+`pnpm test:delete` — 44 checks against the deployed `account-delete` function. The identity deleted must be the
+verified caller's and nobody else's: no token, forged token, expired token → `401`; an authenticated caller
+naming a victim in the body (`userId`, `user_id`, `id`) → `400` with both accounts intact; missing or wrong
+confirmation → `400`; a real self-deletion → `200`, the identity gone, the token useless, the victim untouched; a
+replay → `401`; a guest deleting their own data; and an account that received merged guest data taking that data
+with it. Every refusal is followed by reading the victim's dog back through RLS as the victim.
+
+### Environment smoke test
+
+`pnpm test:smoke` (staging) / `pnpm test:smoke:production` — 45 checks, **self-cleaning** (every identity it
+creates is deleted through `account-delete`), so it is the one suite safe to run against production:
+migrations, catalogue counts against `seed.sql`, anon isolation, guest creation, dog creation, session sync with
+replay, plan persistence, cross-guest isolation, every Edge Function's refusals, and deletion.
 
 - **Billing**: free user, trial, monthly, annual, expiration, cancellation, grace period, restore, refund, and
   **webhook replay idempotency** (the same store notification delivered twice must not double-apply).

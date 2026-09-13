@@ -1,5 +1,8 @@
 import type { ConfigContext, ExpoConfig } from "expo/config";
-import { releaseHardeningRequested } from "./plugins/withReleaseHardening";
+import {
+  assertProductionEnvironment,
+  releaseHardeningRequested,
+} from "./plugins/withReleaseHardening";
 
 /**
  * Dynamic config, layered over `app.json`.
@@ -10,6 +13,12 @@ import { releaseHardeningRequested } from "./plugins/withReleaseHardening";
  *
  * The plugin is referenced by path, as Expo's config typings expect; it is the same module the tests import.
  */
+/**
+ * A production build with an unfit environment fails here, at config evaluation, with every problem listed.
+ * No-op for every other profile and for local prebuilds.
+ */
+assertProductionEnvironment();
+
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: config.name ?? "PawCue",

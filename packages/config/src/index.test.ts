@@ -58,6 +58,11 @@ describe("DEFAULT_FEATURE_FLAGS", () => {
     expect(DEFAULT_FEATURE_FLAGS).toEqual({
       aiTrainingCoachEnabled: false,
       aiPlanAdjustmentEnabled: false,
+      googleSignInEnabled: false,
     });
+  });
+
+  it("keeps Google sign-in off until its provider exists, so no non-functional button ships", () => {
+    expect(DEFAULT_FEATURE_FLAGS.googleSignInEnabled).toBe(false);
   });
 });

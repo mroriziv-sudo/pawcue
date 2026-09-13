@@ -88,7 +88,15 @@ function trainPartway() {
   store.click(CONTENT);
 }
 
-function planNow(today = new Date("2026-09-12T09:00:00Z")) {
+/**
+ * "Today" is the real clock, because the session store stamps sessions with the real clock.
+ *
+ * This used to be a fixed date, which passed on the day it was written and failed the day after: a session
+ * started "now" was then in the planner's future, and the planner rightly refuses unfinished work from the
+ * future. The planner's own date arithmetic is covered with fixed dates in `packages/domain`; here the point is
+ * the store → planner hand-off, so both sides must share one clock.
+ */
+function planNow(today = new Date()) {
   const input = buildPlanInput({
     dog: DOG,
     completed: useTrainingLogStore.getState().completed,
@@ -224,7 +232,7 @@ describe("a later completion supersedes the abandonment", () => {
       .record(useSessionStore.getState().session!);
     useSessionStore.setState({ session: null });
 
-    const activities = planNow(new Date("2026-09-13T09:00:00Z"));
+    const activities = planNow(new Date(Date.now() + 86_400_000));
 
     expect(
       activities.every((a) => a.selectionReason !== "continue_unfinished"),

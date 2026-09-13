@@ -7,7 +7,13 @@ import type { TextTone } from "./text-styles";
  * Pure style resolution for the Button primitive. RN is imported for types only (see text-styles.ts).
  */
 
-export type ButtonVariant = "primary" | "secondary" | "tertiary";
+/**
+ * `destructive` is for the one irreversible action the product has (account deletion). It is a bordered, raised
+ * button in the status error colour — visually unlike the primary CTA so it cannot be mistaken for "continue",
+ * and never the default or the only enabled control on a screen.
+ */
+export type ButtonVariant =
+  "primary" | "secondary" | "tertiary" | "destructive";
 export type ButtonSize = "md" | "lg";
 
 export interface ButtonStyleOptions {
@@ -97,6 +103,15 @@ export function resolveButtonStyle({
         borderColor: "transparent",
       };
       labelTone = "brand";
+      break;
+    case "destructive":
+      container = {
+        ...base,
+        backgroundColor: theme.colors.surface.raised,
+        borderColor: theme.colors.status.error,
+        borderWidth: theme.border.focus,
+      };
+      labelTone = "error";
       break;
   }
 

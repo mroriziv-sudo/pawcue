@@ -382,7 +382,10 @@
     "sessionStatus": "Session",
     "dogSection": "Your dog",
     "accountSection": "Account",
-    "billingSection": "Subscription"
+    "billingSection": "Subscription",
+    "legalSection": "Legal",
+    "termsOfUse": "Terms of Use",
+    "privacyPolicy": "Privacy Policy"
   },
   "permissions": {
     "notifications": {
@@ -494,7 +497,32 @@
     "conflictTitle": "This account already has a dog",
     "conflictBody": "Your guest profile has {{guestDogs}} dog and {{guestSessions}} completed sessions. This account has {{accountDogs}} dog and {{accountSessions}}. Choosing which to keep isn't available yet — please sign in with a new account.",
     "signedInAs": "Signed in",
-    "signOut": "Sign out"
+    "signOut": "Sign out",
+    "signedInBody": "Your dog and training history are saved to your account and follow you to any device.",
+    "signOutBody": "Signing out keeps everything on your account. This device starts again as a guest.",
+    "signingOut": "Signing out…",
+    "signInFailed": "Sign-in didn't complete. Your training is unchanged — please try again.",
+    "failed": "Something went wrong. Your training is unchanged — please try again.",
+    "deleteEntry": "Delete account and data",
+    "delete": {
+      "title": "Delete account and data",
+      "accountBody": "This permanently deletes your PawCue account and everything in it. It can't be undone.",
+      "guestBody": "You're using PawCue as a guest. This permanently deletes your guest data from this device and from our servers. It can't be undone.",
+      "consequencesTitle": "What will be deleted",
+      "consequenceDog": "Your dog's profile",
+      "consequenceHistory": "All training sessions, progress and streaks",
+      "consequenceAccount": "Your sign-in and the email address linked to it",
+      "subscriptionNote": "Deleting your account does not cancel a subscription. Cancel it in your App Store or Google Play account if you no longer want it.",
+      "acknowledge": "I understand this can't be undone",
+      "confirm": "Delete permanently",
+      "cancel": "Keep my account",
+      "deleting": "Deleting…",
+      "failed": "Deletion didn't complete. Nothing has been removed — please try again.",
+      "providerUnavailable": "Our billing partner couldn't be reached, so nothing was deleted. Please try again in a few minutes.",
+      "doneTitle": "Your account has been deleted",
+      "doneBody": "Everything has been removed. You can keep using the clicker and the free lessons as a guest.",
+      "doneCta": "Start again"
+    }
   },
   "today": {
     "greeting": "Today with {{name}}",

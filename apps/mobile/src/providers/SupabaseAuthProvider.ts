@@ -5,6 +5,11 @@ import type {
 } from "@pawcue/domain";
 import { supabase, requireSupabase } from "../lib/supabase";
 import { env } from "../lib/env";
+import {
+  AppleSignInCancelledError,
+  AppleSignInUnavailableError,
+  requestAppleIdentity,
+} from "./apple-sign-in";
 
 /**
  * Concrete `AuthProvider` (the interface frozen in Phase 0). Screens depend on the interface, never on
@@ -13,10 +18,12 @@ import { env } from "../lib/env";
  * Anonymous sign-in is what makes the app usable with no account, which is the product's first non-negotiable
  * principle. The guest merge is implemented here against the deployed `auth-merge-guest` endpoint.
  *
- * Apple and Google still throw a typed, explicit error rather than returning a plausible-looking stub: both
- * require external configuration this project does not yet have (an Apple Developer account and its Sign in with
- * Apple capability; Google OAuth client ids and the Supabase provider entries). Returning a fake success would be
- * far worse than failing loudly — it would make the merge path look tested when it never ran.
+ * Sign in with Apple is implemented against Supabase's native ID-token flow (`apple-sign-in.ts` produces the
+ * token; this class exchanges it for a session). It still cannot succeed in a build whose App ID lacks the Sign
+ * in with Apple capability, or on a Supabase project whose Apple provider is not enabled — both are external
+ * configuration — and in that case it fails with a typed error rather than a plausible-looking stub. Google
+ * remains unconfigured for the same reason. Returning a fake success would make the merge path look tested when
+ * it never ran.
  */
 
 function toAuthSession(
@@ -76,12 +83,58 @@ export class SupabaseAuthProvider implements AuthProvider {
     );
   }
 
+  /**
+   * Drops the session on this device only.
+   *
+   * `scope: "local"` — the server-side sign-out endpoint is deliberately not called. For an identity that no
+   * longer exists (after deletion) the call can only fail, and for one that does, revoking every other device's
+   * refresh token is not what "sign out of this phone" means. Local state beyond the token is the caller's to
+   * clear; this method knows nothing about dogs or sessions.
+   */
   async signOut(): Promise<void> {
-    await supabase?.auth.signOut();
+    await supabase?.auth.signOut({ scope: "local" });
   }
 
-  signInWithApple(): Promise<AuthSession> {
-    throw new ProviderNotConfiguredError("apple");
+  /**
+   * Sign in with Apple, natively.
+   *
+   * The nonce-bound identity token comes from `requestAppleIdentity`; Supabase verifies Apple's signature and the
+   * nonce and returns its own session, which replaces the stored one. That replacement is why the account screen
+   * captures the guest token *before* calling this.
+   *
+   * Errors are typed for the screen: cancelled (return to idle, say nothing), unavailable or unconfigured (say
+   * so), anything else (report a failure). Supabase's own text for a disabled provider is recognised so that an
+   * unconfigured dashboard reads as "not available in this build" rather than as a mysterious failure.
+   */
+  async signInWithApple(): Promise<AuthSession> {
+    const client = requireSupabase();
+
+    let identity;
+    try {
+      identity = await requestAppleIdentity();
+    } catch (error) {
+      if (error instanceof AppleSignInUnavailableError) {
+        throw new ProviderNotConfiguredError("apple");
+      }
+      throw error;
+    }
+
+    const { data, error } = await client.auth.signInWithIdToken({
+      provider: "apple",
+      token: identity.identityToken,
+      nonce: identity.rawNonce,
+    });
+
+    if (error || !data.session) {
+      if (error && isProviderDisabled(error.message)) {
+        throw new ProviderNotConfiguredError("apple");
+      }
+      throw new SignInFailedError(
+        "apple",
+        error?.message ?? "no session returned",
+      );
+    }
+    return toAuthSession(data.session, "apple");
   }
 
   signInWithGoogle(): Promise<AuthSession> {
@@ -154,7 +207,88 @@ export class SupabaseAuthProvider implements AuthProvider {
       "Guest merge conflict resolution is not implemented — see supabase/functions/README.md rule 7.",
     );
   }
+
+  /**
+   * Calls the `account-delete` endpoint for the current identity.
+   *
+   * The body carries the literal confirmation and **no identity**: the server deletes the verified token's
+   * subject and refuses a body that names anyone. Resolving means the server confirmed the profile is gone.
+   *
+   * One rejection is re-read rather than reported: a `401` after a previous attempt whose response was lost.
+   * If Supabase Auth itself no longer recognises the token's subject, the deletion happened, and saying so is
+   * the truth. A `401` for a token whose user still exists stays an error.
+   */
+  async deleteAccount(): Promise<void> {
+    const client = requireSupabase();
+    const { data } = await client.auth.getSession();
+    const callerToken = data.session?.access_token;
+    if (!callerToken) {
+      throw new AccountDeletionError("no_session");
+    }
+
+    const response = await fetch(
+      `${env.supabaseUrl}/functions/v1/account-delete`,
+      {
+        method: "POST",
+        headers: {
+          apikey: env.supabaseAnonKey ?? "",
+          Authorization: `Bearer ${callerToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ confirm: "delete" }),
+      },
+    );
+
+    if (response.ok) return;
+
+    if (response.status === 401) {
+      const { error } = await client.auth.getUser(callerToken);
+      if (error && identityIsGone(error.status)) return;
+    }
+
+    throw new AccountDeletionError(
+      response.status === 502 ? "provider_unavailable" : "failed",
+      response.status,
+    );
+  }
 }
+
+/** Supabase Auth answers 401/403 for a token whose subject no longer exists. */
+function identityIsGone(status: number | undefined): boolean {
+  return status === 401 || status === 403;
+}
+
+/** GoTrue's wording when a provider is switched off in the dashboard. Matched loosely; the fallback is a plain failure. */
+function isProviderDisabled(message: string): boolean {
+  return /provider.*(not enabled|disabled|unsupported)/i.test(message);
+}
+
+/** A sign-in that reached the provider and failed there — not cancellation, not missing configuration. */
+export class SignInFailedError extends Error {
+  constructor(
+    readonly provider: "apple" | "google",
+    detail: string,
+  ) {
+    super(`Sign in with ${provider} failed: ${detail}`);
+    this.name = "SignInFailedError";
+  }
+}
+
+export type AccountDeletionFailure =
+  "no_session" | "provider_unavailable" | "failed";
+
+/** The server did not confirm the deletion. Local state must be left exactly as it was. */
+export class AccountDeletionError extends Error {
+  constructor(
+    readonly reason: AccountDeletionFailure,
+    readonly status?: number,
+  ) {
+    super(`Account deletion failed: ${reason}`);
+    this.name = "AccountDeletionError";
+  }
+}
+
+export { AppleSignInCancelledError };
 
 /** Thrown when a provider exists in the contract but its external configuration is absent. */
 export class ProviderNotConfiguredError extends Error {

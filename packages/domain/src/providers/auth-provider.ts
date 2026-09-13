@@ -36,4 +36,12 @@ export interface AuthProvider {
     anonymousSessionId: Uuid,
     keep: "guest" | "account",
   ): Promise<{ merged: true }>;
+  /**
+   * Deletes the current identity — guest or account — and everything it owns, server-side, irreversibly.
+   *
+   * Resolves only once the server has confirmed the deletion. Rejects with a typed error otherwise; a caller must
+   * never clear local state on the strength of having *asked*. After it resolves the stored session refers to an
+   * identity that no longer exists and must be discarded (AUTH.md "Account deletion").
+   */
+  deleteAccount(): Promise<void>;
 }

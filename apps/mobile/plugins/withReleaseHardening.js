@@ -70,6 +70,131 @@ function releaseHardeningRequested(env = process.env) {
 }
 
 /**
+ * Values a store build cannot ship without.
+ *
+ * Each is public configuration (`EXPO_PUBLIC_`), supplied by the EAS `production` environment, and each absent
+ * value produces an app that boots but cannot do its job: no backend, a paywall that cannot sell, or legal links
+ * that say "not set up" — all of which the app handles honestly at runtime, and none of which should reach a store.
+ * Checking them at config-evaluation time fails the build in seconds instead of at review.
+ */
+const PRODUCTION_REQUIRED_ENV = [
+  "EXPO_PUBLIC_SUPABASE_URL",
+  "EXPO_PUBLIC_SUPABASE_ANON_KEY",
+  "EXPO_PUBLIC_TERMS_URL",
+  "EXPO_PUBLIC_PRIVACY_URL",
+];
+
+/** The store SDK key each platform's build needs. `EAS_BUILD_PLATFORM` says which; unknown means both. */
+const PLATFORM_STORE_KEYS = {
+  ios: ["EXPO_PUBLIC_REVENUECAT_IOS_KEY"],
+  android: ["EXPO_PUBLIC_REVENUECAT_ANDROID_KEY"],
+};
+
+/**
+ * Supabase project refs that must never be baked into a store build. The staging project holds test fixtures,
+ * throwaway identities and no production secrets; the EAS `production` environment pointed at it during Phase 9
+ * so a release-configuration binary could boot, which is exactly the state this check exists to catch.
+ */
+const NON_PRODUCTION_SUPABASE_REFS = ["ccqitncejkgsaborfubc"];
+
+/**
+ * Every reason the given environment is unfit for a store build. Empty means fit.
+ *
+ * Pure and exhaustive — all problems are reported at once, so a misconfigured environment is fixed in one pass
+ * rather than one failed build at a time.
+ *
+ * @param {Record<string, string | undefined>} env
+ * @returns {string[]}
+ */
+function productionEnvironmentProblems(env) {
+  const problems = [];
+
+  const platform = env["EAS_BUILD_PLATFORM"];
+  const storeKeys =
+    platform === "ios" || platform === "android"
+      ? PLATFORM_STORE_KEYS[platform]
+      : [...PLATFORM_STORE_KEYS.ios, ...PLATFORM_STORE_KEYS.android];
+
+  for (const name of [...PRODUCTION_REQUIRED_ENV, ...storeKeys]) {
+    const value = env[name];
+    if (typeof value !== "string" || value.trim().length === 0) {
+      problems.push(`${name} is not set`);
+    }
+  }
+
+  const supabaseUrl = env["EXPO_PUBLIC_SUPABASE_URL"] ?? "";
+  for (const ref of NON_PRODUCTION_SUPABASE_REFS) {
+    if (supabaseUrl.includes(ref)) {
+      problems.push(
+        `EXPO_PUBLIC_SUPABASE_URL points at the staging project (${ref}); a store build must use the production project`,
+      );
+    }
+  }
+  if (supabaseUrl && !supabaseUrl.startsWith("https://")) {
+    problems.push("EXPO_PUBLIC_SUPABASE_URL must be an https:// URL");
+  }
+
+  for (const name of ["EXPO_PUBLIC_TERMS_URL", "EXPO_PUBLIC_PRIVACY_URL"]) {
+    const value = env[name];
+    if (value && !value.startsWith("https://")) {
+      problems.push(`${name} must be an https:// URL`);
+    }
+  }
+
+  const iosKey = env["EXPO_PUBLIC_REVENUECAT_IOS_KEY"];
+  if (iosKey && !iosKey.startsWith("appl_")) {
+    problems.push(
+      "EXPO_PUBLIC_REVENUECAT_IOS_KEY is not an iOS public SDK key (appl_…) — never put a secret key here",
+    );
+  }
+  const androidKey = env["EXPO_PUBLIC_REVENUECAT_ANDROID_KEY"];
+  if (androidKey && !androidKey.startsWith("goog_")) {
+    problems.push(
+      "EXPO_PUBLIC_REVENUECAT_ANDROID_KEY is not an Android public SDK key (goog_…) — never put a secret key here",
+    );
+  }
+  for (const name of Object.keys(env)) {
+    const value = env[name];
+    if (name.startsWith("EXPO_PUBLIC_") && value && /^sk_/.test(value)) {
+      problems.push(
+        `${name} carries a RevenueCat secret key under a public name`,
+      );
+    }
+  }
+
+  return problems;
+}
+
+/**
+ * True only on the EAS build worker for the `production` profile. A local `expo prebuild` or a simulator audit
+ * build never trips the check, so those keep working against staging.
+ *
+ * @param {Record<string, string | undefined>} [env]
+ * @returns {boolean}
+ */
+function productionBuildRequested(env = process.env) {
+  return env["EAS_BUILD_PROFILE"] === "production";
+}
+
+/**
+ * Throws with every problem listed when a production build's environment is unfit. Called from `app.config.ts`.
+ *
+ * @param {Record<string, string | undefined>} [env]
+ */
+function assertProductionEnvironment(env = process.env) {
+  if (!productionBuildRequested(env)) return;
+  const problems = productionEnvironmentProblems(env);
+  if (problems.length === 0) return;
+  throw new Error(
+    [
+      "Refusing to build the production profile with an unfit environment:",
+      ...problems.map((p) => `  - ${p}`),
+      "Set the values in the EAS `production` environment (eas env:create --environment production …).",
+    ].join("\n"),
+  );
+}
+
+/**
  * Android permissions that exist only for development tooling.
  *
  * `SYSTEM_ALERT_WINDOW` ("draw over other apps") comes from `expo-dev-menu`, which puts it in the *main* manifest
@@ -100,3 +225,9 @@ module.exports.hardenInfoPlist = hardenInfoPlist;
 module.exports.releaseHardeningRequested = releaseHardeningRequested;
 module.exports.DEV_SERVER_KEYS = DEV_SERVER_KEYS;
 module.exports.DEV_ONLY_ANDROID_PERMISSIONS = DEV_ONLY_ANDROID_PERMISSIONS;
+module.exports.PRODUCTION_REQUIRED_ENV = PRODUCTION_REQUIRED_ENV;
+module.exports.PLATFORM_STORE_KEYS = PLATFORM_STORE_KEYS;
+module.exports.NON_PRODUCTION_SUPABASE_REFS = NON_PRODUCTION_SUPABASE_REFS;
+module.exports.productionEnvironmentProblems = productionEnvironmentProblems;
+module.exports.productionBuildRequested = productionBuildRequested;
+module.exports.assertProductionEnvironment = assertProductionEnvironment;

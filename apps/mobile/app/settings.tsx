@@ -1,4 +1,4 @@
-import { Switch, View } from "react-native";
+import { Linking, Switch, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { Text, Card, Button, useTheme, useDirection } from "@pawcue/ui";
@@ -12,6 +12,7 @@ import { BillingSection } from "../src/components/BillingSection";
 import { DevBillingPanel } from "../src/components/DevBillingPanel";
 import { ScreenScroll, Section } from "../src/components/ScreenScroll";
 import { SectionHeader } from "../src/components/SectionHeader";
+import { env } from "../src/lib/env";
 
 /**
  * Settings — Phase 2 covers language, sound and haptics.
@@ -171,6 +172,39 @@ export default function SettingsScreen() {
           </View>
         </Card>
       </Section>
+
+      {/*
+        Legal links, shown only when the build carries real URLs.
+
+        The paywall is where the store requires them and where it says "not set up" when they are absent. Here
+        they are a convenience for a user looking for the policy outside a purchase, so an unconfigured build
+        simply omits the section rather than offering two dead links.
+      */}
+      {env.termsUrl || env.privacyUrl ? (
+        <Section>
+          <SectionHeader title={t("settings.legalSection")} />
+          {env.termsUrl ? (
+            <Card
+              padding="compact"
+              onPress={() => void Linking.openURL(env.termsUrl ?? "")}
+              accessibilityLabel={t("settings.termsOfUse")}
+              testID="open-terms"
+            >
+              <Text variant="body">{t("settings.termsOfUse")}</Text>
+            </Card>
+          ) : null}
+          {env.privacyUrl ? (
+            <Card
+              padding="compact"
+              onPress={() => void Linking.openURL(env.privacyUrl ?? "")}
+              accessibilityLabel={t("settings.privacyPolicy")}
+              testID="open-privacy"
+            >
+              <Text variant="body">{t("settings.privacyPolicy")}</Text>
+            </Card>
+          ) : null}
+        </Section>
+      ) : null}
 
       {/*
         Development-only clicker sound selector, for the QA listening test.

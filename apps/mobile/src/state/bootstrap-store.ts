@@ -32,6 +32,11 @@ interface BootstrapState {
   sessionError: string | null;
 
   bootstrap: () => Promise<void>;
+  /**
+   * Forgets the resolved identity without touching local stores. Used by account deletion and sign-out, between
+   * "the server confirmed" and the next `bootstrap()`, so no screen reads a status for an identity that is gone.
+   */
+  forgetSession: () => void;
 }
 
 export const useBootstrapStore = create<BootstrapState>((set) => ({
@@ -39,6 +44,9 @@ export const useBootstrapStore = create<BootstrapState>((set) => ({
   sessionStatus: "unknown",
   userId: null,
   sessionError: null,
+
+  forgetSession: () =>
+    set({ sessionStatus: "unknown", userId: null, sessionError: null }),
 
   bootstrap: async () => {
     set({ status: "hydrating" });

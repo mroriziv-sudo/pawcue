@@ -75,6 +75,31 @@ select tests_record(
   (select is_anonymous::text from profiles where id = 'cccccccc-cccc-4ccc-cccc-cccccccccccc')
 );
 
+-- Apple private relay (Guideline 4.8): derived at creation, server-side, from the relay domain — never client-set.
+insert into auth.users (id, instance_id, aud, role, email, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, is_anonymous)
+values
+  ('dddddddd-dddd-4ddd-dddd-dddddddddddd', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'xyz123abc@privaterelay.appleid.com', '{}', '{}', now(), now(), false);
+
+select tests_record(
+  'auth trigger: Apple private-relay email flagged on the profile',
+  'true',
+  (select is_private_relay_email::text from profiles where id = 'dddddddd-dddd-4ddd-dddd-dddddddddddd')
+);
+
+select tests_record(
+  'auth trigger: ordinary email is not flagged as private relay',
+  'false',
+  (select is_private_relay_email::text from profiles where id = 'aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa')
+);
+
+select tests_record(
+  'auth trigger: a user with no email is not flagged as private relay',
+  'false',
+  (select is_private_relay_email::text from profiles where id = 'cccccccc-cccc-4ccc-cccc-cccccccccccc')
+);
+
+delete from auth.users where id = 'dddddddd-dddd-4ddd-dddd-dddddddddddd';
+
 insert into dogs (id, owner_user_id, name) values
   ('d0000000-0000-4000-a000-00000000000a', 'aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa', 'AliceDog'),
   ('d0000000-0000-4000-a000-00000000000b', 'bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb',   'BobDog');

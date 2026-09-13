@@ -1,9 +1,9 @@
 # Edge Functions
 
-`auth-merge-guest`, `purchases-verify` and `revenuecat-webhook` are implemented. The two billing functions refuse
-to grant anything until the RevenueCat secrets exist on the project (see below). Their shared logic lives in
-`_shared/`; the pure mapping there is Vitest-tested (`pnpm test`), and both deployed endpoints are exercised by
-`pnpm test:billing`.
+`auth-merge-guest`, `purchases-verify`, `revenuecat-webhook` and `account-delete` are implemented. The two billing
+functions refuse to grant anything until the RevenueCat secrets exist on the project (see below). Their shared
+logic lives in `_shared/`; the pure mapping there is Vitest-tested (`pnpm test`), and the deployed endpoints are
+exercised by `pnpm test:merge`, `pnpm test:billing`, `pnpm test:delete` and `pnpm test:smoke`.
 
 Each function lives in its own directory with an `index.ts`; `supabase functions deploy` picks up directories, so a
 Markdown spec like this one is never deployed. That is deliberate for the spec below: a stub `index.ts` for an
@@ -152,3 +152,46 @@ Authorization: <REVENUECAT_WEBHOOK_AUTH>          ← exactly the value configur
 
 `REVENUECAT_WEBHOOK_AUTH` and `REVENUECAT_SECRET_API_KEY` via `supabase secrets set`, and the webhook URL
 (`<project>/functions/v1/revenuecat-webhook`) with that Authorization value entered in the RevenueCat dashboard.
+
+---
+
+## `account-delete` → `POST /v1/account/delete` — SECURITY CRITICAL, IRREVERSIBLE
+
+Deletes the calling identity and, through the schema's cascades, everything it owns. Apple requires an in-app
+path for any app with account creation; Google requires it plus a web route. This is the server half of both.
+
+### Non-negotiable rules
+
+1. **The identity deleted is the verified caller JWT's subject, and nothing else.** There is no user id in the
+   body and no code path where one could reach the delete.
+2. **A body that names an identity is refused (`400 BODY_IDENTITY_REJECTED`).** `userId`, `user_id`, `id`,
+   `sub`, `email` — presence alone, whatever the value. Silently ignoring it would hide a client bug or an attack.
+3. **Intent is explicit.** The body must be `{ "confirm": "delete" }`, else `400 CONFIRMATION_REQUIRED`. Not
+   authentication — the server's half of "no accidental one-tap deletion".
+4. **Guests are deleted like accounts.** An anonymous identity owns data too.
+5. **RevenueCat first, then the account.** `DELETE /v1/subscribers/{id}` (404 = already gone = success), then
+   `auth.admin.deleteUser`. A provider outage is `502` with the account untouched, so a retry is safe; the reverse
+   order would strand a customer record nobody can address.
+6. **`200` only after the profile is confirmed absent.** The schema does the rest: personal-data tables cascade;
+   `subscriptions` / `purchase_events` keep their rows with `user_id` nulled (DATABASE.md, DATA_MAP.md).
+7. **Idempotent by construction.** After success the subject no longer exists, so a replay is `401`; the client
+   treats "Supabase no longer knows my token's user" as the deletion having happened.
+8. Rate limited (5/min per identity), uniform failure text.
+
+### Shape
+
+```
+POST /v1/account/delete
+Authorization: Bearer <caller's JWT>   ← required, verified, the ONLY identity input
+{ "confirm": "delete" }                ← required literal; any identity field → 400
+
+200  { deleted: true }
+400  INVALID_BODY | CONFIRMATION_REQUIRED | BODY_IDENTITY_REJECTED
+401  missing or invalid caller JWT (including a JWT for an identity already deleted)
+429  rate limited
+500  DELETION_FAILED — the auth delete failed or the profile is still present; nothing pretended
+502  PROVIDER_UNAVAILABLE — RevenueCat could not be reached; the account is untouched
+```
+
+`pnpm test:delete` runs 44 checks against the deployed function: every refusal is followed by reading the
+would-be victim's data back through RLS as that victim.

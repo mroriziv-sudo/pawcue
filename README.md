@@ -48,7 +48,12 @@ pnpm --filter @pawcue/mobile start            # run the app (Expo)
 pnpm --filter @pawcue/mobile run export:web   # or bundle it for the browser
 
 pnpm verify                                   # format, lint, typecheck, unit + RN render tests
-pnpm db:verify                                # replay migrations from zero, RLS suite, advisors
+pnpm db:verify                                # replay migrations from zero, RLS suite, advisors (staging only — guarded)
+pnpm test:merge && pnpm test:billing && pnpm test:delete   # deployed Edge Function security suites (staging)
+pnpm test:smoke                               # self-cleaning environment smoke test (safe for production too)
+pnpm env:staging | pnpm env:production        # which Supabase project `--linked` commands act on
+pnpm release:supabase:production              # migrations, content, functions on production — docs/release/
+pnpm release:privacy-audit <path/to/App.app>  # Apple privacy-manifest audit of a built bundle
 ```
 
 ## Status

@@ -12,11 +12,14 @@ import { useSettingsStore } from "../src/state/settings-store";
 import { isRtlLocale } from "@pawcue/i18n";
 import { installClickerDiagnostics } from "../src/audio/clicker-diagnostics";
 import { installSessionDevBridge } from "../src/state/session-store";
+import { installAccountDevBridge } from "../src/state/account-lifecycle";
 
 // Development-only. Exposes the clicker trace harness on `globalThis.__clickerDiag`; a no-op in release.
 installClickerDiagnostics();
 // Development-only. Exposes the session store for simulator acceptance; a no-op in release.
 installSessionDevBridge();
+// Development-only. Exposes sign-out / deletion for simulator acceptance; a no-op in release.
+installAccountDevBridge();
 
 const queryClient = new QueryClient({
   defaultOptions: {

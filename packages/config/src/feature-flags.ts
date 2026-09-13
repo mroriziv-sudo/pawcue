@@ -9,6 +9,12 @@ export const featureFlagsSchema = z.object({
   aiTrainingCoachEnabled: z.boolean().default(false),
   /** brief §16 future readiness — off until an AI plan-adjustment provider actually exists. */
   aiPlanAdjustmentEnabled: z.boolean().default(false),
+  /**
+   * Whether the account screen offers "Continue with Google". Off until Google OAuth client ids exist and the
+   * provider is implemented: a visible button that can only say "not available" is a non-functional control, and
+   * App Review rejects those (Guideline 2.1). Sign in with Apple stays required by 4.8 the moment this is on.
+   */
+  googleSignInEnabled: z.boolean().default(false),
 });
 export type FeatureFlags = z.infer<typeof featureFlagsSchema>;
 
