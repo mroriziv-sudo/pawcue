@@ -69,7 +69,10 @@ sandbox / TestFlight.
    Authorization header value = the string you will store as `REVENUECAT_WEBHOOK_AUTH`. Send a `TEST` event:
    expect `200 { received: true, ignored: "TEST" }` once the secrets below exist (`501` before).
 
-**Secrets and environment** — run these yourself; do not paste the values anywhere else.
+**Secrets and environment** — run these yourself; do not paste the values anywhere else. **Order matters:** set
+the two Supabase secrets _before_ any build that carries the public SDK key reaches a tester. With the key but no
+server secret, a sandbox purchase succeeds at the store and every verification answers `501` — the tester is
+charged (in sandbox) and sees "still confirming" until the secret exists.
 
 ```
 cd apps/mobile
@@ -80,6 +83,13 @@ pnpm supabase secrets set --project-ref <production-ref> REVENUECAT_SECRET_API_K
 ```
 
 (Repeat the two `secrets set` values on staging if you want to sandbox-test against staging first.)
+
+**Check the value landed intact.** The first production secret (2026-09-13) contained a character that is not
+valid in an HTTP header — a newline or quote from the paste — and every call to RevenueCat failed before leaving
+the server. Nothing can read the value back; the functions now answer `502 { providerDetail:
+"invalid_secret_format" }` in that state and `pnpm test:smoke:production` says so on its first check. Set the
+value bare — `REVENUECAT_SECRET_API_KEY=sk_xxx`, no quotes, no trailing newline — and re-run the smoke suite: the
+verify probe should answer `409` or `200`, never `502`.
 
 **Google Play** (later): a Play Console app for `com.pawcue.app`, the same two product ids as subscriptions, a
 service-account JSON for RevenueCat, `goog_…` public key in EAS as `EXPO_PUBLIC_REVENUECAT_ANDROID_KEY`.

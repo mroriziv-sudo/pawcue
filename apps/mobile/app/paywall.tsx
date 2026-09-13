@@ -20,6 +20,7 @@ import { useEntitlementStore } from "../src/state/entitlement-store";
 import { useCatalogue } from "../src/lessons/useCatalogue";
 import { useDogStore } from "../src/state/dog-store";
 import { env } from "../src/lib/env";
+import { useAnnounce } from "../src/hooks/useAnnounce";
 
 /**
  * The paywall.
@@ -106,6 +107,12 @@ export default function PaywallScreen() {
           : productsErrorKey
             ? t(productsErrorKey)
             : null;
+
+  // The outcome of a purchase or restore is read out, not just drawn beneath the button.
+  useAnnounce(message);
+  useAnnounce(
+    purchase.phase === "unlocked" ? t("paywall.unlockedTitle") : null,
+  );
 
   return (
     <ScrollView

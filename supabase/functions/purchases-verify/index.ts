@@ -46,8 +46,12 @@ const REVENUECAT_SECRET_API_KEY =
 
 const JSON_HEADERS = { "Content-Type": "application/json" };
 
-function reject(status: number, code: string): Response {
-  return new Response(JSON.stringify({ error: code }), {
+function reject(
+  status: number,
+  code: string,
+  extra: Record<string, unknown> = {},
+): Response {
+  return new Response(JSON.stringify({ error: code, ...extra }), {
     status,
     headers: JSON_HEADERS,
   });
@@ -135,8 +139,13 @@ Deno.serve(async (request: Request): Promise<Response> => {
     return reject(501, "PROVIDER_NOT_CONFIGURED");
   }
   if (lookup.kind === "provider_error") {
+    // The provider's HTTP status (0 = the request could not be made) is the one diagnostic worth returning:
+    // it separates "RevenueCat rejected our key" from "RevenueCat unreachable" without exposing anything.
     console.error("revenuecat lookup failed", lookup.status);
-    return reject(502, "PROVIDER_UNAVAILABLE");
+    return reject(502, "PROVIDER_UNAVAILABLE", {
+      providerStatus: lookup.status,
+      ...(lookup.detail ? { providerDetail: lookup.detail } : {}),
+    });
   }
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {

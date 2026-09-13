@@ -111,7 +111,7 @@
   "paywall": {
     "title": "Unlock {{dogName}}'s full plan",
     "trialDisclosure": "{{trialDays}} days free, then {{price}}/{{period}}",
-    "noTrialDisclosure": "{{price}}/{{period}}, cancels anytime",
+    "noTrialDisclosure": "{{price}}/{{period}}, cancel anytime",
     "renewalNotice": "Auto-renews unless cancelled at least 24 hours before the current period ends.",
     "feature": {
       "fullPlan": "Full personalized training plan",

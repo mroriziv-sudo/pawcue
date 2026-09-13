@@ -32,6 +32,11 @@ export interface FakeBillingBackend {
   productsThrow: Error | null;
   /** Set to make restore fail at the store. */
   restoreThrow: Error | null;
+  /**
+   * What the server would grant once a restore re-submits the store's receipt. Stands in for `purchases-verify`
+   * being called with each restored transaction; null means the server still finds nothing.
+   */
+  grantOnRestore: Partial<Entitlement> | null;
 
   entitlementReads: number;
   purchaseCalls: ProductId[];
@@ -55,6 +60,7 @@ export function createFakeBillingBackend(): FakeBillingBackend {
     products: [],
     productsThrow: null,
     restoreThrow: null,
+    grantOnRestore: null,
     entitlementReads: 0,
     purchaseCalls: [],
     restoreCalls: 0,
@@ -93,6 +99,7 @@ export function createFakeBillingBackend(): FakeBillingBackend {
       backend.products = [];
       backend.productsThrow = null;
       backend.restoreThrow = null;
+      backend.grantOnRestore = null;
       backend.entitlementReads = 0;
       backend.purchaseCalls = [];
       backend.restoreCalls = 0;
@@ -133,6 +140,9 @@ export function fakeProviderFor(backend: FakeBillingBackend) {
     }> {
       backend.restoreCalls += 1;
       if (backend.restoreThrow) return Promise.reject(backend.restoreThrow);
+      // The real provider verifies each restored transaction with the server, which may then grant.
+      if (backend.grantOnRestore)
+        backend.grantFromServer(backend.grantOnRestore);
       return Promise.resolve({
         restored: backend.ownedTransactions.length > 0,
         entitlement: backend.entitlement,

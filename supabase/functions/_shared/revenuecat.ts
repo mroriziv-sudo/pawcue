@@ -31,7 +31,65 @@ export type SubscriberLookup =
   /** RevenueCat has never seen this app user id. A real answer: no purchases. */
   | { kind: "unknown_subscriber" }
   | { kind: "not_configured" }
-  | { kind: "provider_error"; status: number };
+  /** `status` is RevenueCat's HTTP status, or 0 when the request itself could not be made or read. */
+  | { kind: "provider_error"; status: number; detail?: ProviderFailureDetail };
+
+/**
+ * Why a request to RevenueCat could not be made at all. Coarse on purpose: enough for an operator to know
+ * whether to fix the secret or wait for the network, never enough to learn anything about the secret itself.
+ */
+export type ProviderFailureDetail =
+  /** The secret's value is not a valid HTTP header value — a stray newline, quote or non-ASCII character. */
+  "invalid_secret_format" | "network" | "unknown";
+
+export function classifyFetchFailure(error: unknown): ProviderFailureDetail {
+  const message = error instanceof Error ? error.message : String(error);
+  if (/header/i.test(message)) return "invalid_secret_format";
+  if (
+    /(dns|network|connect|sending request|tls|timed out|timeout)/i.test(message)
+  ) {
+    return "network";
+  }
+  return "unknown";
+}
+
+/**
+ * Performs one request to RevenueCat and never throws.
+ *
+ * `fetch` rejects for more than network failure: a secret whose value carries a stray newline or quote is an
+ * invalid header value and throws before any request is sent. An uncaught rejection here is a raw `500` from the
+ * runtime — the one response shape the handlers are built never to produce — so every failure mode is turned into
+ * a `provider_error` the handler answers with its own `502`. The cause is logged server-side, never returned.
+ */
+async function callRevenueCat(
+  path: string,
+  init: RequestInit,
+  secretApiKey: string,
+): Promise<
+  | { ok: true; response: Response }
+  | { ok: false; status: number; detail: ProviderFailureDetail }
+> {
+  let response: Response;
+  try {
+    response = await fetch(`${REVENUECAT_API}${path}`, {
+      ...init,
+      headers: {
+        ...(init.headers as Record<string, string> | undefined),
+        Authorization: `Bearer ${secretApiKey.trim()}`,
+        "Content-Type": "application/json",
+      },
+    });
+  } catch (error) {
+    const detail = classifyFetchFailure(error);
+    console.error(
+      "revenuecat request failed",
+      detail,
+      error instanceof Error ? error.message : "unknown",
+    );
+    return { ok: false, status: 0, detail };
+  }
+  return { ok: true, response };
+}
 
 export async function fetchSubscriber(
   appUserId: string,
@@ -39,23 +97,33 @@ export async function fetchSubscriber(
 ): Promise<SubscriberLookup> {
   if (!secretApiKey) return { kind: "not_configured" };
 
-  const response = await fetch(
-    `${REVENUECAT_API}/subscribers/${encodeURIComponent(appUserId)}`,
+  const result = await callRevenueCat(
+    `/subscribers/${encodeURIComponent(appUserId)}`,
     {
       method: "GET",
-      headers: {
-        Authorization: `Bearer ${secretApiKey}`,
-        "Content-Type": "application/json",
-        // Ask for the platform-neutral shape; the mapping does not depend on it but the response is smaller.
-        "X-Platform": "server",
-      },
+      // Ask for the platform-neutral shape; the mapping does not depend on it but the response is smaller.
+      headers: { "X-Platform": "server" },
     },
+    secretApiKey,
   );
+  if (!result.ok) {
+    return {
+      kind: "provider_error",
+      status: result.status,
+      detail: result.detail,
+    };
+  }
+  const { response } = result;
 
   if (response.status === 404) return { kind: "unknown_subscriber" };
   if (!response.ok) return { kind: "provider_error", status: response.status };
 
-  const body = (await response.json()) as { subscriber?: RcSubscriber };
+  let body: { subscriber?: RcSubscriber };
+  try {
+    body = (await response.json()) as { subscriber?: RcSubscriber };
+  } catch {
+    return { kind: "provider_error", status: 0 };
+  }
   if (!body.subscriber) return { kind: "provider_error", status: 502 };
   return { kind: "found", subscriber: body.subscriber };
 }
@@ -65,7 +133,7 @@ export type SubscriberDeletion =
   | { kind: "deleted" }
   /** No secret key: nothing could have been verified for this user, so there is nothing to erase here. */
   | { kind: "not_configured" }
-  | { kind: "provider_error"; status: number };
+  | { kind: "provider_error"; status: number; detail?: ProviderFailureDetail };
 
 /**
  * Erases a customer from RevenueCat as part of account deletion.
@@ -84,16 +152,19 @@ export async function deleteSubscriber(
 ): Promise<SubscriberDeletion> {
   if (!secretApiKey) return { kind: "not_configured" };
 
-  const response = await fetch(
-    `${REVENUECAT_API}/subscribers/${encodeURIComponent(appUserId)}`,
-    {
-      method: "DELETE",
-      headers: {
-        Authorization: `Bearer ${secretApiKey}`,
-        "Content-Type": "application/json",
-      },
-    },
+  const result = await callRevenueCat(
+    `/subscribers/${encodeURIComponent(appUserId)}`,
+    { method: "DELETE" },
+    secretApiKey,
   );
+  if (!result.ok) {
+    return {
+      kind: "provider_error",
+      status: result.status,
+      detail: result.detail,
+    };
+  }
+  const { response } = result;
 
   if (response.ok || response.status === 404) return { kind: "deleted" };
   return { kind: "provider_error", status: response.status };

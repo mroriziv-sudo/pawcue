@@ -212,6 +212,35 @@ async function main() {
     );
   }
 
+  /**
+   * Pre-flight: can this environment's billing/deletion functions reach RevenueCat?
+   *
+   * `purchases-verify` answers 501 with no secret (fine: nothing is granted), 200/409 with a working one, and 502
+   * when the secret exists but the request cannot be made — a malformed value, or an outage. In that state
+   * `account-delete` fails the same way, so every identity this suite creates would be left behind. Stop here,
+   * with only this one empty guest to remove by hand, and say what to fix.
+   */
+  {
+    const probe = await fn("purchases-verify", {
+      token: guest.token,
+      body: {},
+    });
+    if (probe.status === 502) {
+      console.log(
+        `\n  ✗ billing provider unreachable from this environment: ${JSON.stringify(probe.payload)}`,
+      );
+      console.log(
+        probe.payload?.providerDetail === "invalid_secret_format"
+          ? "    REVENUECAT_SECRET_API_KEY is not a valid HTTP header value (newline, quote or non-ASCII character in the pasted value). Re-set it with `supabase secrets set` and re-run."
+          : "    RevenueCat could not be reached. Retry later; if it persists, check the secret and RevenueCat status.",
+      );
+      console.log(
+        `    Aborting before creating data. One empty anonymous identity (${guest.id}) remains and cannot delete itself until this is fixed.`,
+      );
+      process.exit(1);
+    }
+  }
+
   console.log("\nDog creation");
   const dogRes = await rest("dogs", {
     token: guest.token,

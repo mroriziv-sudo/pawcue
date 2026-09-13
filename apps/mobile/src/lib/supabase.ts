@@ -1,4 +1,5 @@
 import "react-native-url-polyfill/auto";
+import { AppState, Platform } from "react-native";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { secureStorage, STORAGE_KEYS } from "./storage";
 import { env } from "./env";
@@ -43,6 +44,21 @@ export const supabase: SupabaseClient | null =
         },
       })
     : null;
+
+/**
+ * Token refresh follows the app's foreground state, as Supabase recommends for React Native.
+ *
+ * The client's refresh timer only ticks while JavaScript runs; a device that sits in the background past the
+ * access token's hour would otherwise make its first request after resume with an expired token. Starting the
+ * refresh loop on foreground refreshes proactively; stopping it in the background stops a timer that could not
+ * fire anyway. `getSession()` still refreshes on demand, so this is belt and braces rather than the only belt.
+ */
+if (supabase && Platform.OS !== "web") {
+  AppState.addEventListener("change", (state) => {
+    if (state === "active") void supabase.auth.startAutoRefresh();
+    else void supabase.auth.stopAutoRefresh();
+  });
+}
 
 export function requireSupabase(): SupabaseClient {
   if (!supabase) {

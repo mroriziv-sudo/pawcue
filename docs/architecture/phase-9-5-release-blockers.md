@@ -126,6 +126,17 @@ staging, and the CLI was re-linked to staging at the end.
   permissions unchanged.
 - Privacy audit script on the Phase 9 artifact: fails on the real gap; passes with the new manifest substituted.
 
+## Code-side release audit (same day, after production was configured)
+
+A second, adversarial read of the release surfaces — billing, auth transitions, native declarations, accessibility
+— found six defects that needed no dashboard to fix. The two that mattered most were in the guest → account
+transition and in billing: a merge conflict left the device signed in as an account whose data it had not adopted
+(now the guest session is put back, so the "nothing changed" message is true), and "already owned" never
+re-submitted the receipt (now a restore runs before the refresh). A failed session restore no longer swaps the
+identity for a fresh guest. On the native side, iPad now runs full-screen and portrait rather than in an untested
+split view, and `CFBundleLocalizations` declares `en`/`he`. Status messages are announced to screen readers. The
+full table is in RELEASE_CHECKLIST.md.
+
 ## PENDING EXTERNAL VALIDATION
 
 The real Apple sign-in handshake · a production build passing the environment guard (still needs legal URLs and

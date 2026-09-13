@@ -42,8 +42,12 @@ const REVENUECAT_SECRET_API_KEY =
 
 const JSON_HEADERS = { "Content-Type": "application/json" };
 
-function reject(status: number, code: string): Response {
-  return new Response(JSON.stringify({ error: code }), {
+function reject(
+  status: number,
+  code: string,
+  extra: Record<string, unknown> = {},
+): Response {
+  return new Response(JSON.stringify({ error: code, ...extra }), {
     status,
     headers: JSON_HEADERS,
   });
@@ -122,7 +126,10 @@ Deno.serve(async (request: Request): Promise<Response> => {
   const provider = await deleteSubscriber(userId, REVENUECAT_SECRET_API_KEY);
   if (provider.kind === "provider_error") {
     console.error("revenuecat subscriber delete failed", provider.status);
-    return reject(502, "PROVIDER_UNAVAILABLE");
+    return reject(502, "PROVIDER_UNAVAILABLE", {
+      providerStatus: provider.status,
+      ...(provider.detail ? { providerDetail: provider.detail } : {}),
+    });
   }
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {

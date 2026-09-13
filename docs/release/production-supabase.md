@@ -9,8 +9,12 @@ with client id `com.pawcue.app`), the EAS `production` environment repointed, th
 advisors clean of ERROR-level findings, and the CLI re-linked to staging. The project holds catalogue rows and
 **zero** users, dogs, sessions or billing rows. Staging was not written to.
 
-Still unset on production, by design (values only the account owner holds): `REVENUECAT_SECRET_API_KEY`,
-`REVENUECAT_WEBHOOK_AUTH` (§3).
+Later the same day the account owner set `REVENUECAT_SECRET_API_KEY` and `REVENUECAT_WEBHOOK_AUTH` on
+production. The secret's value is malformed (`providerDetail: "invalid_secret_format"` — see
+`docs/release/revenuecat-setup.md`); until it is re-set, `purchases-verify` and `account-delete` answer `502` and
+grant/delete nothing, and the production smoke suite stops at its pre-flight check. The functions were redeployed
+with the crash-proof RevenueCat client the same day; the test identities that the broken path could not delete
+were removed by hand, and the project again holds catalogue rows only.
 
 The sections below are the runbook as it was executed, kept for the next environment or a re-run.
 

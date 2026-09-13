@@ -267,6 +267,26 @@ export const useEntitlementStore = create<EntitlementState>((set, get) => ({
     if (get().purchase.phase !== "verifying") return;
 
     /**
+     * "Already owned" is reconciled through restore, not just re-read.
+     *
+     * The store refusing a purchase because the Apple ID / Google account already holds the subscription tells
+     * us the receipt exists — it does not tell the server. Re-reading `entitlements` alone would find nothing if
+     * that receipt was never verified under this identity (a previous install, another device). A restore is what
+     * syncs the receipt to the store SDK's account for this identity and re-submits it for verification; the
+     * refresh below then reads what the server decided. Failure here is not reported: the refresh is the answer.
+     */
+    if (
+      result.outcome === "failed" &&
+      result.reasonKey === PURCHASE_FAILURE.alreadyOwned
+    ) {
+      try {
+        await billingProvider.restorePurchases();
+      } catch {
+        /* The refresh below reports the honest state; a failed restore leaves it unchanged. */
+      }
+    }
+
+    /**
      * The store said yes; now ask the server.
      *
      * Only this answer can unlock anything. A store callback claiming success moves the flow to `verifying` and

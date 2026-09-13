@@ -52,11 +52,27 @@ export class SupabaseAuthProvider implements AuthProvider {
   async ensureAnonymousSession(): Promise<AuthSession> {
     const client = requireSupabase();
 
-    const { data: existing } = await client.auth.getSession();
+    const { data: existing, error: existingError } =
+      await client.auth.getSession();
     if (existing.session) {
       return toAuthSession(
         existing.session,
         existing.session.user.is_anonymous ? "anonymous" : "apple",
+      );
+    }
+
+    /**
+     * A stored session that could not be restored is not the same as no session.
+     *
+     * `getSession` refreshes an expired token from storage; when that refresh fails — offline, or the refresh
+     * token revoked — it answers with an error and no session. Creating a new anonymous identity here would be
+     * the silent logout AUTH.md forbids: the device's dog id and history belong to the identity that just
+     * disappeared, and a fresh guest would start onboarding over the top of them. The session is reported
+     * unavailable instead; bootstrap records it, the app stays usable, and the account screen offers sign-in.
+     */
+    if (existingError) {
+      throw new Error(
+        `Stored session could not be restored: ${existingError.message}`,
       );
     }
 
@@ -205,6 +221,32 @@ export class SupabaseAuthProvider implements AuthProvider {
   resolveGuestMergeConflict(): Promise<{ merged: true }> {
     throw new Error(
       "Guest merge conflict resolution is not implemented — see supabase/functions/README.md rule 7.",
+    );
+  }
+
+  /**
+   * Puts a previously captured session back as the current one.
+   *
+   * Used when a sign-in succeeded but the merge that was its whole point was refused (an account that already
+   * has its own dog): the device must go back to being the guest it was, with the guest's data still readable,
+   * rather than stay signed in as an account whose data it has not adopted. The guest's tokens are still valid —
+   * signing in with Apple issued a *second* session, it did not revoke the first. If the access token has
+   * expired meanwhile, Supabase refreshes it from the refresh token.
+   */
+  async resumeSession(session: AuthSession): Promise<AuthSession> {
+    const client = requireSupabase();
+    const { data, error } = await client.auth.setSession({
+      access_token: session.accessToken,
+      refresh_token: session.refreshToken,
+    });
+    if (error || !data.session) {
+      throw new Error(
+        `Could not resume the session: ${error?.message ?? "no session returned"}`,
+      );
+    }
+    return toAuthSession(
+      data.session,
+      data.session.user.is_anonymous ? "anonymous" : "apple",
     );
   }
 

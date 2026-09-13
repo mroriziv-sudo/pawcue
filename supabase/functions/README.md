@@ -104,7 +104,10 @@ Authorization: Bearer <caller's JWT>     ← required, verified, supplies the OW
 401  missing or invalid caller JWT
 429  rate limited
 501  PROVIDER_NOT_CONFIGURED — no provider credential in this deployment; nothing verified, nothing granted
-502  the provider returned a product or status outside the schema's enums
+502  PROVIDER_UNAVAILABLE { providerStatus, providerDetail? } — RevenueCat answered with an error, or the request
+     could not be made at all (providerStatus 0). providerDetail names the coarse cause: `invalid_secret_format`
+     (the secret's value is not a valid header value — a pasted newline or quote), `network`, or `unknown`.
+     Nothing is written. Every RevenueCat call is wrapped so this is a JSON answer, never a runtime 500.
 ```
 
 ### External configuration still required
@@ -190,7 +193,8 @@ Authorization: Bearer <caller's JWT>   ← required, verified, the ONLY identity
 401  missing or invalid caller JWT (including a JWT for an identity already deleted)
 429  rate limited
 500  DELETION_FAILED — the auth delete failed or the profile is still present; nothing pretended
-502  PROVIDER_UNAVAILABLE — RevenueCat could not be reached; the account is untouched
+502  PROVIDER_UNAVAILABLE { providerStatus, providerDetail? } — RevenueCat could not be reached or refused; the
+     account is untouched. Same detail vocabulary as purchases-verify.
 ```
 
 `pnpm test:delete` runs 44 checks against the deployed function: every refusal is followed by reading the

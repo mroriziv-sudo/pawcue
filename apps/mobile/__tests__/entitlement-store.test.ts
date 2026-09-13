@@ -386,18 +386,52 @@ describe("buying", () => {
     expect(store().view.isPremiumActive).toBe(false);
   });
 
-  it("reconciles with the server when the store says the subscription is already owned", async () => {
+  it("reconciles an already-owned subscription through restore, not by re-reading alone", async () => {
     await store().initialize(FAKE_USER);
     backend.purchaseOutcome = {
       outcome: "failed",
       reasonKey: PURCHASE_FAILURE.alreadyOwned,
     };
-    backend.grantFromServer();
+    /**
+     * The server knows nothing yet: the receipt was never verified under this identity. Only a restore — which
+     * re-submits the store's receipt — can make it grant. This is the case a plain refresh would get wrong.
+     */
+    backend.grantOnRestore = {};
 
     await store().buy(BILLING_PRODUCTS.monthly);
 
+    expect(backend.restoreCalls).toBe(1);
     expect(store().purchase.phase).toBe("unlocked");
     expect(store().view.isPremiumActive).toBe(true);
+  });
+
+  it("reports already-owned honestly when even a restore finds nothing the server accepts", async () => {
+    await store().initialize(FAKE_USER);
+    backend.purchaseOutcome = {
+      outcome: "failed",
+      reasonKey: PURCHASE_FAILURE.alreadyOwned,
+    };
+
+    await store().buy(BILLING_PRODUCTS.monthly);
+
+    expect(backend.restoreCalls).toBe(1);
+    expect(store().purchase.phase).toBe("failed");
+    expect(store().purchase.messageKey).toBe(
+      PURCHASE_FAILURE.verificationFailed,
+    );
+    expect(store().view.isPremiumActive).toBe(false);
+  });
+
+  it("does not restore for any other store failure", async () => {
+    await store().initialize(FAKE_USER);
+    backend.purchaseOutcome = {
+      outcome: "failed",
+      reasonKey: PURCHASE_FAILURE.network,
+    };
+
+    await store().buy(BILLING_PRODUCTS.monthly);
+
+    expect(backend.restoreCalls).toBe(0);
   });
 
   it("ignores a second tap while the store sheet is up", async () => {

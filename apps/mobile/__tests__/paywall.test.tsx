@@ -279,7 +279,7 @@ describe("what it must not do", () => {
     );
 
     expect(screen.getByTestId("paywall-disclosure-text")).toHaveTextContent(
-      /cancels anytime/,
+      /cancel anytime/,
     );
     expect(screen.getByTestId("paywall-disclosure-text")).not.toHaveTextContent(
       /free/,

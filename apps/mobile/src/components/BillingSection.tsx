@@ -1,6 +1,7 @@
 import { ActivityIndicator, Linking, Platform, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
+import { useAnnounce } from "../hooks/useAnnounce";
 import { Text, Card, Button, useTheme } from "@pawcue/ui";
 import type { EntitlementStatus } from "@pawcue/domain";
 import { useEntitlementStore } from "../state/entitlement-store";
@@ -56,6 +57,7 @@ export function BillingSection() {
   const view = useEntitlementStore((s) => s.view);
   const refreshing = useEntitlementStore((s) => s.refreshing);
   const restore = useEntitlementStore((s) => s.restore);
+  useAnnounce(restore.messageKey ? t(restore.messageKey) : null);
   const refresh = useEntitlementStore((s) => s.refresh);
   const restorePurchases = useEntitlementStore((s) => s.restorePurchases);
 

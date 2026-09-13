@@ -119,3 +119,19 @@ describe("permissions the brief forbids outright", () => {
     expect(serialized).not.toMatch(pattern);
   });
 });
+
+describe("iPad and localisation declarations", () => {
+  it("offers the app on iPad full-screen only, so the untested split-view surface never reaches review", () => {
+    expect(appJson.expo.ios.supportsTablet).toBe(true);
+    expect(appJson.expo.ios.requireFullScreen).toBe(true);
+    expect(appJson.expo.orientation).toBe("portrait");
+  });
+
+  it("declares the two languages it ships, so iOS offers a per-app language and the store lists both", () => {
+    expect(appJson.expo.ios.infoPlist.CFBundleDevelopmentRegion).toBe("en");
+    expect(appJson.expo.ios.infoPlist.CFBundleLocalizations).toEqual([
+      "en",
+      "he",
+    ]);
+  });
+});

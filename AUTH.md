@@ -56,6 +56,14 @@ sufficient to authorize a merge**.
    ("keep this device's progress" vs. "keep your account's progress").
 4. Never partially merges — the whole re-parenting operation runs in one Postgres transaction.
 
+### Conflict and failure leave the device as it was
+
+If the merge answers `409 GUEST_MERGE_CONFLICT`, or fails outright, the account screen puts the guest session back
+(`SupabaseAuthProvider.resumeSession` with the tokens captured in step 1). The device stays the guest, with its
+dog, plan and history; the account is untouched; the message asks for a different account. A stored session that
+cannot be restored on launch (revoked refresh token) is reported unavailable rather than replaced by a new guest;
+signing in from that state proceeds without a merge, which is how the account's data comes back.
+
 ## Duplicate identities
 
 If a user signs in with Apple on one device and Google on another, they end up with two separate `profiles` rows —

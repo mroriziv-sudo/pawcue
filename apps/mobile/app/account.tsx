@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ScrollView, View } from "react-native";
+import { Platform, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
@@ -17,6 +17,7 @@ import { useEntitlementStore } from "../src/state/entitlement-store";
 import { identifyRevenueCat } from "../src/billing/revenuecat-adapter";
 import { syncPendingSessions } from "../src/sync/session-sync";
 import { AppleSignInButton } from "../src/components/AppleSignInButton";
+import { useAnnounce } from "../src/hooks/useAnnounce";
 import {
   restartAsGuest,
   signOutAndForget,
@@ -64,26 +65,60 @@ export default function AccountScreen() {
   const isGuest = sessionStatus === "anonymous";
   const isSignedIn = sessionStatus === "authenticated";
 
+  useAnnounce(message);
+  useAnnounce(merged ? t("account.mergedTitle") : null);
+
   const signIn = async (provider: "apple" | "google") => {
     setBusy(true);
     setMessage(null);
     try {
-      // Step 1 — capture the guest's identity and token while they are still the current session.
-      const guest = await authProvider.ensureAnonymousSession();
-      const guestToken = guest.accessToken;
-      const guestUserId = guest.userId;
+      /**
+       * Step 1 — capture the guest's identity and token while they are still the current session.
+       *
+       * Only an anonymous session is a merge source. A device whose stored session could not be restored (a
+       * revoked refresh token — bootstrap reported it unavailable) has no guest to merge; signing in is then how
+       * the user gets their account's data back, so it proceeds without a merge rather than failing on step 1.
+       * A device that already holds an account session has nothing to merge either.
+       */
+      const guest = await authProvider
+        .ensureAnonymousSession()
+        .then((session) =>
+          session.identityKind === "anonymous" ? session : null,
+        )
+        .catch(() => null);
 
       // Step 2 — the provider. Throws if it is not configured for this build, or if the user cancelled.
-      if (provider === "apple") await authProvider.signInWithApple();
-      else await authProvider.signInWithGoogle();
+      const account =
+        provider === "apple"
+          ? await authProvider.signInWithApple()
+          : await authProvider.signInWithGoogle();
 
       // Step 3 — the merge. Both sides come from verified tokens, server-side.
-      const result = await authProvider.mergeGuestSession(
-        guestUserId,
-        guestToken,
-      );
+      let result: Awaited<ReturnType<typeof authProvider.mergeGuestSession>> = {
+        merged: true,
+      };
+      if (guest) {
+        try {
+          result = await authProvider.mergeGuestSession(
+            guest.userId,
+            guest.accessToken,
+          );
+        } catch (error) {
+          // Signed in, not merged. The device goes back to being the guest so nothing is half-done.
+          await authProvider.resumeSession(guest).catch(() => undefined);
+          throw error;
+        }
+      }
 
-      if ("code" in result && result.code === "GUEST_MERGE_CONFLICT") {
+      if (guest && "code" in result && result.code === "GUEST_MERGE_CONFLICT") {
+        /**
+         * The account already has its own dog, and choosing which history to keep is not built. The message says
+         * so and asks for a different account — so the device must actually still be the guest afterwards: the
+         * guest session is put back, and the guest's dog, plan and history stay exactly where they were. Leaving
+         * the account's session in place would strand a device whose local state belongs to an identity it can no
+         * longer read, and route the user into creating a second dog for the account on the next launch.
+         */
+        await authProvider.resumeSession(guest).catch(() => undefined);
         setMessage(
           t("account.conflictBody", {
             guestDogs: result.guestSummary.dogCount,
@@ -94,6 +129,13 @@ export default function AccountScreen() {
         );
         return;
       }
+
+      // The identity has changed for good; every screen reads that from here on, whatever the network does next.
+      useBootstrapStore.setState({
+        sessionStatus: "authenticated",
+        userId: account.userId,
+        sessionError: null,
+      });
 
       // Step 4 — adopt whatever this identity now owns, then flush anything queued.
       const dog = await adoptOwnedDog();
@@ -106,24 +148,18 @@ export default function AccountScreen() {
        * subscription bought as a guest is now the account's. The client must ask the server again under the new
        * id rather than keep the guest's cached answer: the cache is scoped by user id and would otherwise simply
        * be ignored, leaving a paying user looking free until the next launch.
+       *
+       * The store SDK follows first, so the subscription bought as a guest is transferred to the account before
+       * the server is asked what the account is entitled to. Order matters: reading entitlement first would
+       * answer for an account RevenueCat has not yet attributed the purchase to. Each step is independent — a
+       * store SDK that cannot be reached must not stop the entitlement read, and neither failure is reported: the
+       * merge succeeded, and both are retried on the next launch.
        */
-      try {
-        const signedIn = await authProvider.refreshSession();
-        /*
-          The store SDK follows first, so the subscription bought as a guest is transferred to the account before
-          the server is asked what the account is entitled to. Order matters: reading entitlement first would
-          answer for an account RevenueCat has not yet attributed the purchase to.
-        */
-        await identifyRevenueCat(signedIn.userId);
-        await useEntitlementStore.getState().initialize(signedIn.userId);
-        useBootstrapStore.setState({
-          sessionStatus: "authenticated",
-          userId: signedIn.userId,
-          sessionError: null,
-        });
-      } catch {
-        /* The merge succeeded; a failed entitlement read is retried on the next launch and must not report one. */
-      }
+      await identifyRevenueCat(account.userId).catch(() => undefined);
+      await useEntitlementStore
+        .getState()
+        .initialize(account.userId)
+        .catch(() => undefined);
 
       setMerged(true);
     } catch (error) {
@@ -238,12 +274,15 @@ export default function AccountScreen() {
           ) : null}
 
           <View style={{ gap: theme.space[2] }}>
-            <AppleSignInButton
-              label={t("account.apple")}
-              onPress={() => void signIn("apple")}
-              loading={busy}
-              testID="sign-in-apple"
-            />
+            {/* Sign in with Apple is native and iOS-only; on Android the button would only ever say "not available". */}
+            {Platform.OS === "ios" ? (
+              <AppleSignInButton
+                label={t("account.apple")}
+                onPress={() => void signIn("apple")}
+                loading={busy}
+                testID="sign-in-apple"
+              />
+            ) : null}
             {/*
               Google is behind a flag until its provider exists. A button that can only answer "not available"
               is a non-functional control, and shipping one is a review rejection, not a feature.

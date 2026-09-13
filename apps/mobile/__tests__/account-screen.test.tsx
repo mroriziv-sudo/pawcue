@@ -40,6 +40,7 @@ jest.mock("expo-apple-authentication", () => ({
 const mockSignInWithApple = jest.fn();
 const mockEnsureAnonymous = jest.fn();
 const mockMerge = jest.fn();
+const mockResume = jest.fn((_session: unknown) => Promise.resolve());
 const mockSignOut = jest.fn(() => Promise.resolve());
 jest.mock("../src/providers/SupabaseAuthProvider", () => {
   const actual = jest.requireActual<
@@ -53,6 +54,7 @@ jest.mock("../src/providers/SupabaseAuthProvider", () => {
       signInWithGoogle: () =>
         Promise.reject(new actual.ProviderNotConfiguredError("google")),
       mergeGuestSession: (id: string, token?: string) => mockMerge(id, token),
+      resumeSession: (session: unknown) => mockResume(session),
       refreshSession: jest.fn(() => Promise.reject(new Error("offline"))),
       signOut: () => mockSignOut(),
       deleteAccount: jest.fn(),
@@ -158,6 +160,53 @@ describe("as a guest", () => {
     expect(mockEnsureAnonymous.mock.invocationCallOrder[0]).toBeLessThan(
       mockSignInWithApple.mock.invocationCallOrder[0] ?? Infinity,
     );
+    // The identity changed for good, even though the entitlement re-read (refreshSession) failed offline.
+    expect(useBootstrapStore.getState().sessionStatus).toBe("authenticated");
+    expect(useBootstrapStore.getState().userId).toBe(
+      "00000000-0000-4000-a000-00000000bbbb",
+    );
+    expect(mockResume).not.toHaveBeenCalled();
+  });
+
+  it("puts the guest session back when the account already has a dog", async () => {
+    mockSignInWithApple.mockResolvedValue({
+      ...GUEST,
+      userId: "00000000-0000-4000-a000-00000000bbbb",
+      identityKind: "apple",
+    });
+    mockMerge.mockResolvedValue({
+      code: "GUEST_MERGE_CONFLICT",
+      guestSummary: { dogCount: 1, sessionsCompleted: 3 },
+      accountSummary: { dogCount: 1, sessionsCompleted: 8 },
+    });
+    await renderScreen();
+
+    await fireEvent.press(screen.getByTestId("sign-in-apple"));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("account-message")).toBeTruthy(),
+    );
+    // The message promises nothing changed; the device is the guest again, with the guest's own tokens.
+    expect(mockResume).toHaveBeenCalledWith(GUEST);
+    expect(useBootstrapStore.getState().sessionStatus).toBe("anonymous");
+    expect(useBootstrapStore.getState().userId).toBe(GUEST.userId);
+    expect(screen.queryByTestId("account-merged")).toBeNull();
+  });
+
+  it("puts the guest session back when the merge itself fails", async () => {
+    mockSignInWithApple.mockResolvedValue({ ...GUEST, identityKind: "apple" });
+    mockMerge.mockRejectedValue(new Error("Guest merge failed (500)."));
+    await renderScreen();
+
+    await fireEvent.press(screen.getByTestId("sign-in-apple"));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("account-message").props.children).toBe(
+        i18n.t("account.failed"),
+      ),
+    );
+    expect(mockResume).toHaveBeenCalledWith(GUEST);
+    expect(useBootstrapStore.getState().sessionStatus).toBe("anonymous");
   });
 
   it("says nothing when the user closes Apple's sheet", async () => {

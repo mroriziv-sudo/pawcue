@@ -7,6 +7,7 @@ import {
 import { I18nextProvider } from "react-i18next";
 import { SafeAreaProvider, type Metrics } from "react-native-safe-area-context";
 import { ThemeProvider } from "@pawcue/ui";
+import { AccessibilityInfo } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import DeleteAccountScreen from "../app/delete-account";
 import { i18n } from "../src/i18n";
@@ -274,6 +275,32 @@ describe("when the server does not confirm", () => {
       screen.getByTestId("delete-account-confirm").props.accessibilityState
         .disabled,
     ).toBe(false);
+  });
+
+  it("announces the outcome to a screen reader, which is still focused on the button", async () => {
+    const announce = jest
+      .spyOn(AccessibilityInfo, "announceForAccessibility")
+      .mockImplementation(() => undefined);
+    mockDeleteAccount.mockRejectedValue(
+      new AccountDeletionError("failed", 500),
+    );
+    await renderScreen();
+    await fireEvent(
+      screen.getByTestId("delete-account-acknowledge"),
+      "valueChange",
+      true,
+    );
+    await fireEvent.press(screen.getByTestId("delete-account-confirm"));
+    await waitFor(() =>
+      expect(announce).toHaveBeenCalledWith(i18n.t("account.delete.failed")),
+    );
+
+    mockDeleteAccount.mockResolvedValue(undefined);
+    await fireEvent.press(screen.getByTestId("delete-account-confirm"));
+    await waitFor(() =>
+      expect(announce).toHaveBeenCalledWith(i18n.t("account.delete.doneTitle")),
+    );
+    announce.mockRestore();
   });
 
   it("names a billing-partner outage specifically", async () => {

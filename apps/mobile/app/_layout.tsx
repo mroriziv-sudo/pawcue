@@ -12,7 +12,10 @@ import { useSettingsStore } from "../src/state/settings-store";
 import { isRtlLocale } from "@pawcue/i18n";
 import { installClickerDiagnostics } from "../src/audio/clicker-diagnostics";
 import { installSessionDevBridge } from "../src/state/session-store";
-import { installAccountDevBridge } from "../src/state/account-lifecycle";
+import {
+  installAccountDevBridge,
+  installAppleRevocationHandler,
+} from "../src/state/account-lifecycle";
 
 // Development-only. Exposes the clicker trace harness on `globalThis.__clickerDiag`; a no-op in release.
 installClickerDiagnostics();
@@ -20,6 +23,8 @@ installClickerDiagnostics();
 installSessionDevBridge();
 // Development-only. Exposes sign-out / deletion for simulator acceptance; a no-op in release.
 installAccountDevBridge();
+// Apple revoking the app's credential signs this device out. Process-lifetime; nothing to unsubscribe.
+installAppleRevocationHandler();
 
 const queryClient = new QueryClient({
   defaultOptions: {

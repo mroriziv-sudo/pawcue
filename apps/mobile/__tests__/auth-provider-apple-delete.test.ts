@@ -31,6 +31,8 @@ const mockSignInWithIdToken = jest.fn();
 const mockGetSession = jest.fn();
 const mockGetUser = jest.fn();
 const mockSignOut = jest.fn();
+const mockSignInAnonymously = jest.fn();
+const mockSetSession = jest.fn();
 jest.mock("../src/lib/supabase", () => {
   const client = {
     auth: {
@@ -38,6 +40,8 @@ jest.mock("../src/lib/supabase", () => {
       getSession: () => mockGetSession(),
       getUser: (token: string) => mockGetUser(token),
       signOut: (opts: unknown) => mockSignOut(opts),
+      signInAnonymously: () => mockSignInAnonymously(),
+      setSession: (args: unknown) => mockSetSession(args),
     },
   };
   return {
@@ -290,5 +294,84 @@ describe("SupabaseAuthProvider.deleteAccount", () => {
     mockSignOut.mockResolvedValue({ error: null });
     await provider.signOut();
     expect(mockSignOut).toHaveBeenCalledWith({ scope: "local" });
+  });
+});
+
+describe("SupabaseAuthProvider.ensureAnonymousSession", () => {
+  const provider = new SupabaseAuthProvider();
+
+  it("resumes a stored session rather than creating a guest", async () => {
+    await expect(provider.ensureAnonymousSession()).resolves.toMatchObject({
+      userId: SESSION.user.id,
+      identityKind: "apple",
+    });
+    expect(mockSignInAnonymously).not.toHaveBeenCalled();
+  });
+
+  it("creates a guest only when there is genuinely no session", async () => {
+    mockGetSession.mockResolvedValue({ data: { session: null }, error: null });
+    mockSignInAnonymously.mockResolvedValue({
+      data: {
+        session: { ...SESSION, user: { id: "guest", is_anonymous: true } },
+      },
+      error: null,
+    });
+    await expect(provider.ensureAnonymousSession()).resolves.toMatchObject({
+      identityKind: "anonymous",
+    });
+  });
+
+  it("does not replace an identity whose session failed to restore with a new guest", async () => {
+    // Revoked refresh token, or offline during refresh: the device's data belongs to the identity that just
+    // became unreachable. A silent new guest would start onboarding over the top of it.
+    mockGetSession.mockResolvedValue({
+      data: { session: null },
+      error: { message: "Invalid Refresh Token: Refresh Token Not Found" },
+    });
+    await expect(provider.ensureAnonymousSession()).rejects.toThrow(
+      /could not be restored/,
+    );
+    expect(mockSignInAnonymously).not.toHaveBeenCalled();
+  });
+});
+
+describe("SupabaseAuthProvider.resumeSession", () => {
+  const provider = new SupabaseAuthProvider();
+
+  it("puts the given tokens back as the current session", async () => {
+    mockSetSession.mockResolvedValue({
+      data: {
+        session: { ...SESSION, user: { id: "guest-1", is_anonymous: true } },
+      },
+      error: null,
+    });
+    const resumed = await provider.resumeSession({
+      userId: "guest-1",
+      identityKind: "anonymous",
+      accessToken: "guest-access",
+      refreshToken: "guest-refresh",
+      expiresAt: "2099-01-01T00:00:00.000Z",
+    });
+    expect(mockSetSession).toHaveBeenCalledWith({
+      access_token: "guest-access",
+      refresh_token: "guest-refresh",
+    });
+    expect(resumed.identityKind).toBe("anonymous");
+  });
+
+  it("fails loudly when the tokens are no longer usable", async () => {
+    mockSetSession.mockResolvedValue({
+      data: { session: null },
+      error: { message: "refresh_token_not_found" },
+    });
+    await expect(
+      provider.resumeSession({
+        userId: "guest-1",
+        identityKind: "anonymous",
+        accessToken: "x",
+        refreshToken: "y",
+        expiresAt: "2099-01-01T00:00:00.000Z",
+      }),
+    ).rejects.toThrow(/Could not resume/);
   });
 });

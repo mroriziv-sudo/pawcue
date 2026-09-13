@@ -1,4 +1,5 @@
 import { authProvider } from "../providers/SupabaseAuthProvider";
+import { onAppleCredentialRevoked } from "../providers/apple-sign-in";
 import { resetRevenueCatIdentity } from "../billing/revenuecat-adapter";
 import { useBootstrapStore } from "./bootstrap-store";
 import { useDogStore } from "./dog-store";
@@ -84,6 +85,22 @@ export async function signOutAndForget(): Promise<void> {
  */
 export async function restartAsGuest(): Promise<void> {
   await useBootstrapStore.getState().bootstrap();
+}
+
+/**
+ * Signs out of this device when Apple reports the credential revoked.
+ *
+ * A user who removes PawCue from "Sign in with Apple" in their Apple ID settings expects to be signed out; Apple's
+ * guidelines say as much. Only an authenticated session is affected — a guest has no Apple credential to revoke.
+ * Server-side data is untouched (this is sign-out, not deletion). Returns an unsubscribe function.
+ */
+export function installAppleRevocationHandler(): () => void {
+  return onAppleCredentialRevoked(() => {
+    if (useBootstrapStore.getState().sessionStatus !== "authenticated") return;
+    void signOutAndForget()
+      .then(() => restartAsGuest())
+      .catch(() => undefined);
+  });
 }
 
 /**

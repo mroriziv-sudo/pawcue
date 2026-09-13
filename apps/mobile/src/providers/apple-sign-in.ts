@@ -121,3 +121,19 @@ export async function requestAppleIdentity(): Promise<AppleIdentity> {
 
   return { identityToken: credential.identityToken, rawNonce };
 }
+
+/**
+ * Subscribes to Apple revoking this app's credential (Settings → Apple ID → Sign in with Apple → stop using).
+ *
+ * Apple's guidance is that an app signs the user out when this fires. The listener is a no-op where the native
+ * module is absent. Returns an unsubscribe function.
+ */
+export function onAppleCredentialRevoked(listener: () => void): () => void {
+  if (Platform.OS !== "ios") return () => undefined;
+  try {
+    const subscription = AppleAuthentication.addRevokeListener(listener);
+    return () => subscription?.remove?.();
+  } catch {
+    return () => undefined;
+  }
+}

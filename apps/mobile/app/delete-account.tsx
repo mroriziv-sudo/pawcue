@@ -11,6 +11,7 @@ import {
 } from "../src/state/account-lifecycle";
 import { ScreenScroll, Section } from "../src/components/ScreenScroll";
 import { SectionHeader } from "../src/components/SectionHeader";
+import { useAnnounce } from "../src/hooks/useAnnounce";
 
 /**
  * Account deletion — the product's one irreversible action, so the one screen that slows the user down.
@@ -44,6 +45,9 @@ export default function DeleteAccountScreen() {
   const [acknowledged, setAcknowledged] = useState(false);
   const [phase, setPhase] = useState<"idle" | "deleting" | "deleted">("idle");
   const [message, setMessage] = useState<string | null>(null);
+
+  useAnnounce(message);
+  useAnnounce(phase === "deleted" ? t("account.delete.doneTitle") : null);
 
   const confirmDeletion = async () => {
     if (!acknowledged || phase !== "idle") return;

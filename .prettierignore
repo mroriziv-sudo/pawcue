@@ -4,3 +4,6 @@ node_modules
 dist
 build
 coverage
+# Generated native projects (expo prebuild). Never formatted, never committed.
+apps/mobile/ios
+apps/mobile/android
