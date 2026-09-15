@@ -119,6 +119,11 @@ photo is device-local (see `dogs/dog-photo.ts`).
 Training objects share the style: a round treat with a bite (the reward mark), and the box clicker seen from above
 (the product mark). Never a paw, a heart, a sparkle or a bone as decoration.
 
+**The dog at work.** Six poses (`bust`, `sit`, `down`, `rest`, `stand`, `run`), three props (the treat, a mat, a
+leash) and part tags for motion are specified in
+[docs/architecture/phase-11-the-dog-at-work.md](docs/architecture/phase-11-the-dog-at-work.md), with the table of
+which moment shows which drawing and the motion rules. Expression and pose are independent there.
+
 ## Iconography
 
 Standard marks come from SF Symbols on iOS (`expo-symbols`, injected through `ThemeProvider.renderGlyph`) and from
