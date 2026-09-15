@@ -152,3 +152,16 @@ referral, not treatment. Keep the copy that way.
 Guest mode reaches every free screen and the paywall without an account; note that. Provide the sandbox tester
 credentials for purchase testing. Point the reviewer to Settings → Account → Delete account and data for the
 deletion requirement, and to the paywall's Terms/Privacy links.
+
+## 12. How to submit
+
+`apps/mobile/eas.json`'s `submit.production` is deliberately `{}` — see
+`apps/mobile/__tests__/release-hardening.test.ts`. Load the App Store Connect API key from `.env.local`
+(`EXPO_ASC_API_KEY_PATH`, `EXPO_ASC_KEY_ID`, `EXPO_ASC_ISSUER_ID`, `EXPO_APPLE_TEAM_ID`) into the shell, then run:
+
+```
+eas submit --platform ios --profile production --path <path-to.ipa>   # or --id <build id>
+```
+
+`ascAppId` has no environment variable in `eas-cli`; when it is absent from the profile, `eas submit` resolves or
+creates the App Store Connect app interactively from the bundle identifier — run this without `--non-interactive`.

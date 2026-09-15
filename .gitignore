@@ -18,6 +18,9 @@ android/.gradle/
 build/
 out/
 *.tsbuildinfo
+*.ipa
+*.apk
+*.aab
 
 # env
 .env

@@ -104,6 +104,11 @@ replay, plan persistence, cross-guest isolation, every Edge Function's refusals,
   endpoint's write path has never executed — it answers `501` without a provider credential, deliberately rather
   than returning a plausible subscription.
 
+  For local iOS purchase testing without a sandbox account, `apps/mobile/PawCue.storekit` is a StoreKit
+  configuration file (product IDs and test-only settings, no real prices or credentials). Select it under
+  Product → Scheme → Edit Scheme → Run → Options → StoreKit Configuration to exercise purchase/restore flows
+  offline in the simulator.
+
 - **Localization**: English, Hebrew, RTL, long strings (Hebrew/German-style string expansion doesn't clip), ICU
   pluralization (see LOCALIZATION.md — Hebrew's four categories, not two), missing-translation fallback.
 - **Clicker**: audio preload, press-to-sound latency budget, rapid repeated presses (no dropped/queued-and-delayed
