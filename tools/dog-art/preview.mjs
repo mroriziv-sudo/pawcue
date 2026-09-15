@@ -49,9 +49,9 @@ function svg(drawing, size, circle) {
 const columns = [
   { label: "bust", a: { pose: "bust", expression: "attentive" } },
   { label: "bust-28", a: { pose: "bust", expression: "attentive" }, size: 28 },
-  { label: "scene", a: { pose: "scene", expression: "attentive" } },
-  { label: "happy", a: { pose: "scene", expression: "happy" } },
-  { label: "resting", a: { pose: "scene", expression: "resting" } },
+  { label: "sit", a: { pose: "sit", expression: "attentive" } },
+  { label: "happy", a: { pose: "sit", expression: "happy" } },
+  { label: "resting", a: { pose: "rest", expression: "resting" } },
   { label: "puzzled", a: { pose: "bust", expression: "puzzled" } },
   { label: "puppy", a: { pose: "bust", expression: "attentive", puppy: true } },
 ];
@@ -86,7 +86,7 @@ const sheets = [];
 for (let start = 0; start < FAMILY_ORDER.length; start += groupsPerSheet) {
   sheets.push(FAMILY_ORDER.slice(start, start + groupsPerSheet));
 }
-// Exact breeds: bust and scene for each, six per sheet.
+// Exact breeds: bust and sit for each, six per sheet.
 const breedRows = EXACT_BREEDS.map((id) =>
   BREEDS.find((b) => b.id === id),
 ).filter(Boolean);
@@ -99,7 +99,7 @@ for (let start = 0; start < breedRows.length; start += 6) {
     sheet += `<text x="8" y="${y + 70}" font-family="Helvetica" font-size="12" fill="#5C605E">${breed.id}</text>`;
     [
       ["bust", 100],
-      ["scene", 110],
+      ["sit", 110],
     ].forEach(([pose, size], i) => {
       const d = drawDog({
         group: breed.group,

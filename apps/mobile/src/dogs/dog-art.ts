@@ -16,14 +16,12 @@ import type { BreedGroup, BreedSize, EarShape } from "./breeds";
  */
 
 /**
- * `bust` is the head alone. The body poses are `sit`, `down`, `rest`, `stand` and `run`. `scene` is the
- * deprecated Phase 10 name: it resolves to `sit`, except with the `resting` expression, where it resolves to
- * `rest`, because that is exactly what it drew before pose and expression were separated
- * (docs/architecture/phase-11-the-dog-at-work.md).
+ * `bust` is the head alone. The body poses are `sit`, `down`, `rest`, `stand` and `run`
+ * (docs/architecture/phase-11-the-dog-at-work.md). Phase 10's `scene` — a sit, or a rest with the `resting`
+ * expression — was an alias here for one session and is gone: a caller names the pose it means.
  */
-export type DogPose =
-  "bust" | "sit" | "down" | "rest" | "stand" | "run" | "scene";
-export type BodyPose = Exclude<DogPose, "bust" | "scene">;
+export type BodyPose = "sit" | "down" | "rest" | "stand" | "run";
+export type DogPose = "bust" | BodyPose;
 export type DogExpression =
   "attentive" | "happy" | "focused" | "resting" | "puzzled";
 /** The three objects the dog meets. Declared by the caller, never implied by a pose. */
@@ -458,16 +456,6 @@ export const EXACT_BREEDS: readonly string[] = Object.keys(
 
 // --------------------------------------------------------------------------------------------------------------
 
-/** The pose a caller asked for, with the deprecated `scene` resolved to what it always drew. */
-export function resolvePose(
-  pose: DogPose | undefined,
-  expression: DogExpression,
-): "bust" | BodyPose {
-  if (pose === undefined || pose === "bust") return "bust";
-  if (pose === "scene") return expression === "resting" ? "rest" : "sit";
-  return pose;
-}
-
 export function drawDog(appearance: DogAppearance): DogDrawing {
   const family = TEMPLATES[appearance.group];
   const override = appearance.breedId
@@ -475,7 +463,7 @@ export function drawDog(appearance: DogAppearance): DogDrawing {
     : undefined;
   const template: Template = override ? { ...family, ...override } : family;
   const expression = appearance.expression ?? "attentive";
-  const pose = resolvePose(appearance.pose, expression);
+  const pose = appearance.pose ?? "bust";
   const puppy = appearance.puppy ?? false;
   const collar = appearance.collar ?? COLLARS.blue;
   const props = pose === "bust" ? [] : (appearance.props ?? []);
@@ -586,7 +574,8 @@ export function drawDog(appearance: DogAppearance): DogDrawing {
     if (expression === "focused") {
       shapes.push({
         kind: "path",
-        d: `M ${ex - eyeR * 1.3} ${eyeY - eyeR * 2.3} l ${side * -eyeR * 0.5 + eyeR * 2.6} ${eyeR * 0.8}`,
+        // A shallow slope: attention, not a frown. Twice this drop read as anger on a light coat at 140pt.
+        d: `M ${ex - eyeR * 1.3} ${eyeY - eyeR * 2.3} l ${side * -eyeR * 0.5 + eyeR * 2.6} ${eyeR * 0.4}`,
         stroke: feature,
         width: 1.6,
         rotate: tilt,
@@ -946,11 +935,13 @@ function markings(
   return out;
 }
 
-/** A drawn body, with the two lines the props need: where the dog meets the ground and how far it reaches. */
+/** A drawn body, with the lines the props need: where the dog meets the ground and how far it reaches. */
 interface Body {
   shapes: Shape[];
-  /** The y of the lowest paw. The mat's top edge; the treat sits on it. */
+  /** The y of the lowest paw. The treat sits on it; the mat's top edge, unless the body lies. */
   ground: number;
+  /** A lying torso's lowest line. The mat rises to it, so the body rests on the mat instead of floating over it. */
+  belly?: number;
   /** The leading edge of the dog on the ground, toward the reading edge. */
   front: number;
   /** The trailing edge on the ground. */
@@ -986,6 +977,9 @@ function body(
     case "sit":
       // The long-low build sits as a barrel on four short legs; that is the hound family's signature silhouette.
       return t.body.long ? barrel(parts, "up", "stand") : sitting(parts);
+    default:
+      // Unreachable through the types; a stale JavaScript caller still asking for `scene` fails loudly here.
+      throw new Error(`Unknown pose "${String(pose)}"`);
   }
 }
 
@@ -1024,15 +1018,7 @@ function lying(
     part: "body",
   });
   if (t.markingKind === "cap") {
-    out.push({
-      kind: "ellipse",
-      cx: head.cx + 16,
-      cy: cy - chest * 0.25,
-      rx: chest * 1.05,
-      ry: chest * 0.3,
-      fill: t.marking,
-      part: "body",
-    });
+    out.push(saddle(head.cx + 10, cy, chest * 1.5, chest * 0.62, t.marking));
   }
   for (const dx of [-22, -6]) {
     out.push({
@@ -1058,6 +1044,7 @@ function lying(
   return {
     shapes: out,
     ground: Math.max(cy + chest * 0.5 + 4.5 * s, cy + chest * 0.62),
+    belly: cy + chest * 0.62,
     front: head.cx - 22 - 11 * s - 6.5 * s,
     back: head.cx + 10 + chest * 1.5,
   };
@@ -1109,15 +1096,9 @@ function barrel(
     });
   }
   if (t.markingKind === "cap") {
-    out.push({
-      kind: "ellipse",
-      cx: head.cx + chest * 0.45,
-      cy: barrelCy - barrelRy * 0.35,
-      rx: barrelRx * 0.72,
-      ry: barrelRy * 0.42,
-      fill: t.marking,
-      part: "body",
-    });
+    out.push(
+      saddle(head.cx + chest * 0.35, barrelCy, barrelRx, barrelRy, t.marking),
+    );
   }
   if (t.markingKind === "tanPoints") {
     out.push({
@@ -1281,6 +1262,33 @@ function sitting({ t, s, chest, legs, bodyTop, head, collar }: Parts): Body {
   };
 }
 
+/**
+ * The shepherd's saddle seen from the side: the dark coat shares the barrel's own top line from the shoulders,
+ * under the head, to the rump, and its lower edge dips just below the barrel's middle. Built from the barrel's
+ * ellipse, so it hugs whatever body the pose draws; a centred patch read as a spot, not a saddle.
+ */
+function saddle(
+  cx: number,
+  cy: number,
+  rx: number,
+  ry: number,
+  fill: string,
+): Shape {
+  // Where the saddle leaves the top line, as fractions of the half-width: just behind the neck and short of the rump.
+  const frontK = 0.1;
+  const backK = 0.92;
+  const x1 = cx - rx * frontK;
+  const y1 = cy - ry * Math.sqrt(1 - frontK * frontK);
+  const x2 = cx + rx * backK;
+  const y2 = cy - ry * Math.sqrt(1 - backK * backK);
+  return {
+    kind: "path",
+    d: `M ${x1} ${y1} A ${rx} ${ry} 0 0 1 ${x2} ${y2} Q ${(x1 + x2) / 2} ${cy + ry * 0.3} ${x1} ${y1} z`,
+    fill,
+    part: "body",
+  };
+}
+
 function tailPath(
   kind: TailKind,
   x: number,
@@ -1337,13 +1345,17 @@ function treat(body: Body): Shape {
   };
 }
 
-/** A flat rounded rectangle under the dog, its top edge on the ground the paws stand on. */
+/**
+ * A flat rounded rectangle under the dog, its top edge on the ground the paws stand on. Under a lying dog the
+ * top edge rises to just above the belly line, so the torso settles into the mat and the paws lie on it; the mat
+ * is drawn first, so the dog's shapes cover it and it never covers them.
+ */
 function mat(body: Body, collar: string): Shape {
   const x1 = Math.max(3, body.front - 12);
   const x2 = Math.min(SCENE.w - 3, body.back + 12);
-  const h = 8;
   const r = 4;
-  const y = body.ground;
+  const y = body.belly !== undefined ? body.belly - 2.5 : body.ground;
+  const h = Math.max(8, body.ground - y + 6);
   return {
     kind: "path",
     d: `M ${x1 + r} ${y} h ${x2 - x1 - 2 * r} q ${r} 0 ${r} ${r} v ${h - 2 * r} q 0 ${r} ${-r} ${r} h ${-(x2 - x1 - 2 * r)} q ${-r} 0 ${-r} ${-r} v ${-(h - 2 * r)} q 0 ${-r} ${r} ${-r} z`,

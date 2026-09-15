@@ -21,10 +21,10 @@ breed gets every pose for free and there are no per-breed pose drawings.
 | `stand` | Four legs on the ground under a horizontal barrel, tail level.                                                                                                                                           |
 | `run`   | Stand with the near front leg reaching forward and the back legs driven back, ears swept back, tail up. The dog runs toward the reading edge; the renderer's RTL mirror turns it around with the layout. |
 
-`scene` stays as a deprecated alias. It resolves to `sit`, except that with the `resting` expression it resolves
-to `rest`, because that is exactly what it drew before this phase. The wiring session (below) replaced every
-production call site with the pose it means; only the dev preview's sheets still ask for `scene`, so the alias
-stays until that screen is redrawn, and nothing a user sees depends on it.
+`scene`, Phase 10's name for the sit (or, with the `resting` expression, the rest), was kept as an alias for one
+session so each call site could be moved to the pose it meant. It is gone: the wiring session moved the
+production call sites, and the motion session moved the dev preview and removed the alias from the module and
+the avatar (the note under "Wired").
 
 **Expression and pose are now independent.** `resting` closes the eyes and relaxes the ears and does nothing else;
 a sitting dog can rest its eyes and a lying dog can be attentive. `puzzled` tilts the head and one ear; `happy`
@@ -38,11 +38,11 @@ Exactly three, drawn in the same flat two-value style, and never overlapping a s
 of, under or beside it with clear paper between. Props are declared by the caller (`props: ["treat"]`), never
 implied by a pose.
 
-| Prop    | Drawing                                                                                                              | Colour                                                                                                                 |
-| ------- | -------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `treat` | A small rounded piece on the ground in front of the dog, a paw's width ahead of the nearest paw.                     | The amber reward role (`#BF7A1E`) — the one place the character set uses a UI colour, because the treat is the reward. |
-| `mat`   | A flat rounded rectangle under the dog, wider than its footprint, its top edge on the ground line the paws stand on. | The dog's collar colour lightened toward the paper, so it belongs to the dog and never competes with it.               |
-| `leash` | A slack curve from the collar's leading end off the canvas toward the reading edge, mirrored with the layout.        | The collar colour.                                                                                                     |
+| Prop    | Drawing                                                                                                                                                                                                                                                                                              | Colour                                                                                                                 |
+| ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `treat` | A small rounded piece on the ground in front of the dog, a paw's width ahead of the nearest paw.                                                                                                                                                                                                     | The amber reward role (`#BF7A1E`) — the one place the character set uses a UI colour, because the treat is the reward. |
+| `mat`   | A flat rounded rectangle under the dog, wider than its footprint, its top edge on the ground line the paws stand on — or, under a lying dog, just above the belly line, so the body settles into it and the paws lie on it. Drawn first, so the dog covers the mat and the mat never covers the dog. | The dog's collar colour lightened toward the paper, so it belongs to the dog and never competes with it.               |
+| `leash` | A slack curve from the collar's leading end off the canvas toward the reading edge, mirrored with the layout.                                                                                                                                                                                        | The collar colour.                                                                                                     |
 
 No other object joins the set. No hands, palms, legs or any other human part, ever: the trainer is the person
 holding the phone, not a drawing.
@@ -178,3 +178,16 @@ moment, and the dog would have been a third thing to look at above a control tha
 The scene will return on those steps on taller screens, where the measurement allows it, without any change.
 
 Not in this session, by the brief: motion. The tags are in place and unused.
+
+**Carried over from the review of the wiring (2026-09-16, `fix(dog-art)`).** Four corrections to the geometry
+module before any motion work, each visible on the re-rendered sheets. The mat now makes contact: under the
+lying body its top edge rises to just above the belly line, so the `place` dog rests on it instead of floating
+over it (the paws lie on the mat; the mat stays behind every shape of the dog). The shepherd's saddle in the
+side-on poses — `down`, `rest`, `stand`, `run` — is built from the barrel's own ellipse and shares its top line
+from behind the neck to the rump, with a lower edge dipping just below the middle, where a centred dark ellipse
+had read as a patch; `sit` and `bust` keep their chest stripe and cap unchanged. The `focused` brow drops
+`0.4 × eyeR` over its run instead of `0.8`, half the slope, so it reads as attention rather than a frown on the
+light coats. And the `scene` alias is retired: `apps/mobile/app/dev-preview.tsx` and the preview tool ask for
+`sit` and `rest` by name, `DogPose` no longer includes it, `resolvePose` is gone from the module and the avatar,
+and a stale caller sending `scene` gets an error rather than a guessed body — `dog-art.test.ts` asserts exactly
+that in place of the old alias-equivalence test.

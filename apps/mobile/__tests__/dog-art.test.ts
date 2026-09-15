@@ -5,8 +5,8 @@ import {
   FAMILY_ORDER,
   TREAT_FILL,
   drawDog,
-  resolvePose,
   type BodyPose,
+  type DogAppearance,
   type DogExpression,
   type DogPose,
   type DogProp,
@@ -89,17 +89,21 @@ describe("the family templates", () => {
     }
   });
 
-  it("keeps the deprecated `scene` drawing exactly what it did before the poses were split", () => {
-    const base = { group: "hound", size: "medium", ears: "floppy" } as const;
-    // Attentive: a sit. Resting: the lying body with the head sunk — which is now the `rest` pose.
-    expect(resolvePose("scene", "attentive")).toBe("sit");
-    expect(resolvePose("scene", "resting")).toBe("rest");
-    expect(drawDog({ ...base, pose: "scene" }).shapes).toEqual(
-      drawDog({ ...base, pose: "sit" }).shapes,
-    );
-    expect(
-      drawDog({ ...base, pose: "scene", expression: "resting" }).shapes,
-    ).toEqual(drawDog({ ...base, pose: "rest", expression: "resting" }).shapes);
+  /**
+   * Phase 10's `scene` was kept as an alias for one session so the wiring could move each call site to the pose
+   * it meant. The doc assigned its removal to the motion session; a caller asking for it now is a mistake, and
+   * the module says so rather than guessing a body.
+   */
+  it("no longer answers to `scene`: the alias is gone from the types and from the drawing", () => {
+    expect(POSES).not.toContain("scene");
+    const stale: DogAppearance = {
+      group: "hound",
+      size: "medium",
+      ears: "floppy",
+      // @ts-expect-error — `scene` is not a DogPose any more; this is what a stale JavaScript caller sends.
+      pose: "scene",
+    };
+    expect(() => drawDog(stale)).toThrow(/scene/);
   });
 
   it("makes the nine families visibly different from one another", () => {

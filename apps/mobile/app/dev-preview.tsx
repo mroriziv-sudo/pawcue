@@ -513,8 +513,8 @@ function PreviewBody({
             >
               <DogFace look={fam} size={28} />
               <DogFace look={fam} size={56} />
-              <DogFace look={fam} size={72} pose="scene" />
-              <DogFace look={fam} size={72} pose="scene" expression="happy" />
+              <DogFace look={fam} size={72} pose="sit" />
+              <DogFace look={fam} size={72} pose="sit" expression="happy" />
               <DogFace look={fam} size={56} expression="puzzled" />
               <DogFace look={fam} size={56} puppy />
               <Text variant="caption" tone="secondary" style={{ flex: 1 }}>
@@ -564,7 +564,7 @@ function PreviewBody({
           <DogAvatar
             breed="Border Collie"
             size={96}
-            pose="scene"
+            pose="rest"
             expression="resting"
           />
           <DogAvatar breed="Beagle" birthdate="2014-01-01" size={56} />
@@ -609,7 +609,7 @@ function PreviewBody({
             <DogAvatar
               breed={null}
               size={120}
-              pose="scene"
+              pose="rest"
               expression="resting"
             />
           }

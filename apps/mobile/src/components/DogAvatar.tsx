@@ -5,7 +5,6 @@ import { useIsRtl, useTheme } from "@pawcue/ui";
 import { lookFor, type DogLook } from "../dogs/breed-lookup";
 import {
   drawDog,
-  resolvePose,
   type DogExpression,
   type DogPose,
   type DogProp,
@@ -155,7 +154,7 @@ export function DogFace({
     ],
   );
   const [x, y, w, h] = drawing.viewBox;
-  const bust = resolvePose(pose, expression) === "bust";
+  const bust = pose === "bust";
   const height = bust ? size : (size * h) / w;
   const decorative = !accessibilityLabel;
 
