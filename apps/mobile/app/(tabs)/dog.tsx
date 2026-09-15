@@ -87,7 +87,7 @@ export default function DogScreen() {
     return (
       <ScreenScroll testID="dog-screen">
         <EmptyState
-          scene={<DogAvatar breed={null} size={160} pose="scene" />}
+          scene={<DogAvatar breed={null} size={160} pose="sit" />}
           title={t("dogTab.noDogTitle")}
           body={t("dogTab.noDogBody")}
           ctaLabel={t("today.noDogCta")}
@@ -187,7 +187,7 @@ export default function DogScreen() {
                 breed={dog?.breed ?? null}
                 birthdate={dog?.birthdate ?? null}
                 size={150}
-                pose="scene"
+                pose="sit"
               />
             )}
           </View>

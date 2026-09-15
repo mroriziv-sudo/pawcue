@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, ScrollView, View } from "react-native";
+import {
+  ActivityIndicator,
+  ScrollView,
+  View,
+  type LayoutChangeEvent,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
@@ -42,6 +47,12 @@ import { buildTodayView } from "../../src/plans/plan-lifecycle";
 import { ScreenScroll } from "../../src/components/ScreenScroll";
 import { DogAvatar } from "../../src/components/DogAvatar";
 import { Crossfade } from "../../src/components/Crossfade";
+import { skillDemo } from "../../src/dogs/skill-demo";
+
+/** The demo scene's width; its drawing is five-quarters as tall. */
+const DEMO_SCENE_SIZE = 140;
+/** Free space below the text before the scene is allowed in — the drawing plus a breath, never less. */
+const DEMO_SCENE_MIN_SPACE = 200;
 
 /**
  * The training screen — a coaching surface, not a stack of cards.
@@ -124,6 +135,7 @@ export default function TrainingScreen() {
     <>
       <ActiveStepView
         content={content}
+        helpVisible={helpVisible}
         onOpenHelp={() => setHelpVisible(true)}
       />
       <TroubleshootingSheet
@@ -172,15 +184,40 @@ function Centered({
 
 function ActiveStepView({
   content,
+  helpVisible,
   onOpenHelp,
 }: {
   content: LessonContent;
+  helpVisible: boolean;
   onOpenHelp: () => void;
 }) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { t } = useTranslation();
+  /**
+   * The dog at work (phase-11-the-dog-at-work.md): what it does depends on the skill this lesson teaches. The
+   * lesson carries the skill's id; its slug comes from the catalogue the app already holds — no new fetch, and
+   * until it resolves the plain sitting dog is the answer.
+   */
+  const { catalogue } = useCatalogue();
+  const demo = skillDemo(
+    catalogue?.skills.find((skill) => skill.id === content.lesson.skillId)
+      ?.slug ?? null,
+  );
+  /**
+   * The scene is decoration and decoration yields to text. It is drawn only in the paper left between the
+   * instruction block and the dock, measured rather than assumed, so large type and short screens lose the dog
+   * and never a word or a control.
+   */
+  const [regionHeight, setRegionHeight] = useState<number | null>(null);
+  const [textHeight, setTextHeight] = useState<number | null>(null);
+  const onRegionLayout = useCallback((event: LayoutChangeEvent) => {
+    setRegionHeight(event.nativeEvent.layout.height);
+  }, []);
+  const onTextLayout = useCallback((event: LayoutChangeEvent) => {
+    setTextHeight(event.nativeEvent.layout.height);
+  }, []);
 
   const session = useSessionStore((s) => s.session);
   const lastFailure = useSessionStore((s) => s.lastFailure);
@@ -217,6 +254,13 @@ function ActiveStepView({
   const satisfied = isStepSatisfied(session, step);
   const isFinalStep = progress.stepNumber === progress.totalSteps;
   const hasTroubleshooting = content.troubleshooting.length > 0;
+  const freeSpace =
+    regionHeight !== null && textHeight !== null
+      ? regionHeight - textHeight - theme.space[6] * 2 - theme.space[4]
+      : null;
+  // Never with the help sheet open: the puzzled bust on the sheet is the one dog in that state.
+  const showScene =
+    !helpVisible && freeSpace !== null && freeSpace >= DEMO_SCENE_MIN_SPACE;
 
   return (
     <View
@@ -296,57 +340,84 @@ function ActiveStepView({
           paddingBottom: theme.space[6],
           gap: theme.space[4],
         }}
+        onLayout={onRegionLayout}
+        testID="session-instruction-region"
       >
-        <Reveal key={step.id} style={{ gap: theme.space[4] }}>
-          <Text
-            variant="headline"
-            accessibilityRole="header"
-            testID="step-instruction"
-          >
-            {t(step.instructionKey)}
-          </Text>
-          {coachingLine(step, t) ? (
-            <Text variant="body" tone="secondary">
-              {coachingLine(step, t)}
-            </Text>
-          ) : null}
-        </Reveal>
-
-        {hasTroubleshooting ? (
-          <View style={{ alignItems: "flex-start" }}>
-            <Button
-              label={
-                dog?.name
-                  ? t("session.train.notGettingIt", { name: dog.name })
-                  : t("common.cta.notWorking")
-              }
-              variant="tertiary"
-              size="md"
-              fullWidth={false}
-              onPress={onOpenHelp}
-              testID="open-troubleshooting"
-            />
-          </View>
-        ) : null}
-
-        {lastFailure === "step_requirements_unmet" ? (
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: theme.space[2],
-            }}
-            accessibilityRole="alert"
-          >
-            <Glyph name="alert" size={18} color={theme.colors.text.error} />
+        {/* Everything the user reads or taps, measured as one block; the scene only ever goes beneath it. */}
+        <View
+          style={{ gap: theme.space[4] }}
+          onLayout={onTextLayout}
+          testID="session-text-block"
+        >
+          <Reveal key={step.id} style={{ gap: theme.space[4] }}>
             <Text
-              variant="secondary"
-              tone="error"
-              style={{ flex: 1 }}
-              testID="requirements-warning"
+              variant="headline"
+              accessibilityRole="header"
+              testID="step-instruction"
             >
-              {t("session.errors.stepRequirementsUnmet")}
+              {t(step.instructionKey)}
             </Text>
+            {coachingLine(step, t) ? (
+              <Text variant="body" tone="secondary">
+                {coachingLine(step, t)}
+              </Text>
+            ) : null}
+          </Reveal>
+
+          {hasTroubleshooting ? (
+            <View style={{ alignItems: "flex-start" }}>
+              <Button
+                label={
+                  dog?.name
+                    ? t("session.train.notGettingIt", { name: dog.name })
+                    : t("common.cta.notWorking")
+                }
+                variant="tertiary"
+                size="md"
+                fullWidth={false}
+                onPress={onOpenHelp}
+                testID="open-troubleshooting"
+              />
+            </View>
+          ) : null}
+
+          {lastFailure === "step_requirements_unmet" ? (
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: theme.space[2],
+              }}
+              accessibilityRole="alert"
+            >
+              <Glyph name="alert" size={18} color={theme.colors.text.error} />
+              <Text
+                variant="secondary"
+                tone="error"
+                style={{ flex: 1 }}
+                testID="requirements-warning"
+              >
+                {t("session.errors.stepRequirementsUnmet")}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+
+        {showScene ? (
+          <View
+            style={{ alignItems: "center" }}
+            pointerEvents="none"
+            testID="session-demo"
+          >
+            <DogAvatar
+              breed={dog?.breed ?? null}
+              birthdate={dog?.birthdate ?? null}
+              size={DEMO_SCENE_SIZE}
+              pose={demo.pose}
+              expression={demo.expression}
+              props={demo.props}
+              testID={`session-demo-${demo.pose}`}
+            />
           </View>
         ) : null}
       </ScrollView>
@@ -796,14 +867,16 @@ function CompletionView({ content }: { content: LessonContent }) {
 
   return (
     <ScreenScroll gap={theme.space[8]} testID="session-complete">
-      {/* The dog, happy, is the celebration. The words are facts about what happened. */}
+      {/* The dog, happy, with the treat it earned, is the celebration. The words are facts about what happened. */}
       <View style={{ alignItems: "center", paddingTop: theme.space[4] }}>
         <DogAvatar
           breed={dog?.breed ?? null}
           birthdate={dog?.birthdate ?? null}
           size={200}
-          pose="scene"
+          pose="sit"
           expression="happy"
+          props={["treat"]}
+          testID="completion-dog"
         />
       </View>
 

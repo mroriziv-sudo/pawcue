@@ -22,8 +22,9 @@ breed gets every pose for free and there are no per-breed pose drawings.
 | `run`   | Stand with the near front leg reaching forward and the back legs driven back, ears swept back, tail up. The dog runs toward the reading edge; the renderer's RTL mirror turns it around with the layout. |
 
 `scene` stays as a deprecated alias. It resolves to `sit`, except that with the `resting` expression it resolves
-to `rest`, because that is exactly what it drew before this phase and two Today states and the dev preview still
-ask for it that way. The next session replaces those call sites with `rest` and removes the alias.
+to `rest`, because that is exactly what it drew before this phase. The wiring session (below) replaced every
+production call site with the pose it means; only the dev preview's sheets still ask for `scene`, so the alias
+stays until that screen is redrawn, and nothing a user sees depends on it.
 
 **Expression and pose are now independent.** `resting` closes the eyes and relaxes the ears and does nothing else;
 a sitting dog can rest its eyes and a lying dog can be attentive. `puzzled` tilts the head and one ear; `happy`
@@ -97,3 +98,83 @@ The family signature elements (the shepherd's cap, the beagle's ears, the rottwe
 beard, the husky's mask, the frenchie's bat ears and mask, the chihuahua's ears, the retriever's floppy ears, the
 mixed breed's one half-pricked ear); the natural coats; the nine UI colour roles; the paper; and the rule that the
 dog is the only decoration in the app. Nothing this phase adds is a second illustration: it is more of the dog.
+
+## Wired (2026-09-15)
+
+The moments table is now what the screens draw. Nothing in the geometry module changed; this session only told
+each existing moment which drawing to ask for, and put the session scene where the contract says it goes.
+
+**The session keys on the skill.** `apps/mobile/src/dogs/skill-demo.ts` is the moments table's session rows,
+verbatim: `skillDemo(skillSlug)` returns the pose, expression and props for the eight skills and the plain
+sitting, attentive dog for anything else — including no slug at all. The lesson already carries its skill's id
+and the app already holds the planning catalogue, so the slug is a lookup, not a fetch. The scene is 140pt,
+centred below the instruction block (instruction, coaching line, "Not working?", the requirements warning), and
+it is drawn only while a step is in progress and only when the paper between that block and the dock measures at
+least 200pt — both heights come from `onLayout`, nothing is assumed, and until they arrive there is no dog. It is
+`pointerEvents="none"` and decorative, so it neither takes a tap nor a screen-reader stop. It is never drawn
+while the help sheet is open: the puzzled bust on the sheet is the one dog in that state. Completion keeps its
+200pt dog and now asks for `sit`, `happy`, `treat`.
+
+**Today and the Dog tab.** Today with a lesson waiting sits the dog, attentive, beside the coach line (an owner's
+photo keeps the bust: a photo cannot pose). Today with the plan finished draws `rest` with `resting` in place of
+the old `scene`-with-`resting` call. The Dog tab and the onboarding welcome ask for `sit` by name. Every screen
+state has one dog.
+
+**Accessibility.** A drawn dog carries the label it always carried — the dog's name, or "your dog" — or none at
+all when it is decoration; poses and props are never spoken. Under RTL the whole drawing is mirrored, so the
+running dog turns to run toward the Hebrew reading edge and the leash leaves the collar toward it
+([`he/session-come.png`](assets/phase-11/he/session-come.png),
+[`he/session-loose-leash.png`](assets/phase-11/he/session-loose-leash.png)).
+
+### Each moment and its screenshot
+
+Dev build `5ddd4fa0` on the iPhone 17 Pro simulator, iOS 26.5, driven the way the Phase 10 acceptance pass was
+driven — routes by deep link, session progress through the session store's own actions, the language switch
+through the app's own `applyLocale` followed by a relaunch — with nothing tapped. Halved in resolution for the
+repository. "Luna" is a Golden Retriever; the plan on the device held The Name Game, Sit and Potty Foundation.
+
+| Moment                                     | Drawn                   | English                                                                    | Hebrew                                                                     |
+| ------------------------------------------ | ----------------------- | -------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| Today with a lesson waiting                | sit, attentive          | [`en/today-waiting.png`](assets/phase-11/en/today-waiting.png)             | [`he/today-waiting.png`](assets/phase-11/he/today-waiting.png) ¹           |
+| Today when the day's plan is done          | rest, resting           | [`en/today-done.png`](assets/phase-11/en/today-done.png)                   | [`he/today-done.png`](assets/phase-11/he/today-done.png)                   |
+| Dog tab                                    | sit, attentive          | [`en/dog-tab.png`](assets/phase-11/en/dog-tab.png)                         | —                                                                          |
+| Session in progress — `sit`                | sit, focused, treat     | [`en/session-sit.png`](assets/phase-11/en/session-sit.png)                 | [`he/session-sit.png`](assets/phase-11/he/session-sit.png)                 |
+| Session in progress — `down`               | down, focused, treat    | [`en/session-down.png`](assets/phase-11/en/session-down.png)               | [`he/session-down.png`](assets/phase-11/he/session-down.png)               |
+| Session in progress — `place`              | down, focused, mat      | [`en/session-place.png`](assets/phase-11/en/session-place.png)             | [`he/session-place.png`](assets/phase-11/he/session-place.png)             |
+| Session in progress — `come`               | run, happy              | [`en/session-come.png`](assets/phase-11/en/session-come.png)               | [`he/session-come.png`](assets/phase-11/he/session-come.png)               |
+| Session in progress — `loose_leash_basics` | stand, attentive, leash | [`en/session-loose-leash.png`](assets/phase-11/en/session-loose-leash.png) | [`he/session-loose-leash.png`](assets/phase-11/he/session-loose-leash.png) |
+| Session complete                           | sit, happy, treat       | [`en/completion.png`](assets/phase-11/en/completion.png)                   | [`he/completion.png`](assets/phase-11/he/completion.png)                   |
+| Session — counting step, clicker dock      | no scene: under 200pt   | [`en/session-down-step3.png`](assets/phase-11/en/session-down-step3.png)   | —                                                                          |
+
+¹ The device's plan was already finished when the Hebrew pass ran, so the waiting state was reached by hiding
+today's records from the training log in memory for the one screenshot; a relaunch rehydrated the log from disk.
+The plan, the dog and the layout are the real ones.
+
+Onboarding welcome, `name_response`, `stay` and `leave_it` share drawings already shown above (sit, attentive;
+sit, focused with and without the treat) and were not photographed separately. The "Not working?" sheet cannot
+be opened without a tap; its puzzled bust is unchanged from Phase 10 and the scene's absence behind it is
+asserted in `apps/mobile/__tests__/dog-at-work.test.tsx`.
+
+### Decoration yields to text — the proof at accessibility-extra-large
+
+Cold-launched at `accessibility-extra-large`, the one setting Phase 10 found trustworthy for Dynamic Type
+screenshots:
+
+| State                        | What happened                                                                 | Screenshot                                                                       |
+| ---------------------------- | ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Sit, step 1                  | Two lines of instruction; the scene still fits and nothing above it moved.    | [`en-axl/session-sit.png`](assets/phase-11/en-axl/session-sit.png)               |
+| Place, step 1                | Five lines; the scene still fits, with little to spare.                       | [`en-axl/session-place.png`](assets/phase-11/en-axl/session-place.png)           |
+| Come, step 1                 | Five lines; the scene fits.                                                   | [`en-axl/session-come.png`](assets/phase-11/en-axl/session-come.png)             |
+| Down, step 2                 | Six lines; under 200pt left, so **no dog** — the text and the dock as before. | [`en-axl/session-down-step2.png`](assets/phase-11/en-axl/session-down-step2.png) |
+| Down, step 3 (clicker, reps) | The tall dock leaves no room; no dog.                                         | [`en-axl/session-down-step3.png`](assets/phase-11/en-axl/session-down-step3.png) |
+| Today, plan done             | The resting dog at its 160pt, the heading and rows unchanged.                 | [`en-axl/today-done.png`](assets/phase-11/en-axl/today-done.png)                 |
+
+**Where the scene competes with the dock, and the judgment.** On a counting step the dock holds the rep marks,
+the clicker, "Count it" and the remaining count, and on a 6.3" phone at the default size the paper between the
+instruction and that dock measures about 110pt ([`en/session-down-step3.png`](assets/phase-11/en/session-down-step3.png)).
+The scene is therefore never drawn while reps are being counted on this device; it is drawn on the setup steps
+before. That is the rule working, not a gap: while the trainer counts, the amber ring and the rep marks are the
+moment, and the dog would have been a third thing to look at above a control that has to be hit without looking.
+The scene will return on those steps on taller screens, where the measurement allows it, without any change.
+
+Not in this session, by the brief: motion. The tags are in place and unused.

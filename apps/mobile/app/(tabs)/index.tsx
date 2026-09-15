@@ -243,7 +243,7 @@ export default function TodayScreen() {
 
       {!dogId ? (
         <EmptyState
-          scene={<DogAvatar breed={null} size={160} pose="scene" />}
+          scene={<DogAvatar breed={null} size={160} pose="sit" />}
           title={t("today.noDogTitle")}
           body={t("today.noDogBody")}
           ctaLabel={t("today.noDogCta")}
@@ -300,6 +300,7 @@ export default function TodayScreen() {
                 birthdate={dog.birthdate}
                 photoUri={photoUri}
                 size={96}
+                pose={photoUri ? "bust" : "sit"}
               />
             ) : null}
           </View>
@@ -317,7 +318,7 @@ export default function TodayScreen() {
             <DogAvatar
               breed={dog?.breed ?? null}
               size={160}
-              pose="scene"
+              pose="rest"
               expression="resting"
             />
           }
@@ -397,13 +398,18 @@ export default function TodayScreen() {
                   ) : null}
                 </Text>
               </View>
-              {/* The dog, present on the home screen — the one thing that makes this unmistakably their app. */}
+              {/*
+                The dog, present on the home screen — the one thing that makes this unmistakably their app. With a
+                lesson waiting it sits, attentive (phase-11-the-dog-at-work.md); an owner's photo is the identity
+                and keeps the bust, because a photo cannot pose.
+              */}
               {dog ? (
                 <DogAvatar
                   breed={dog.breed}
                   birthdate={dog.birthdate}
                   photoUri={photoUri}
                   size={96}
+                  pose={photoUri ? "bust" : "sit"}
                   testID="today-dog-avatar"
                 />
               ) : null}
@@ -620,7 +626,13 @@ function AllDone({
   return (
     <Reveal style={{ gap: theme.space[6] }} testID="today-all-done">
       <View style={{ alignItems: "center", paddingTop: theme.space[2] }}>
-        <DogAvatar breed={breed} size={160} pose="scene" expression="resting" />
+        <DogAvatar
+          breed={breed}
+          size={160}
+          pose="rest"
+          expression="resting"
+          testID="today-all-done-dog"
+        />
       </View>
       <View style={{ gap: theme.space[2] }}>
         <Text

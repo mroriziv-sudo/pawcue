@@ -42,7 +42,7 @@ export default function OnboardingWelcomeScreen() {
       <View style={{ flex: 1, justifyContent: "center", gap: theme.space[8] }}>
         <Reveal>
           <View style={{ alignItems: "center" }}>
-            <DogAvatar breed={null} size={220} pose="scene" />
+            <DogAvatar breed={null} size={220} pose="sit" />
           </View>
         </Reveal>
 
