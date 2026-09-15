@@ -98,6 +98,9 @@ box is actually checked against the app in hand, not just planned for.
       and asserted by flipping `__DEV__` in `__tests__/billing-dev-guard.test.tsx`.
       build as a mechanical check, not just a design intention.
 - [ ] English + Hebrew + RTL pass on the full critical path (Phase 10 gate) before either store submission.
+      The simulator half is done and recorded in
+      [docs/architecture/phase-10-native-acceptance.md](docs/architecture/phase-10-native-acceptance.md) (three
+      blocking defects fixed); the gate closes only after the owner's manual checklist at the end of that document.
 - [ ] `PRIVACY.md`, `SECURITY.md`, `DATA_MAP.md` up to date with what the shipped build actually does, not what an
       earlier phase planned.
 
