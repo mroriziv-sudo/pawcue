@@ -5,14 +5,16 @@ import { useIsRtl, useTheme } from "@pawcue/ui";
 import { lookFor, type DogLook } from "../dogs/breed-lookup";
 import {
   drawDog,
+  resolvePose,
   type DogExpression,
   type DogPose,
+  type DogProp,
   type Shape,
 } from "../dogs/dog-art";
 import { monthsSince } from "./BirthdatePicker";
 import { Crossfade } from "./Crossfade";
 
-export type { DogExpression, DogPose };
+export type { DogExpression, DogPose, DogProp };
 
 /** Under a year the dog is drawn as a puppy; past nine, with a grey muzzle. */
 const PUPPY_MONTHS = 12;
@@ -22,10 +24,12 @@ export interface DogAvatarProps {
   breed: string | null | undefined;
   birthdate?: string | null;
   size?: number;
-  /** Bust in rows and headers; scene (full body) where the moment carries emotion. */
+  /** Bust in rows and headers; a body pose where the moment carries emotion (phase-11-the-dog-at-work.md). */
   pose?: DogPose;
   expression?: DogExpression;
-  /** A photo of the dog. Replaces the drawn bust; the scene stays drawn, because a photo cannot pose. */
+  /** The treat, the mat, the leash — declared here, never implied by a pose. Ignored on a bust. */
+  props?: readonly DogProp[];
+  /** A photo of the dog. Replaces the drawn bust; the body poses stay drawn, because a photo cannot pose. */
   photoUri?: string | null;
   /** Read by assistive technology only when the dog is the subject; otherwise the avatar is decorative. */
   accessibilityLabel?: string;
@@ -52,6 +56,7 @@ export function DogAvatar({
   size = 56,
   pose = "bust",
   expression = "attentive",
+  props,
   photoUri,
   accessibilityLabel,
   testID,
@@ -69,6 +74,7 @@ export function DogAvatar({
     puppy ? "puppy" : senior ? "senior" : "adult",
     pose,
     expression,
+    props?.join(",") ?? "",
   ].join("|");
 
   return (
@@ -86,6 +92,7 @@ export function DogAvatar({
           size={size}
           pose={pose}
           expression={expression}
+          {...(props ? { props } : {})}
           puppy={puppy}
           senior={senior}
           {...(accessibilityLabel ? { accessibilityLabel } : {})}
@@ -102,6 +109,7 @@ export function DogFace({
   size,
   pose = "bust",
   expression = "attentive",
+  props,
   puppy = false,
   senior = false,
   accessibilityLabel,
@@ -111,6 +119,7 @@ export function DogFace({
   size: number;
   pose?: DogPose;
   expression?: DogExpression;
+  props?: readonly DogProp[];
   puppy?: boolean;
   senior?: boolean;
   accessibilityLabel?: string;
@@ -118,6 +127,8 @@ export function DogFace({
 }) {
   const theme = useTheme();
   const rtl = useIsRtl();
+  // Props are compared by value: a new array with the same objects is the same drawing.
+  const propsKey = props?.join(",") ?? "";
   const drawing = useMemo(
     () =>
       drawDog({
@@ -129,6 +140,7 @@ export function DogFace({
         senior,
         pose,
         expression,
+        ...(propsKey ? { props: propsKey.split(",") as DogProp[] } : {}),
       }),
     [
       look.group,
@@ -139,10 +151,12 @@ export function DogFace({
       senior,
       pose,
       expression,
+      propsKey,
     ],
   );
   const [x, y, w, h] = drawing.viewBox;
-  const height = pose === "scene" ? (size * h) / w : size;
+  const bust = resolvePose(pose, expression) === "bust";
+  const height = bust ? size : (size * h) / w;
   const decorative = !accessibilityLabel;
 
   return (
@@ -160,7 +174,7 @@ export function DogFace({
       style={{
         width: size,
         height,
-        ...(pose === "bust"
+        ...(bust
           ? {
               borderRadius: size / 2,
               backgroundColor: theme.colors.background.base,
@@ -170,12 +184,12 @@ export function DogFace({
             }
           : {}),
         // The hairline sits outside the drawing, so the canvas is inset by it.
-        ...(pose === "bust" ? { padding: 0 } : {}),
+        ...(bust ? { padding: 0 } : {}),
       }}
     >
       <Svg
-        width={pose === "bust" ? size - 2 * theme.border.hairline : size}
-        height={pose === "bust" ? size - 2 * theme.border.hairline : height}
+        width={bust ? size - 2 * theme.border.hairline : size}
+        height={bust ? size - 2 * theme.border.hairline : height}
         viewBox={`${x} ${y} ${w} ${h}`}
         style={rtl ? { transform: [{ scaleX: -1 }] } : undefined}
       >

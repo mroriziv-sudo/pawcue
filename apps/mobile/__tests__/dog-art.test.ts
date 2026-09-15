@@ -3,9 +3,13 @@ import {
   COATS,
   EXACT_BREEDS,
   FAMILY_ORDER,
+  TREAT_FILL,
   drawDog,
+  resolvePose,
+  type BodyPose,
   type DogExpression,
   type DogPose,
+  type DogProp,
 } from "../src/dogs/dog-art";
 import { BREEDS } from "../src/dogs/breeds";
 import { lookFor } from "../src/dogs/breed-lookup";
@@ -14,10 +18,15 @@ import { lookFor } from "../src/dogs/breed-lookup";
  * The character, as geometry.
  *
  * These protect the promises the art direction made: every dog draws from one system, breeds are genuinely
- * different, natural coats never borrow a UI colour, and the fallback hierarchy always ends at a drawable dog.
+ * different, natural coats never borrow a UI colour, and the fallback hierarchy always ends at a drawable dog —
+ * and, since Phase 11 (docs/architecture/phase-11-the-dog-at-work.md), that every family has every pose, that
+ * pose and expression are independent, that props are asked for and never implied, and that every shape is
+ * tagged for the renderer that will move it.
  */
 
-const POSES: DogPose[] = ["bust", "scene"];
+const BODY_POSES: BodyPose[] = ["sit", "down", "rest", "stand", "run"];
+const POSES: DogPose[] = ["bust", ...BODY_POSES];
+const PROPS: DogProp[] = ["treat", "mat", "leash"];
 const EXPRESSIONS: DogExpression[] = [
   "attentive",
   "happy",
@@ -56,23 +65,41 @@ describe("the family templates", () => {
     }
   });
 
-  it("gives the scene a body and the bust only a head", () => {
+  it("gives the body poses a body and the bust only a head", () => {
     const bust = drawDog({
       group: "mixed",
       size: "medium",
       ears: "folded",
       pose: "bust",
     });
-    const scene = drawDog({
-      group: "mixed",
-      size: "medium",
-      ears: "folded",
-      pose: "scene",
-    });
-    expect(scene.shapes.length).toBeGreaterThan(bust.shapes.length);
+    expect(bust.shapes.some((shape) => shape.part === "body")).toBe(false);
+    expect(bust.shapes.some((shape) => shape.part === "tail")).toBe(false);
     // The bust window is square; the scene canvas is taller than it is wide.
     expect(bust.viewBox[2]).toBe(bust.viewBox[3]);
-    expect(scene.viewBox[3]).toBeGreaterThan(scene.viewBox[2]);
+    for (const pose of BODY_POSES) {
+      const drawn = drawDog({
+        group: "mixed",
+        size: "medium",
+        ears: "folded",
+        pose,
+      });
+      expect(drawn.shapes.some((shape) => shape.part === "body")).toBe(true);
+      expect(drawn.shapes.length).toBeGreaterThan(bust.shapes.length);
+      expect(drawn.viewBox[3]).toBeGreaterThan(drawn.viewBox[2]);
+    }
+  });
+
+  it("keeps the deprecated `scene` drawing exactly what it did before the poses were split", () => {
+    const base = { group: "hound", size: "medium", ears: "floppy" } as const;
+    // Attentive: a sit. Resting: the lying body with the head sunk — which is now the `rest` pose.
+    expect(resolvePose("scene", "attentive")).toBe("sit");
+    expect(resolvePose("scene", "resting")).toBe("rest");
+    expect(drawDog({ ...base, pose: "scene" }).shapes).toEqual(
+      drawDog({ ...base, pose: "sit" }).shapes,
+    );
+    expect(
+      drawDog({ ...base, pose: "scene", expression: "resting" }).shapes,
+    ).toEqual(drawDog({ ...base, pose: "rest", expression: "resting" }).shapes);
   });
 
   it("makes the nine families visibly different from one another", () => {
@@ -103,34 +130,171 @@ describe("the family templates", () => {
     }
   });
 
+  it("uses the amber reward role on the treat and nowhere else in the whole set", () => {
+    expect(TREAT_FILL).toBe(palette.amber);
+    const ui = new Set(Object.values(palette).map((hex) => hex.toUpperCase()));
+    let amberShapes = 0;
+    for (const group of FAMILY_ORDER) {
+      for (const pose of BODY_POSES) {
+        const drawing = drawDog({
+          group,
+          size: "medium",
+          ears: "floppy",
+          pose,
+          props: PROPS,
+        });
+        for (const shape of drawing.shapes) {
+          const colours = fills([shape]).map((c) => c.toUpperCase());
+          if (colours.includes(palette.amber.toUpperCase())) {
+            amberShapes += 1;
+            expect(shape.part).toBe("prop");
+          }
+          if (shape.part !== "prop") {
+            for (const colour of colours) {
+              if (colour === palette.white) continue;
+              expect(ui.has(colour)).toBe(false);
+            }
+          }
+        }
+      }
+    }
+    // One treat per drawing, nine families by five poses.
+    expect(amberShapes).toBe(FAMILY_ORDER.length * BODY_POSES.length);
+  });
+
   it("draws a white dog a shade darker than the paper it sits on", () => {
     expect(COATS.white.toUpperCase()).not.toBe(palette.warmIvory);
   });
 
-  it("closes the eyes when resting and tilts the head when puzzled", () => {
-    const attentive = drawDog({
-      group: "sporting",
-      size: "large",
-      ears: "floppy",
-    });
-    const resting = drawDog({
-      group: "sporting",
-      size: "large",
-      ears: "floppy",
-      expression: "resting",
-    });
-    const puzzled = drawDog({
-      group: "sporting",
-      size: "large",
-      ears: "floppy",
-      expression: "puzzled",
-    });
-    const eyes = (d: typeof attentive) =>
-      d.shapes.filter((s) => s.kind === "circle").length;
-    expect(eyes(resting)).toBeLessThan(eyes(attentive));
+  /**
+   * Phase 10 tied the lying body to the `resting` expression; Phase 11 split them. `resting` closes the eyes in
+   * every pose and nothing else; `rest` lies down whatever the face is doing. The tilt stays with `puzzled`.
+   */
+  it("closes the eyes when resting in every pose, lies down in `rest` with any face, and tilts when puzzled", () => {
+    const base = { group: "sporting", size: "large", ears: "floppy" } as const;
+    for (const pose of POSES) {
+      const attentive = drawDog({ ...base, pose });
+      const resting = drawDog({ ...base, pose, expression: "resting" });
+      expect(attentive.shapes.filter((s) => s.part === "eye")).toHaveLength(2);
+      expect(attentive.shapes.filter((s) => s.part === "eyelid")).toHaveLength(
+        0,
+      );
+      expect(resting.shapes.filter((s) => s.part === "eye")).toHaveLength(0);
+      expect(resting.shapes.filter((s) => s.part === "eyelid")).toHaveLength(2);
+      // The body is the pose's, not the expression's.
+      const bodyOf = (d: typeof attentive) =>
+        d.shapes.filter((s) => s.part === "body" || s.part === "tail");
+      expect(bodyOf(resting)).toEqual(bodyOf(attentive));
+    }
+    // `rest` is the lying body regardless of expression, and it is not the sitting body.
+    const restBodies = EXPRESSIONS.map((expression) =>
+      JSON.stringify(
+        drawDog({ ...base, pose: "rest", expression }).shapes.filter(
+          (s) => s.part === "body" || s.part === "tail",
+        ),
+      ),
+    );
+    expect(new Set(restBodies).size).toBe(1);
+    expect(restBodies[0]).not.toBe(
+      JSON.stringify(
+        drawDog({ ...base, pose: "sit" }).shapes.filter(
+          (s) => s.part === "body" || s.part === "tail",
+        ),
+      ),
+    );
+    const puzzled = drawDog({ ...base, expression: "puzzled" });
     expect(puzzled.shapes.some((s) => "rotate" in s && s.rotate === 10)).toBe(
       true,
     );
+  });
+
+  it("tags every shape, with exactly one tail and two eyes on every body pose", () => {
+    for (const group of FAMILY_ORDER) {
+      for (const pose of POSES) {
+        const drawing = drawDog({
+          group,
+          size: "medium",
+          ears: "folded",
+          pose,
+        });
+        for (const shape of drawing.shapes) expect(shape.part).toBeDefined();
+        expect(drawing.shapes.filter((s) => s.part === "eye")).toHaveLength(2);
+        expect(drawing.shapes.filter((s) => s.part === "tail")).toHaveLength(
+          pose === "bust" ? 0 : 1,
+        );
+        expect(drawing.shapes.some((s) => s.part === "head")).toBe(true);
+        expect(drawing.shapes.some((s) => s.part === "ear")).toBe(true);
+      }
+    }
+  });
+
+  it("draws props only when asked, tagged as props, in no coat colour, and never on a bust", () => {
+    const coats = new Set(Object.values(COATS).map((hex) => hex.toUpperCase()));
+    for (const group of FAMILY_ORDER) {
+      for (const pose of BODY_POSES) {
+        const bare = drawDog({ group, size: "medium", ears: "folded", pose });
+        expect(bare.shapes.filter((s) => s.part === "prop")).toHaveLength(0);
+        for (const prop of PROPS) {
+          const withOne = drawDog({
+            group,
+            size: "medium",
+            ears: "folded",
+            pose,
+            props: [prop],
+          });
+          const props = withOne.shapes.filter((s) => s.part === "prop");
+          expect(props).toHaveLength(1);
+          for (const colour of fills(props)) {
+            expect(coats.has(colour.toUpperCase())).toBe(false);
+          }
+          // The dog itself is unchanged by the prop.
+          expect(withOne.shapes.filter((s) => s.part !== "prop")).toEqual(
+            bare.shapes,
+          );
+        }
+        const all = drawDog({
+          group,
+          size: "medium",
+          ears: "folded",
+          pose,
+          props: PROPS,
+        });
+        expect(all.shapes.filter((s) => s.part === "prop")).toHaveLength(3);
+      }
+      const bust = drawDog({
+        group,
+        size: "medium",
+        ears: "folded",
+        pose: "bust",
+        props: PROPS,
+      });
+      expect(bust.shapes.filter((s) => s.part === "prop")).toHaveLength(0);
+    }
+  });
+
+  it("carries the proportion overrides into every pose", () => {
+    for (const id of [
+      "beagle",
+      "dachshund",
+      "french_bulldog",
+      "siberian_husky",
+    ]) {
+      const look = lookFor(id);
+      for (const pose of POSES) {
+        for (const puppy of [false, true]) {
+          const drawn = drawDog({
+            group: look.group,
+            size: look.size,
+            ears: look.ears,
+            ...(look.breedId ? { breedId: look.breedId } : {}),
+            pose,
+            puppy,
+            senior: !puppy,
+          });
+          expect(drawn.shapes.length).toBeGreaterThanOrEqual(6);
+        }
+      }
+    }
   });
 });
 

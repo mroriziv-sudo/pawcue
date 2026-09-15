@@ -15,9 +15,22 @@ import type { BreedGroup, BreedSize, EarShape } from "./breeds";
  * circle.
  */
 
-export type DogPose = "bust" | "scene";
+/**
+ * `bust` is the head alone. The body poses are `sit`, `down`, `rest`, `stand` and `run`. `scene` is the
+ * deprecated Phase 10 name: it resolves to `sit`, except with the `resting` expression, where it resolves to
+ * `rest`, because that is exactly what it drew before pose and expression were separated
+ * (docs/architecture/phase-11-the-dog-at-work.md).
+ */
+export type DogPose =
+  "bust" | "sit" | "down" | "rest" | "stand" | "run" | "scene";
+export type BodyPose = Exclude<DogPose, "bust" | "scene">;
 export type DogExpression =
   "attentive" | "happy" | "focused" | "resting" | "puzzled";
+/** The three objects the dog meets. Declared by the caller, never implied by a pose. */
+export type DogProp = "treat" | "mat" | "leash";
+/** What a shape is, so a renderer can address the tail and the eyes without knowing the geometry. */
+export type DogPart =
+  "eye" | "eyelid" | "tail" | "body" | "head" | "ear" | "prop";
 
 export interface DogAppearance {
   group: BreedGroup;
@@ -33,6 +46,8 @@ export interface DogAppearance {
   expression?: DogExpression;
   /** Faces toward the reading edge's text. Mirrored under RTL by the renderer. */
   collar?: string;
+  /** Objects drawn with the dog. Ignored on a bust. */
+  props?: readonly DogProp[];
 }
 
 export type Shape =
@@ -44,8 +59,16 @@ export type Shape =
       ry: number;
       fill: string;
       rotate?: number;
+      part: DogPart;
     }
-  | { kind: "circle"; cx: number; cy: number; r: number; fill: string }
+  | {
+      kind: "circle";
+      cx: number;
+      cy: number;
+      r: number;
+      fill: string;
+      part: DogPart;
+    }
   | {
       kind: "path";
       d: string;
@@ -54,6 +77,7 @@ export type Shape =
       width?: number;
       rotate?: number;
       origin?: [number, number];
+      part: DogPart;
     };
 
 export interface DogDrawing {
@@ -96,6 +120,14 @@ export const COLLARS = {
 const INK = "#24221F";
 const TONGUE = "#D98B87";
 const INNER_EAR = "#E3B8A8";
+/**
+ * The treat is the reward, so it takes the reward role — the one UI colour in the character set. Kept as a literal
+ * because this module must stay importable without the UI package (the preview tool loads it in plain Node);
+ * `dog-art.test.ts` asserts it equals `palette.amber`.
+ */
+export const TREAT_FILL = "#BF7A1E";
+/** The paper, for lightening a collar into a mat. Asserted against the UI token in the tests as well. */
+const PAPER = "#FAF8F4";
 
 interface Template {
   coat: string;
@@ -426,16 +458,27 @@ export const EXACT_BREEDS: readonly string[] = Object.keys(
 
 // --------------------------------------------------------------------------------------------------------------
 
+/** The pose a caller asked for, with the deprecated `scene` resolved to what it always drew. */
+export function resolvePose(
+  pose: DogPose | undefined,
+  expression: DogExpression,
+): "bust" | BodyPose {
+  if (pose === undefined || pose === "bust") return "bust";
+  if (pose === "scene") return expression === "resting" ? "rest" : "sit";
+  return pose;
+}
+
 export function drawDog(appearance: DogAppearance): DogDrawing {
   const family = TEMPLATES[appearance.group];
   const override = appearance.breedId
     ? BREED_OVERRIDES[appearance.breedId]
     : undefined;
   const template: Template = override ? { ...family, ...override } : family;
-  const pose = appearance.pose ?? "bust";
   const expression = appearance.expression ?? "attentive";
+  const pose = resolvePose(appearance.pose, expression);
   const puppy = appearance.puppy ?? false;
   const collar = appearance.collar ?? COLLARS.blue;
+  const props = pose === "bust" ? [] : (appearance.props ?? []);
   const shapes: Shape[] = [];
 
   const dark = isDark(template.coat);
@@ -444,7 +487,8 @@ export function drawDog(appearance: DogAppearance): DogDrawing {
 
   const headScale = puppy ? 1.06 : 1;
   const resting = expression === "resting";
-  const headCy = HEAD.cy + (resting && pose === "scene" ? 10 : 0);
+  // Rest sinks the head into the shoulders; every other pose keeps it at the bust height.
+  const headCy = HEAD.cy + (pose === "rest" ? 10 : 0);
   const head = {
     cx: HEAD.cx,
     cy: headCy,
@@ -454,13 +498,19 @@ export function drawDog(appearance: DogAppearance): DogDrawing {
   const tilt = expression === "puzzled" ? 10 : 0;
   const origin: [number, number] = [head.cx, head.cy];
 
-  // Body first, so the head sits on it.
-  if (pose === "scene") {
-    shapes.push(...body(template, appearance, head, collar, resting));
+  // The body first, so the head sits on it; the mat and the leash before that, so the dog covers their roots.
+  let built: Body | null = null;
+  if (pose !== "bust") {
+    built = body(pose, template, appearance, head, collar);
+    if (props.includes("mat")) shapes.push(mat(built, collar));
+    if (props.includes("leash")) shapes.push(leash(head, collar));
+    shapes.push(...built.shapes);
   }
 
   // Ears behind the head.
-  shapes.push(...ears(template, head, puppy, expression, tilt, origin));
+  shapes.push(
+    ...ears(template, head, puppy, expression, tilt, origin, pose === "run"),
+  );
 
   // Head.
   shapes.push({
@@ -471,6 +521,7 @@ export function drawDog(appearance: DogAppearance): DogDrawing {
     ry: head.ry,
     fill: template.coat,
     rotate: tilt,
+    part: "head",
   });
 
   // Signature markings on the head.
@@ -492,6 +543,7 @@ export function drawDog(appearance: DogAppearance): DogDrawing {
       ry: muzzle.ry,
       fill: appearance.senior ? COATS.white : template.muzzlePatch,
       rotate: tilt,
+      part: "head",
     });
   } else if (appearance.senior) {
     shapes.push({
@@ -502,6 +554,7 @@ export function drawDog(appearance: DogAppearance): DogDrawing {
       ry: muzzle.ry * 0.8,
       fill: "#D9D4CB",
       rotate: tilt,
+      part: "head",
     });
   }
 
@@ -518,9 +571,17 @@ export function drawDog(appearance: DogAppearance): DogDrawing {
         width: 1.8,
         rotate: tilt,
         origin,
+        part: "eyelid",
       });
     } else {
-      shapes.push({ kind: "circle", cx: ex, cy: eyeY, r: eyeR, fill: feature });
+      shapes.push({
+        kind: "circle",
+        cx: ex,
+        cy: eyeY,
+        r: eyeR,
+        fill: feature,
+        part: "eye",
+      });
     }
     if (expression === "focused") {
       shapes.push({
@@ -530,6 +591,7 @@ export function drawDog(appearance: DogAppearance): DogDrawing {
         width: 1.6,
         rotate: tilt,
         origin,
+        part: "head",
       });
     }
   }
@@ -543,6 +605,7 @@ export function drawDog(appearance: DogAppearance): DogDrawing {
     fill: feature,
     rotate: tilt,
     origin,
+    part: "head",
   });
 
   // Mouth.
@@ -554,6 +617,7 @@ export function drawDog(appearance: DogAppearance): DogDrawing {
       fill: feature,
       rotate: tilt,
       origin,
+      part: "head",
     });
     shapes.push({
       kind: "ellipse",
@@ -563,6 +627,7 @@ export function drawDog(appearance: DogAppearance): DogDrawing {
       ry: 3.2,
       fill: TONGUE,
       rotate: tilt,
+      part: "head",
     });
   } else {
     shapes.push({
@@ -572,11 +637,15 @@ export function drawDog(appearance: DogAppearance): DogDrawing {
       width: 1.5,
       rotate: tilt,
       origin,
+      part: "head",
     });
   }
 
+  // The treat last: on the ground ahead of the dog, in front of everything.
+  if (built && props.includes("treat")) shapes.push(treat(built));
+
   return {
-    viewBox: pose === "scene" ? [0, 0, SCENE.w, SCENE.h] : BUST_BOX,
+    viewBox: pose === "bust" ? BUST_BOX : [0, 0, SCENE.w, SCENE.h],
     shapes,
   };
 }
@@ -590,6 +659,7 @@ function ears(
   expression: DogExpression,
   tilt: number,
   origin: [number, number],
+  swept: boolean,
 ): Shape[] {
   const out: Shape[] = [];
   const earColor =
@@ -602,7 +672,8 @@ function ears(
       : t.ears === "floppy"
         ? t.marking
         : t.coat;
-  const relaxed = expression === "happy" || expression === "resting";
+  // Running sweeps the ears back the way a relaxed dog lets them fall, only further.
+  const relaxed = expression === "happy" || expression === "resting" || swept;
   const scale = (puppy ? 1.12 : 1) * (t.earScale ?? 1);
   // A pink inner ear on a black dog reads as a wound, not an ear.
   const innerEar = isDark(t.coat) ? null : INNER_EAR;
@@ -612,6 +683,8 @@ function ears(
   const push = (side: -1 | 1, k: EarKind) => {
     const x = head.cx + side * head.rx * 0.78;
     const top = head.cy - head.ry * 0.62;
+    // Erect and folded ears turn about the head; hanging ears turn about themselves. Both go outward when swept.
+    const aboutHead = tilt + (swept ? side * 14 : 0);
     switch (k) {
       case "pointed": {
         const spread = relaxed ? 6 : 0;
@@ -621,16 +694,18 @@ function ears(
           kind: "path",
           d: `M ${x - side * 9} ${top + 4} Q ${tipX - side * 2} ${tipY - 6} ${tipX} ${tipY} Q ${x + side * 12} ${top + 6} ${x + side * 6} ${top + 14} z`,
           fill: earColor,
-          rotate: tilt,
+          rotate: aboutHead,
           origin,
+          part: "ear",
         });
         if (innerEar) {
           out.push({
             kind: "path",
             d: `M ${x - side * 3} ${top + 6} Q ${tipX - side * 4} ${tipY} ${tipX - side * 1.5} ${tipY + 3} Q ${x + side * 7} ${top + 8} ${x + side * 4} ${top + 12} z`,
             fill: innerEar,
-            rotate: tilt,
+            rotate: aboutHead,
             origin,
+            part: "ear",
           });
         }
         break;
@@ -643,7 +718,8 @@ function ears(
           rx: 9 * scale,
           ry: 17 * scale,
           fill: earColor,
-          rotate: tilt + side * 12,
+          rotate: tilt + side * (swept ? 24 : 12),
+          part: "ear",
         });
         out.push({
           kind: "ellipse",
@@ -652,7 +728,8 @@ function ears(
           rx: 5 * scale,
           ry: 11 * scale,
           fill: INNER_EAR,
-          rotate: tilt + side * 12,
+          rotate: tilt + side * (swept ? 24 : 12),
+          part: "ear",
         });
         break;
       }
@@ -664,7 +741,8 @@ function ears(
           rx: 8.5 * scale,
           ry: 20 * scale,
           fill: earColor,
-          rotate: tilt + side * (relaxed ? 16 : 10),
+          rotate: tilt + side * (swept ? 26 : relaxed ? 16 : 10),
+          part: "ear",
         });
         break;
       }
@@ -676,7 +754,8 @@ function ears(
           rx: 8 * scale,
           ry: 24 * scale,
           fill: earColor,
-          rotate: tilt + side * 6,
+          rotate: tilt + side * (swept ? 14 : 6),
+          part: "ear",
         });
         break;
       }
@@ -685,8 +764,9 @@ function ears(
           kind: "path",
           d: `M ${x - side * 8} ${top + 6} Q ${x + side * 4} ${top - 14 * scale} ${x + side * 14} ${top - 4} Q ${x + side * 10} ${top + 8} ${x + side * 2} ${top + 12} z`,
           fill: earColor,
-          rotate: tilt,
+          rotate: aboutHead,
           origin,
+          part: "ear",
         });
         break;
       }
@@ -695,8 +775,9 @@ function ears(
           kind: "path",
           d: `M ${x - side * 6} ${top + 4} Q ${x + side * 3} ${top - 8} ${x + side * 12} ${top + 1} Q ${x + side * 8} ${top + 10} ${x} ${top + 10} z`,
           fill: t.marking === "#DAD6CE" ? t.coat : earColor,
-          rotate: tilt,
+          rotate: aboutHead,
           origin,
+          part: "ear",
         });
         break;
       }
@@ -708,16 +789,18 @@ function ears(
           kind: "path",
           d: `M ${x - side * 9} ${top + 4} Q ${tipX - side * 6} ${tipY - 2} ${tipX} ${tipY} Q ${x + side * 14} ${tipY + 6} ${x + side * 6} ${top + 14} z`,
           fill: earColor,
-          rotate: tilt,
+          rotate: aboutHead,
           origin,
+          part: "ear",
         });
         if (innerEar) {
           out.push({
             kind: "path",
             d: `M ${x - side * 3} ${top + 6} Q ${tipX - side * 5} ${tipY + 3} ${tipX - side * 1} ${tipY + 4} Q ${x + side * 8} ${tipY + 8} ${x + side * 4} ${top + 12} z`,
             fill: innerEar,
-            rotate: tilt,
+            rotate: aboutHead,
             origin,
+            part: "ear",
           });
         }
         break;
@@ -760,6 +843,7 @@ function markings(
         fill: t.marking,
         rotate: tilt,
         origin,
+        part: "head",
       });
       break;
     case "cap":
@@ -770,6 +854,7 @@ function markings(
         fill: t.marking,
         rotate: tilt,
         origin,
+        part: "head",
       });
       break;
     case "mask":
@@ -780,6 +865,7 @@ function markings(
         fill: t.marking,
         rotate: tilt,
         origin,
+        part: "head",
       });
       break;
     case "tanPoints":
@@ -791,6 +877,7 @@ function markings(
           cy: head.cy + t.eyes.dy - 8,
           r: 2.6,
           fill: t.marking,
+          part: "head",
         });
       }
       out.push({
@@ -801,6 +888,7 @@ function markings(
         ry: t.muzzle.ry * 0.9,
         fill: t.marking,
         rotate: tilt,
+        part: "head",
       });
       break;
     case "beard": {
@@ -813,6 +901,7 @@ function markings(
         ry: t.muzzle.ry + 1,
         fill: t.marking,
         rotate: tilt,
+        part: "head",
       });
       for (const side of [-1, 1] as const) {
         out.push({
@@ -823,6 +912,7 @@ function markings(
           ry: 2.6,
           fill: t.marking,
           rotate: tilt + side * -12,
+          part: "head",
         });
       }
       break;
@@ -835,6 +925,7 @@ function markings(
         fill: t.marking,
         rotate: tilt,
         origin,
+        part: "head",
       });
       break;
     case "solid":
@@ -849,129 +940,247 @@ function markings(
       ry: head.ry * 0.36,
       fill: t.coat,
       rotate: tilt,
+      part: "head",
     });
   }
   return out;
 }
 
+/** A drawn body, with the two lines the props need: where the dog meets the ground and how far it reaches. */
+interface Body {
+  shapes: Shape[];
+  /** The y of the lowest paw. The mat's top edge; the treat sits on it. */
+  ground: number;
+  /** The leading edge of the dog on the ground, toward the reading edge. */
+  front: number;
+  /** The trailing edge on the ground. */
+  back: number;
+}
+
+type TailMode = "up" | "lying" | "out" | "level";
+
 function body(
+  pose: BodyPose,
   t: Template,
   a: DogAppearance,
   head: { cx: number; cy: number; rx: number; ry: number },
   collar: string,
-  resting: boolean,
-): Shape[] {
-  const out: Shape[] = [];
+): Body {
   const sizeScale = a.size === "small" ? 0.85 : a.size === "large" ? 1.08 : 1;
   const puppyScale = a.puppy ? 0.8 : 1;
   const s = sizeScale * puppyScale;
   const chest = t.body.chest * s;
   const legs = t.body.legs * s;
   const bodyTop = head.cy + head.ry - 6;
+  const parts = { t, s, chest, legs, bodyTop, head, collar };
 
-  if (resting) {
-    // Lying down: a long low body, front legs stretched forward past the chest, tail resting.
-    const cy = bodyTop + 26;
+  switch (pose) {
+    case "rest":
+      return lying(parts, "lying");
+    case "down":
+      return lying(parts, "out");
+    case "stand":
+      return barrel(parts, "level", "stand");
+    case "run":
+      return barrel(parts, "up", "run");
+    case "sit":
+      // The long-low build sits as a barrel on four short legs; that is the hound family's signature silhouette.
+      return t.body.long ? barrel(parts, "up", "stand") : sitting(parts);
+  }
+}
+
+interface Parts {
+  t: Template;
+  s: number;
+  chest: number;
+  legs: number;
+  bodyTop: number;
+  head: { cx: number; cy: number; rx: number; ry: number };
+  collar: string;
+}
+
+/** Lying down: a long low body, front legs stretched forward past the chest. */
+function lying(
+  { t, s, chest, bodyTop, head, collar }: Parts,
+  tail: TailMode,
+): Body {
+  const out: Shape[] = [];
+  // Rest sinks the head into the shoulders, so its body sits lower; down keeps the chest up against the head.
+  const cy = bodyTop + (tail === "lying" ? 26 : 16);
+  out.push({
+    kind: "path",
+    d: tailPath(t.body.tail, head.cx + chest * 1.3, cy + 4, tail),
+    stroke: t.coat,
+    width: 6.5 * s,
+    part: "tail",
+  });
+  out.push({
+    kind: "ellipse",
+    cx: head.cx + 10,
+    cy,
+    rx: chest * 1.5,
+    ry: chest * 0.62,
+    fill: t.coat,
+    part: "body",
+  });
+  if (t.markingKind === "cap") {
     out.push({
-      kind: "path",
-      d: tailPath(t.body.tail, head.cx + chest * 1.3, cy + 4, true),
-      stroke: t.coat,
-      width: 6.5 * s,
+      kind: "ellipse",
+      cx: head.cx + 16,
+      cy: cy - chest * 0.25,
+      rx: chest * 1.05,
+      ry: chest * 0.3,
+      fill: t.marking,
+      part: "body",
+    });
+  }
+  for (const dx of [-22, -6]) {
+    out.push({
+      kind: "ellipse",
+      cx: head.cx + dx,
+      cy: cy + chest * 0.48,
+      rx: 15 * s,
+      ry: 5.5 * s,
+      fill: t.coat,
+      part: "body",
     });
     out.push({
       kind: "ellipse",
-      cx: head.cx + 10,
-      cy,
-      rx: chest * 1.5,
-      ry: chest * 0.62,
-      fill: t.coat,
+      cx: head.cx + dx - 11 * s,
+      cy: cy + chest * 0.5,
+      rx: 6.5 * s,
+      ry: 4.5 * s,
+      fill: t.muzzlePatch ?? t.coat,
+      part: "body",
     });
-    if (t.markingKind === "cap") {
-      out.push({
-        kind: "ellipse",
-        cx: head.cx + 16,
-        cy: cy - chest * 0.25,
-        rx: chest * 1.05,
-        ry: chest * 0.3,
-        fill: t.marking,
-      });
-    }
-    for (const dx of [-22, -6]) {
-      out.push({
-        kind: "ellipse",
-        cx: head.cx + dx,
-        cy: cy + chest * 0.48,
-        rx: 15 * s,
-        ry: 5.5 * s,
-        fill: t.coat,
-      });
-      out.push({
-        kind: "ellipse",
-        cx: head.cx + dx - 11 * s,
-        cy: cy + chest * 0.5,
-        rx: 6.5 * s,
-        ry: 4.5 * s,
-        fill: t.muzzlePatch ?? t.coat,
-      });
-    }
-    out.push(collarShape(head, collar, 6));
-    return out;
   }
+  out.push(collarShape(head, collar, tail === "lying" ? 6 : 0));
+  return {
+    shapes: out,
+    ground: Math.max(cy + chest * 0.5 + 4.5 * s, cy + chest * 0.62),
+    front: head.cx - 22 - 11 * s - 6.5 * s,
+    back: head.cx + 10 + chest * 1.5,
+  };
+}
 
-  if (t.body.long) {
-    // The long-low build: a horizontal barrel, short legs at both ends, the tail off the far end.
-    const barrelCy = bodyTop + chest * 0.7;
-    const barrelRx = chest * 1.35;
-    const barrelRy = chest * 0.62;
+/**
+ * A horizontal barrel on four legs: the long-low build's sit, every build's stand, and — with the legs driven —
+ * the run.
+ */
+function barrel(
+  { t, s, chest, legs, bodyTop, head, collar }: Parts,
+  tail: TailMode,
+  gait: "stand" | "run",
+): Body {
+  const out: Shape[] = [];
+  const running = gait === "run";
+  const barrelCy = bodyTop + chest * 0.7;
+  const barrelRx = chest * 1.35 * (running ? 1.06 : 1);
+  const barrelRy = chest * 0.62;
+  // A tall build stands on legs a little shorter than it sits on: the sit's front legs start at the torso's
+  // middle, the stand's at the barrel's underside.
+  const legLen = t.body.long ? legs : legs * 0.82;
+  const legTop = barrelCy + barrelRy * 0.6;
+  out.push({
+    kind: "path",
+    d: tailPath(t.body.tail, head.cx + barrelRx * 0.95, barrelCy - 2, tail),
+    stroke: t.coat,
+    width: 6 * s,
+    part: "tail",
+  });
+  out.push({
+    kind: "ellipse",
+    cx: head.cx + chest * 0.35,
+    cy: barrelCy,
+    rx: barrelRx,
+    ry: barrelRy,
+    fill: t.coat,
+    part: "body",
+  });
+  if (t.markingKind === "blaze" || t.muzzlePatch) {
+    out.push({
+      kind: "ellipse",
+      cx: head.cx - chest * 0.1,
+      cy: barrelCy + barrelRy * 0.35,
+      rx: chest * 0.55,
+      ry: barrelRy * 0.5,
+      fill: t.marking === COATS.black ? t.coat : (t.muzzlePatch ?? t.marking),
+      part: "body",
+    });
+  }
+  if (t.markingKind === "cap") {
+    out.push({
+      kind: "ellipse",
+      cx: head.cx + chest * 0.45,
+      cy: barrelCy - barrelRy * 0.35,
+      rx: barrelRx * 0.72,
+      ry: barrelRy * 0.42,
+      fill: t.marking,
+      part: "body",
+    });
+  }
+  if (t.markingKind === "tanPoints") {
+    out.push({
+      kind: "ellipse",
+      cx: head.cx - chest * 0.2,
+      cy: barrelCy + barrelRy * 0.3,
+      rx: chest * 0.4,
+      ry: barrelRy * 0.45,
+      fill: t.marking,
+      part: "body",
+    });
+  }
+  const legX = [
+    head.cx - chest * 0.55,
+    head.cx - chest * 0.15,
+    head.cx + chest * 1.05,
+    head.cx + chest * 1.4,
+  ];
+  // Running: the near front leg reaches forward, the back legs drive back. Degrees, clockwise, about the leg's top.
+  const angles = running ? [34, 6, -26, -40] : [0, 0, 0, 0];
+  let ground = 0;
+  let front = Infinity;
+  let back = -Infinity;
+  legX.forEach((lx, i) => {
+    const angle = angles[i] ?? 0;
+    const rad = (angle * Math.PI) / 180;
+    const endX = lx - legLen * Math.sin(rad);
+    const endY = legTop + legLen * Math.cos(rad);
     out.push({
       kind: "path",
-      d: tailPath(t.body.tail, head.cx + barrelRx * 0.95, barrelCy - 2, false),
-      stroke: t.coat,
-      width: 6 * s,
+      d: `M ${lx - 4 * s} ${legTop} h ${8 * s} v ${legLen} h ${-8 * s} z`,
+      fill: t.coat,
+      ...(angle
+        ? { rotate: angle, origin: [lx, legTop] as [number, number] }
+        : {}),
+      part: "body",
     });
     out.push({
       kind: "ellipse",
-      cx: head.cx + chest * 0.35,
-      cy: barrelCy,
-      rx: barrelRx,
-      ry: barrelRy,
-      fill: t.coat,
+      cx: endX,
+      cy: endY,
+      rx: 6 * s,
+      ry: 3.8 * s,
+      fill:
+        t.markingKind === "tanPoints" ? t.marking : (t.muzzlePatch ?? t.coat),
+      part: "body",
     });
-    if (t.markingKind === "blaze" || t.muzzlePatch) {
-      out.push({
-        kind: "ellipse",
-        cx: head.cx - chest * 0.1,
-        cy: barrelCy + barrelRy * 0.35,
-        rx: chest * 0.55,
-        ry: barrelRy * 0.5,
-        fill: t.marking === COATS.black ? t.coat : (t.muzzlePatch ?? t.marking),
-      });
-    }
-    for (const lx of [
-      head.cx - chest * 0.55,
-      head.cx - chest * 0.15,
-      head.cx + chest * 1.05,
-      head.cx + chest * 1.4,
-    ]) {
-      out.push({
-        kind: "path",
-        d: `M ${lx - 4 * s} ${barrelCy + barrelRy * 0.6} h ${8 * s} v ${legs} h ${-8 * s} z`,
-        fill: t.coat,
-      });
-      out.push({
-        kind: "ellipse",
-        cx: lx,
-        cy: barrelCy + barrelRy * 0.6 + legs,
-        rx: 6 * s,
-        ry: 3.8 * s,
-        fill: t.muzzlePatch ?? t.coat,
-      });
-    }
-    out.push(collarShape(head, collar, 0));
-    return out;
-  }
+    ground = Math.max(ground, endY + 3.8 * s);
+    front = Math.min(front, endX - 6 * s);
+    back = Math.max(back, endX + 6 * s);
+  });
+  out.push(collarShape(head, collar, 0));
+  return {
+    shapes: out,
+    ground,
+    front,
+    back: Math.max(back, head.cx + chest * 0.35 + barrelRx),
+  };
+}
 
-  // Sitting, three-quarter front. Haunch behind, torso, front legs, tail.
+/** Sitting, three-quarter front: haunch behind, torso, front legs, tail. */
+function sitting({ t, s, chest, legs, bodyTop, head, collar }: Parts): Body {
+  const out: Shape[] = [];
   const torsoCy = bodyTop + chest * 0.85;
   out.push({
     kind: "path",
@@ -979,10 +1188,11 @@ function body(
       t.body.tail,
       head.cx + chest * 0.95,
       torsoCy + chest * 0.55,
-      false,
+      "up",
     ),
     stroke: t.coat,
     width: 6.5 * s,
+    part: "tail",
   });
   out.push({
     kind: "ellipse",
@@ -991,6 +1201,7 @@ function body(
     rx: chest * 0.78,
     ry: chest * 0.62,
     fill: t.coat,
+    part: "body",
   });
   out.push({
     kind: "ellipse",
@@ -999,12 +1210,14 @@ function body(
     rx: chest,
     ry: chest * 0.9,
     fill: t.coat,
+    part: "body",
   });
   if (t.markingKind === "cap") {
     out.push({
       kind: "path",
       d: `M ${head.cx - chest * 0.6} ${torsoCy - chest * 0.6} q ${chest * 0.6} ${-chest * 0.4} ${chest * 1.5} ${chest * 0.2} q ${-chest * 0.2} ${chest * 0.9} ${-chest * 0.9} ${chest * 0.85} q ${-chest * 0.5} ${-chest * 0.6} ${-chest * 0.6} ${-chest * 1.05} z`,
       fill: t.marking,
+      part: "body",
     });
   }
   if (
@@ -1025,6 +1238,7 @@ function body(
           : t.marking === COATS.black
             ? t.coat
             : t.marking,
+      part: "body",
     });
   }
   if (t.markingKind === "tanPoints") {
@@ -1035,6 +1249,7 @@ function body(
       rx: chest * 0.35,
       ry: chest * 0.4,
       fill: t.marking,
+      part: "body",
     });
   }
   // Front legs.
@@ -1044,6 +1259,7 @@ function body(
       kind: "path",
       d: `M ${lx - 4.5 * s} ${torsoCy} h ${9 * s} v ${legs} h ${-9 * s} z`,
       fill: t.coat,
+      part: "body",
     });
     out.push({
       kind: "ellipse",
@@ -1053,30 +1269,116 @@ function body(
       ry: 4.2 * s,
       fill:
         t.markingKind === "tanPoints" ? t.marking : (t.muzzlePatch ?? t.coat),
+      part: "body",
     });
   }
   out.push(collarShape(head, collar, 0));
-  return out;
+  return {
+    shapes: out,
+    ground: torsoCy + legs + 4.2 * s,
+    front: head.cx - chest * 0.42 - 1 - 7 * s,
+    back: head.cx + chest * 0.62 + chest * 0.78,
+  };
 }
 
 function tailPath(
   kind: TailKind,
   x: number,
   y: number,
-  lying: boolean,
+  mode: TailMode,
 ): string {
   switch (kind) {
     case "plume":
-      return lying ? `M ${x} ${y} q 14 2 20 -10` : `M ${x} ${y} q 16 -4 14 -22`;
+      return mode === "lying"
+        ? `M ${x} ${y} q 14 2 20 -10`
+        : mode === "out"
+          ? `M ${x} ${y} q 14 0 24 -6`
+          : mode === "level"
+            ? `M ${x} ${y} q 14 -2 22 -10`
+            : `M ${x} ${y} q 16 -4 14 -22`;
     case "straight":
-      return lying ? `M ${x} ${y} q 12 4 22 -4` : `M ${x} ${y} q 12 -10 10 -26`;
+      return mode === "lying"
+        ? `M ${x} ${y} q 12 4 22 -4`
+        : mode === "out"
+          ? `M ${x} ${y} q 14 2 24 0`
+          : mode === "level"
+            ? `M ${x} ${y} q 12 0 22 -6`
+            : `M ${x} ${y} q 12 -10 10 -26`;
     case "curl":
-      return lying
+      return mode === "lying"
         ? `M ${x} ${y} q 12 -6 8 -16`
-        : `M ${x} ${y} q 10 -14 -4 -22 q -8 -4 -12 4`;
+        : mode === "out"
+          ? `M ${x} ${y} q 10 -10 6 -18 q -6 -6 -12 -2`
+          : `M ${x} ${y} q 10 -14 -4 -22 q -8 -4 -12 4`;
     case "short":
-      return lying ? `M ${x} ${y} q 6 0 8 -4` : `M ${x} ${y} q 6 -6 4 -12`;
+      return mode === "lying"
+        ? `M ${x} ${y} q 6 0 8 -4`
+        : mode === "out"
+          ? `M ${x} ${y} q 6 0 8 -3`
+          : mode === "level"
+            ? `M ${x} ${y} q 6 -2 8 -6`
+            : `M ${x} ${y} q 6 -6 4 -12`;
   }
+}
+
+// --------------------------------------------------------------------------------------------------------------
+// Props. Three objects, flat, in the dog's own vocabulary, and never over a shape of the dog.
+
+/** A rounded piece on the ground ahead of the dog, a paw's width clear of the nearest paw. */
+function treat(body: Body): Shape {
+  const rx = 6;
+  const ry = 4;
+  const cx = Math.max(rx + 2, body.front - 8 - rx);
+  return {
+    kind: "path",
+    d: `M ${cx - rx} ${body.ground - ry} q 0 ${-ry} ${rx} ${-ry} h ${rx * 0.4} q ${rx * 0.6} 0 ${rx * 0.6} ${ry} q 0 ${ry} ${-rx * 0.6} ${ry} h ${-rx * 0.4 - rx} q ${-rx} 0 ${-rx} ${-ry} z`,
+    fill: TREAT_FILL,
+    part: "prop",
+  };
+}
+
+/** A flat rounded rectangle under the dog, its top edge on the ground the paws stand on. */
+function mat(body: Body, collar: string): Shape {
+  const x1 = Math.max(3, body.front - 12);
+  const x2 = Math.min(SCENE.w - 3, body.back + 12);
+  const h = 8;
+  const r = 4;
+  const y = body.ground;
+  return {
+    kind: "path",
+    d: `M ${x1 + r} ${y} h ${x2 - x1 - 2 * r} q ${r} 0 ${r} ${r} v ${h - 2 * r} q 0 ${r} ${-r} ${r} h ${-(x2 - x1 - 2 * r)} q ${-r} 0 ${-r} ${-r} v ${-(h - 2 * r)} q 0 ${-r} ${r} ${-r} z`,
+    fill: mix(collar, PAPER, 0.62),
+    part: "prop",
+  };
+}
+
+/** A slack line from the collar's leading end off the canvas toward the reading edge, drawn behind the dog. */
+function leash(
+  head: { cx: number; cy: number; rx: number; ry: number },
+  collar: string,
+): Shape {
+  const x0 = head.cx - head.rx * 0.72;
+  const y0 = head.cy + head.ry - 2;
+  return {
+    kind: "path",
+    d: `M ${x0} ${y0} C ${x0 - 12} ${y0 + 3} ${x0 - 22} ${y0 + 14} -2 ${y0 + 30}`,
+    stroke: collar,
+    width: 3,
+    part: "prop",
+  };
+}
+
+/** `amount` of the way from `from` toward `to`. */
+function mix(from: string, to: string, amount: number): string {
+  const a = parseInt(from.slice(1), 16);
+  const b = parseInt(to.slice(1), 16);
+  const ch = (shift: number) => {
+    const x = (a >> shift) & 255;
+    const y = (b >> shift) & 255;
+    return Math.round(x + (y - x) * amount);
+  };
+  const hex = (n: number) => n.toString(16).padStart(2, "0").toUpperCase();
+  return `#${hex(ch(16))}${hex(ch(8))}${hex(ch(0))}`;
 }
 
 function collarShape(
@@ -1090,6 +1392,7 @@ function collarShape(
     d: `M ${head.cx - head.rx * 0.72} ${y} q ${head.rx * 0.72} ${9} ${head.rx * 1.44} 0`,
     stroke: collar,
     width: 5,
+    part: "body",
   };
 }
 
