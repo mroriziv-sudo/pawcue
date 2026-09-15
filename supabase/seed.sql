@@ -66,7 +66,7 @@ insert into lesson_steps (lesson_id, step_order, instruction_key, requires_click
   ('00000000-0000-4000-a000-0000000020a0', 0, 'lesson.nameGame.step1', false, null),
   ('00000000-0000-4000-a000-0000000020a0', 1, 'lesson.nameGame.step2', true,  null),
   ('00000000-0000-4000-a000-0000000020a0', 2, 'lesson.nameGame.step3', false, null),
-  ('00000000-0000-4000-a000-0000000020a0', 3, 'lesson.nameGame.step4', false, 5);
+  ('00000000-0000-4000-a000-0000000020a0', 3, 'lesson.nameGame.step4', true,  5);
 
 insert into lesson_steps (lesson_id, step_order, instruction_key, requires_clicker_press, repetition_target) values
   ('00000000-0000-4000-a000-0000000020a1', 0, 'lesson.sit.step1', false, null),
@@ -80,6 +80,10 @@ insert into lesson_steps (lesson_id, step_order, instruction_key, requires_click
 -- Clicker steps only appear where the lesson's equipment lists the clicker. Calm Settle, Loose Leash, Jumping,
 -- Biting, Crate and Potty are authored around a spoken marker instead, because a step that demands a click in a
 -- lesson whose equipment says "treats" is asking for a tool the user was told they would not need.
+--
+-- A repetition step in a clicker lesson whose repeated sequence contains a click declares the click as well as
+-- the count, so the clicker is on screen while the repetitions run (content follow-up, 2026-09-15). The two
+-- flags stay independent events; this only says which steps declare which.
 insert into lesson_steps (lesson_id, step_order, instruction_key, requires_clicker_press, repetition_target) values
   -- down — treats, clicker
   ('00000000-0000-4000-a000-0000000020a2', 0, 'lesson.down.step1',                 false, null),
@@ -92,15 +96,15 @@ insert into lesson_steps (lesson_id, step_order, instruction_key, requires_click
   -- stay — treats, clicker
   ('00000000-0000-4000-a000-0000000020a4', 0, 'lesson.stay.step1',                 false, null),
   ('00000000-0000-4000-a000-0000000020a4', 1, 'lesson.stay.step2',                 true,  null),
-  ('00000000-0000-4000-a000-0000000020a4', 2, 'lesson.stay.step3',                 false, 5),
+  ('00000000-0000-4000-a000-0000000020a4', 2, 'lesson.stay.step3',                 true,  5),
   -- leave_it — treats, clicker
   ('00000000-0000-4000-a000-0000000020a5', 0, 'lesson.leaveIt.step1',              false, null),
   ('00000000-0000-4000-a000-0000000020a5', 1, 'lesson.leaveIt.step2',              true,  null),
-  ('00000000-0000-4000-a000-0000000020a5', 2, 'lesson.leaveIt.step3',              false, 5),
+  ('00000000-0000-4000-a000-0000000020a5', 2, 'lesson.leaveIt.step3',              true,  5),
   -- place — treats, clicker, mat
   ('00000000-0000-4000-a000-0000000020a6', 0, 'lesson.place.step1',                false, null),
   ('00000000-0000-4000-a000-0000000020a6', 1, 'lesson.place.step2',                true,  null),
-  ('00000000-0000-4000-a000-0000000020a6', 2, 'lesson.place.step3',                false, 5),
+  ('00000000-0000-4000-a000-0000000020a6', 2, 'lesson.place.step3',                true,  5),
   -- calm_settle — mat only; quiet praise, no clicker, a small number of calm moments
   ('00000000-0000-4000-a000-0000000020a7', 0, 'lesson.calmSettle.step1',           false, null),
   ('00000000-0000-4000-a000-0000000020a7', 1, 'lesson.calmSettle.step2',           false, null),

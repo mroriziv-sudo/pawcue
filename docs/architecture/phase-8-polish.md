@@ -160,6 +160,16 @@ not need. Clicker steps now appear only where the lesson lists the clicker; the 
 Foundation has no in-session repetition count (it is a routine followed through the day), and Calm Settle asks for
 three calm moments rather than five.
 
+**Content follow-up (2026-09-15).** A repetition step in a lesson whose equipment lists the clicker, where the
+repeated sequence contains a click step, now declares `requires_clicker_press` as well as its `repetition_target`,
+so the clicker is on screen while the repetitions run: Name Game step 4, Stay step 3, Leave It step 3 and Place
+step 3 (Sit, Down and Come already did; the six lessons without a clicker are untouched). The Name Game's step 4
+came from the original brief's Screen 2, written before the two-flag model existed, and the three authored lessons
+had copied its shape. Clicks and repetitions remain separate events; only which steps declare which changed. Two
+publish paths as before: `supabase/seed.sql` for a fresh environment, and
+`supabase/content/2026-09-15-clicker-on-repeat-steps.sql` for a live one — applied to staging on 2026-09-15,
+production pending.
+
 **Published two ways.** `supabase/seed.sql` now holds explicit rows for a fresh environment, and
 `supabase/content/2026-09-12-lesson-steps-authored.sql` applies the same change to a live one by `UPDATE` keyed on
 (lesson, step_order) — so every step id is stable, `session_events.lesson_step_id` stays attached, and a paused

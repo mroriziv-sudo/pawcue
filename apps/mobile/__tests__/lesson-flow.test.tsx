@@ -262,6 +262,8 @@ describe("training flow", () => {
     );
     expect(useSessionStore.getState().session?.status).toBe("in_progress");
 
+    // Each repetition contains the click, so the step declares both; the click is registered on the first rep.
+    await fireEvent.press(screen.getByTestId("session-clicker"));
     for (let i = 0; i < 5; i += 1) {
       await fireEvent.press(screen.getByTestId("add-repetition"));
     }
@@ -299,14 +301,23 @@ describe("training flow", () => {
     await renderTraining();
     await advanceToRepetitionStep();
 
-    // This step has a rep target and no clicker, so the counter must be driven only by its own control.
-    expect(screen.queryByTestId("session-clicker")).toBeNull();
+    // This step declares both the click and a rep target (2026-09-15 content follow-up). Pressing the clicker
+    // records a click and nothing else: the counter is driven only by its own control.
+    expect(screen.getByTestId("session-clicker")).toBeTruthy();
+    await fireEvent.press(screen.getByTestId("session-clicker"));
     expect(screen.getByTestId("repetition-count")).toHaveTextContent("0 of 5");
+    const events = useSessionStore.getState().session?.events ?? [];
+    expect(events.filter((e) => e.type === "clicker_pressed")).toHaveLength(2);
+    expect(events.filter((e) => e.type === "repetition_logged")).toHaveLength(
+      0,
+    );
   });
 
   it("reaches a completion state that reports what actually happened", async () => {
     await renderTraining();
     await advanceToRepetitionStep();
+    // The step declares the click as well as the count: one click, then the five reps.
+    await fireEvent.press(screen.getByTestId("session-clicker"));
     for (let i = 0; i < 5; i += 1) {
       await fireEvent.press(screen.getByTestId("add-repetition"));
     }
@@ -435,6 +446,8 @@ describe("Hebrew and RTL", () => {
     await renderTraining("rtl");
     await advanceToRepetitionStep();
 
+    // The step declares the click as well as the count: one click, then the five reps.
+    await fireEvent.press(screen.getByTestId("session-clicker"));
     for (let i = 0; i < 5; i += 1) {
       await fireEvent.press(screen.getByTestId("add-repetition"));
     }
@@ -508,6 +521,8 @@ describe("accessibility", () => {
 
     await renderTraining();
     await advanceToRepetitionStep();
+    // The step declares the click as well as the count: one click, then the five reps.
+    await fireEvent.press(screen.getByTestId("session-clicker"));
     for (let i = 0; i < 5; i += 1) {
       await fireEvent.press(screen.getByTestId("add-repetition"));
     }
@@ -598,6 +613,8 @@ describe("completion — what happens next", () => {
   async function finishTheLesson() {
     await renderTraining();
     await advanceToRepetitionStep();
+    // The step declares the click as well as the count: one click, then the five reps.
+    await fireEvent.press(screen.getByTestId("session-clicker"));
     for (let i = 0; i < 5; i += 1) {
       await fireEvent.press(screen.getByTestId("add-repetition"));
     }

@@ -164,6 +164,8 @@ describe("resuming", () => {
     store.click(content);
     store.completeStep(content, LESSON_IDS.step2Clicker);
     store.completeStep(content, LESSON_IDS.step3);
+    // Step 4 declares the click as well as the count: each repetition contains it.
+    store.click(content);
     for (let i = 0; i < 5; i += 1) store.addRepetition(content);
     store.completeStep(content, LESSON_IDS.step4Reps);
     await Promise.resolve();
@@ -233,6 +235,8 @@ describe("the completion log", () => {
     store.click(content);
     store.completeStep(content, LESSON_IDS.step2Clicker);
     store.completeStep(content, LESSON_IDS.step3);
+    // Step 4 declares the click as well as the count: each repetition contains it.
+    store.click(content);
     for (let i = 0; i < 5; i += 1) store.addRepetition(content);
     store.completeStep(content, LESSON_IDS.step4Reps);
 
@@ -248,7 +252,8 @@ describe("the completion log", () => {
       lessonSlug: "name_game",
       stepsCompleted: 4,
       repetitionsLogged: 5,
-      clickerPresses: 1,
+      // One click on step 2 and one on step 4, counted apart from the five reps.
+      clickerPresses: 2,
       // Phase 3 keeps completions local: training_sessions.dog_id is NOT NULL and a guest has no dog.
       syncedToServer: false,
     });

@@ -75,7 +75,8 @@ export function makeLessonFixture(): LessonContent {
         lessonId: LESSON_IDS.lesson,
         stepOrder: 3,
         instructionKey: "lesson.nameGame.step4",
-        requiresClickerPress: false,
+        // Both flags, as the seed has it since the 2026-09-15 content follow-up: each repetition contains the click.
+        requiresClickerPress: true,
         repetitionTarget: 5,
         illustrationAssetKey: null,
         ...base,

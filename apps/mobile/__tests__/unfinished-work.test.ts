@@ -192,6 +192,8 @@ describe("a lesson displaced by another", () => {
     store.click(CONTENT);
     store.completeStep(CONTENT, LESSON_IDS.step2Clicker);
     store.completeStep(CONTENT, LESSON_IDS.step3);
+    // Step 4 declares the click as well as the count: each repetition contains it.
+    store.click(CONTENT);
     for (let i = 0; i < 5; i += 1) store.addRepetition(CONTENT);
     store.completeStep(CONTENT, LESSON_IDS.step4Reps);
     await Promise.resolve();
@@ -225,6 +227,8 @@ describe("a later completion supersedes the abandonment", () => {
     store.click(CONTENT);
     store.completeStep(CONTENT, LESSON_IDS.step2Clicker);
     store.completeStep(CONTENT, LESSON_IDS.step3);
+    // Step 4 declares the click as well as the count: each repetition contains it.
+    store.click(CONTENT);
     for (let i = 0; i < 5; i += 1) store.addRepetition(CONTENT);
     store.completeStep(CONTENT, LESSON_IDS.step4Reps);
     await useTrainingLogStore
@@ -254,6 +258,8 @@ describe("a later completion supersedes the abandonment", () => {
     store.click(CONTENT);
     store.completeStep(CONTENT, LESSON_IDS.step2Clicker);
     store.completeStep(CONTENT, LESSON_IDS.step3);
+    // Step 4 declares the click as well as the count: each repetition contains it.
+    store.click(CONTENT);
     for (let i = 0; i < 5; i += 1) store.addRepetition(CONTENT);
     store.completeStep(CONTENT, LESSON_IDS.step4Reps);
     await useTrainingLogStore
