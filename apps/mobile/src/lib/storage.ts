@@ -93,6 +93,8 @@ export const STORAGE_KEYS = {
   onboardingDraft: "pawcue.onboarding.draft",
   /** The dog the app is training. Cached locally so startup routing never waits on the network. */
   activeDogId: "pawcue.dog.activeId",
+  /** Device-local dog photos, keyed by dog id. Never uploaded — see dogs/dog-photo.ts. */
+  dogPhotos: "pawcue.dog.photos",
   /** Set when the user chooses the clicker over creating a profile, so the choice survives a relaunch. */
   onboardingSkipped: "pawcue.onboarding.skipped",
   /** Last lesson/skill catalogue seen, so Today and Train remain usable offline. */

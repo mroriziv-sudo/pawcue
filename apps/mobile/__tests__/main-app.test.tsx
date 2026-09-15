@@ -536,8 +536,9 @@ describe("Hebrew and RTL", () => {
   it("renders Today in Hebrew", async () => {
     await renderScreen(<TodayScreen />, "rtl");
     await waitFor(() =>
-      expect(screen.getByTestId("today-greeting")).toHaveTextContent(/היום/),
+      expect(screen.getByTestId("today-greeting")).toHaveTextContent(/[֐-׿]/),
     );
+    expect(screen.getByTestId("today-greeting")).toHaveTextContent(/Libi/);
   });
 
   it("renders Train in Hebrew with RTL text direction", async () => {

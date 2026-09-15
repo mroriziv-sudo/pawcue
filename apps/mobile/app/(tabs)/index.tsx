@@ -1,8 +1,17 @@
 import { useEffect, useMemo } from "react";
-import { ActivityIndicator, View } from "react-native";
+import { Pressable, View } from "react-native";
 import { Redirect, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { Text, Card, Button, useTheme } from "@pawcue/ui";
+import type { TFunction } from "i18next";
+import {
+  Text,
+  Button,
+  Row,
+  TrailMark,
+  Reveal,
+  useTheme,
+  type TrailState,
+} from "@pawcue/ui";
 import type { PlanSelectionReason } from "@pawcue/domain";
 import { useCatalogue } from "../../src/lessons/useCatalogue";
 import {
@@ -16,17 +25,23 @@ import { useBootstrapStore } from "../../src/state/bootstrap-store";
 import { useSessionStore } from "../../src/state/session-store";
 import { useTrainingLogStore } from "../../src/state/training-log-store";
 import { useEntitlementStore } from "../../src/state/entitlement-store";
+import { useDogPhotoStore } from "../../src/state/dog-photo-store";
 import { resolveStartupRoute } from "../../src/state/startup-route";
-import { ScreenScroll, Section } from "../../src/components/ScreenScroll";
+import { ScreenScroll } from "../../src/components/ScreenScroll";
 import { SectionHeader } from "../../src/components/SectionHeader";
-import { StatusPill } from "../../src/components/StatusPill";
 import { EmptyState } from "../../src/components/EmptyState";
+import { SkeletonGroup, TodaySkeleton } from "../../src/components/Skeleton";
+import { DogAvatar } from "../../src/components/DogAvatar";
+import { ClickerMark } from "../../src/components/ClickerMark";
+import { joinNames } from "../../src/lib/list-format";
 
 /**
  * Today — the product's home screen.
  *
- * It answers one question: what should I train with my dog today? Everything on it serves that, and anything that
- * does not belongs on another destination.
+ * It answers one question: what should I do with my dog right now? The answer is a sentence and a button, above
+ * the fold, in the coach's voice: "Something new for Luna: Sit." and "Start Sit". Beneath them, the day's plan as
+ * a trail — rows joined by a line, each with its place on the route — and nothing else. There is no hero panel,
+ * no ring, no second way to start the same lesson, and no card: the page is the container.
  *
  * The plan comes from the Phase 5 engine, consumed rather than reimplemented. Engine vocabulary never reaches the
  * screen: `spaced_review` becomes "Worth practising again", because a reason is only useful if it tells the user
@@ -35,7 +50,7 @@ import { EmptyState } from "../../src/components/EmptyState";
 export default function TodayScreen() {
   const theme = useTheme();
   const router = useRouter();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   const bootstrapStatus = useBootstrapStore((s) => s.status);
   const sessionStatus = useBootstrapStore((s) => s.sessionStatus);
@@ -45,6 +60,7 @@ export default function TodayScreen() {
   const refreshDog = useDogStore((s) => s.refresh);
   const onboardingSkipped = useOnboardingStore((s) => s.skipped);
   const draft = useOnboardingStore((s) => s.draft);
+  const photoUri = useDogPhotoStore((s) => s.photoFor(dogId));
 
   const { catalogue, loading, error } = useCatalogue();
   const completed = useTrainingLogStore((s) => s.completed);
@@ -89,6 +105,16 @@ export default function TodayScreen() {
     void ensurePlanForToday({ dog, catalogue, activeSession, today });
   }, [dog, catalogue, activeSession, today, ensurePlanForToday]);
 
+  const completedToday = useMemo(
+    () =>
+      completed.filter(
+        (record) =>
+          record.status === "completed" &&
+          record.endedAt.slice(0, 10) === today,
+      ),
+    [completed, today],
+  );
+
   /**
    * What today looks like: the persisted plan, with anything already finished ticked off.
    *
@@ -110,11 +136,6 @@ export default function TodayScreen() {
       today,
     );
   }, [plan, catalogue, completed, today]);
-
-  const sessionsToday = completed.filter(
-    (record) =>
-      record.status === "completed" && record.endedAt.slice(0, 10) === today,
-  ).length;
 
   /**
    * A lesson started and left unfinished, and still resumable.
@@ -141,9 +162,8 @@ export default function TodayScreen() {
    *
    * The plan effect gates on `dog`, so with the id cached and the row unreachable nothing ever moved `planStatus`
    * off `idle` — and `idle` reads as "still loading", which put a spinner on screen for as long as the server
-   * stayed away. Phase 6 fixed the same shape of bug for a missing catalogue; this is its sibling. Two signals
-   * mean "stop waiting": the dog store recorded a failed read, or bootstrap could not establish a session at all
-   * and therefore never tried.
+   * stayed away. Two signals mean "stop waiting": the dog store recorded a failed read, or bootstrap could not
+   * establish a session at all and therefore never tried.
    */
   const dogUnavailable =
     dogId !== null &&
@@ -151,11 +171,12 @@ export default function TodayScreen() {
     (dogError !== null || sessionStatus === "unavailable");
 
   /**
-   * What "Start training" does.
+   * What the button does.
    *
-   * The first thing that is neither finished nor locked — so the button keeps meaning what it says partway
-   * through a day, and never opens a lesson the user cannot train. When everything left is premium, the button
-   * changes to say so rather than silently doing nothing.
+   * A paused session outranks the plan: it is the one thing on this screen the user already committed to.
+   * Otherwise the first thing that is neither finished nor locked — so the button keeps meaning what it says
+   * partway through a day, and never opens a lesson the user cannot train. When everything left is premium, the
+   * button changes to say so rather than silently doing nothing.
    */
   const nextStartable = activities.find(
     (activity) => !activity.done && !(activity.premium && !isPremium),
@@ -163,60 +184,72 @@ export default function TodayScreen() {
   const nextLocked = activities.find(
     (activity) => !activity.done && activity.premium && !isPremium,
   );
+  const resumeActivity = resumable
+    ? (activities.find((a) => a.lessonSlug === resumable.lessonSlug) ?? null)
+    : null;
+  /**
+   * The paused lesson's name, whether or not today's plan still lists it. A session paused yesterday on a lesson
+   * the planner has since rotated out is still the user's own unfinished work, and still resumable.
+   */
+  const resumeTitleKey =
+    resumeActivity?.titleKey ??
+    (resumable
+      ? (catalogue?.lessons.find((l) => l.slug === resumable.lessonSlug)
+          ?.titleKey ?? null)
+      : null);
+
+  const doneCount = activities.filter((activity) => activity.done).length;
+  const remainingCount = activities.length - doneCount;
+
+  const dateLine = new Date().toLocaleDateString(i18n.language, {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
 
   return (
-    <ScreenScroll testID="today-screen">
-      <View style={{ gap: theme.space[1] }}>
-        <Text variant="h1" testID="today-greeting">
-          {dog
-            ? t("today.greeting", { name: dog.name })
-            : t("today.greetingNoDog")}
+    <ScreenScroll testID="today-screen" gap={theme.space[8]}>
+      {/* The top bar: the date on the reading edge, the clicker one tap away on the trailing edge. */}
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: theme.space[3],
+          minHeight: theme.minTouchTarget,
+        }}
+      >
+        <Text variant="secondary" tone="secondary" style={{ flex: 1 }}>
+          {dateLine}
         </Text>
-        {/*
-          One subtitle line, not two.
-
-          Sessions done today when there are any — the fact worth leading with — and otherwise the dog's own daily
-          commitment, which is what makes the plan's length make sense. Both are real fields.
-        */}
-        {sessionsToday > 0 ? (
-          <Text variant="small" tone="success" testID="today-done-count">
-            {t("today.doneToday", { count: sessionsToday })}
-          </Text>
-        ) : dog?.dailyTrainingMinutes ? (
-          <Text variant="small" tone="muted" testID="today-daily-goal">
-            {t("today.dailyGoal", { count: dog.dailyTrainingMinutes })}
-          </Text>
-        ) : null}
-      </View>
-
-      {/*
-        Unfinished work, above the plan.
-
-        It comes first because it is the one thing on this screen the user already committed to, and because a
-        half-finished lesson buried under a fresh plan is how it stays half-finished.
-      */}
-      {resumable ? (
-        <Card
-          padding="comfortable"
-          onPress={() => router.push(`/session/${resumable.lessonSlug}`)}
-          accessibilityLabel={t("today.resumeCta")}
-          testID="today-resume"
+        <Pressable
+          onPress={() => router.push("/clicker")}
+          accessibilityRole="button"
+          accessibilityLabel={t("today.clickerCta")}
+          accessibilityHint={t("today.clickerHint")}
+          hitSlop={theme.space[2]}
+          testID="today-clicker"
+          style={({ pressed }) => ({
+            minWidth: theme.minTouchTarget,
+            minHeight: theme.minTouchTarget,
+            alignItems: "center",
+            justifyContent: "center",
+            opacity: pressed ? 0.85 : 1,
+          })}
         >
-          <View style={{ gap: theme.space[1] }}>
-            <Text variant="small" tone="brand">
-              {t("today.resumeTitle")}
-            </Text>
-            <Text variant="bodyStrong">{t("today.resumeCta")}</Text>
-          </View>
-        </Card>
-      ) : null}
+          <ClickerMark size={40} />
+        </Pressable>
+      </View>
 
       {!dogId ? (
         <EmptyState
+          scene={<DogAvatar breed={null} size={160} pose="scene" />}
           title={t("today.noDogTitle")}
           body={t("today.noDogBody")}
           ctaLabel={t("today.noDogCta")}
           onPress={() => router.push("/onboarding")}
+          secondaryLabel={t("today.noDogClicker")}
+          onSecondaryPress={() => router.push("/clicker")}
           testID="today-no-dog"
         />
       ) : dogUnavailable ? (
@@ -224,6 +257,7 @@ export default function TodayScreen() {
           title={t("today.dogUnavailableTitle")}
           body={t("today.dogUnavailableBody")}
           ctaLabel={t("common.cta.tryAgain")}
+          emphasis="secondary"
           onPress={() => void refreshDog()}
           testID="today-dog-unavailable"
         />
@@ -240,18 +274,53 @@ export default function TodayScreen() {
           testID="today-unavailable"
         />
       ) : loading || planPending ? (
-        <ActivityIndicator
-          color={theme.colors.brand.primary}
-          testID="today-loading"
-        />
+        /*
+          The page's shape, before its content. The dog is local and renders for real; the bones hold the coach
+          line, the button and the first rows until the plan lands.
+        */
+        <View style={{ gap: theme.space[8] }}>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "flex-start",
+              gap: theme.space[4],
+            }}
+          >
+            <View style={{ flex: 1 }}>
+              <SkeletonGroup
+                accessibilityLabel={t("today.planTitle")}
+                testID="today-loading"
+              >
+                <TodaySkeleton />
+              </SkeletonGroup>
+            </View>
+            {dog ? (
+              <DogAvatar
+                breed={dog.breed}
+                birthdate={dog.birthdate}
+                photoUri={photoUri}
+                size={96}
+              />
+            ) : null}
+          </View>
+        </View>
       ) : allDone ? (
-        <EmptyState
-          title={t("today.allDoneTitle")}
-          body={t("today.allDoneBody")}
-          testID="today-all-done"
+        <AllDone
+          name={dog?.name ?? ""}
+          breed={dog?.breed ?? null}
+          activities={activities}
+          onPractise={() => router.navigate("/train")}
         />
       ) : activities.length === 0 ? (
         <EmptyState
+          scene={
+            <DogAvatar
+              breed={dog?.breed ?? null}
+              size={160}
+              pose="scene"
+              expression="resting"
+            />
+          }
           title={t("today.emptyTitle")}
           body={
             dog
@@ -261,25 +330,132 @@ export default function TodayScreen() {
           testID="today-empty"
         />
       ) : (
-        <Section gap={theme.space[3]}>
-          {/*
-            The remaining time sits on the heading's trailing edge rather than beneath it. It used to be a second
-            line under "Your training plan", which put the same duration on screen twice when the plan held a
-            single activity — the heading's subtitle and the card's own badge.
-          */}
-          <SectionHeader
-            title={t("today.planTitle")}
-            trailing={t("today.totalTime", { count: remainingMinutes })}
-            testID="today-total-time"
-          />
+        <>
+          {/* The coach line, the dog beside it, and the one button. */}
+          <View style={{ gap: theme.space[6] }}>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "flex-start",
+                gap: theme.space[4],
+              }}
+            >
+              <View style={{ flex: 1, gap: theme.space[2] }}>
+                <Text
+                  variant="headline"
+                  accessibilityRole="header"
+                  testID="today-greeting"
+                >
+                  {coachLine({
+                    t,
+                    name: dog?.name ?? "",
+                    resumeTitleKey,
+                    next: nextStartable ?? null,
+                    locked: nextLocked ?? null,
+                  })}
+                </Text>
+                <Text variant="secondary" tone="secondary">
+                  <Text
+                    variant="secondary"
+                    tone="secondary"
+                    testID="today-total-time"
+                  >
+                    {doneCount > 0
+                      ? t("today.planLeft", {
+                          count: remainingCount,
+                          minutes: remainingMinutes,
+                        })
+                      : t("today.planSize", {
+                          count: activities.length,
+                          minutes: remainingMinutes,
+                        })}
+                  </Text>
+                  {/*
+                    One more fact, not two: what was done today once something has been, otherwise the dog's own
+                    daily commitment, which is what makes the plan's length make sense.
+                  */}
+                  {completedToday.length > 0 ? (
+                    <Text
+                      variant="secondary"
+                      tone="secondary"
+                      testID="today-done-count"
+                    >
+                      {" "}
+                      {t("today.doneToday", { count: completedToday.length })}
+                    </Text>
+                  ) : dog?.dailyTrainingMinutes ? (
+                    <Text
+                      variant="secondary"
+                      tone="secondary"
+                      testID="today-daily-goal"
+                    >
+                      {" "}
+                      {t("today.goalSentence", {
+                        count: dog.dailyTrainingMinutes,
+                      })}
+                    </Text>
+                  ) : null}
+                </Text>
+              </View>
+              {/* The dog, present on the home screen — the one thing that makes this unmistakably their app. */}
+              {dog ? (
+                <DogAvatar
+                  breed={dog.breed}
+                  birthdate={dog.birthdate}
+                  photoUri={photoUri}
+                  size={96}
+                  testID="today-dog-avatar"
+                />
+              ) : null}
+            </View>
 
-          <View style={{ gap: theme.space[3] }} testID="today-plan">
+            {resumable ? (
+              <Button
+                label={
+                  resumeTitleKey
+                    ? t("today.continueLesson", { lesson: t(resumeTitleKey) })
+                    : t("today.resumeCta")
+                }
+                onPress={() => router.push(`/session/${resumable.lessonSlug}`)}
+                testID="today-resume"
+              />
+            ) : nextStartable ? (
+              <Button
+                label={t("today.startLesson", {
+                  lesson: t(nextStartable.titleKey),
+                })}
+                onPress={() =>
+                  router.push(`/lesson/${nextStartable.lessonSlug}`)
+                }
+                testID="today-start"
+              />
+            ) : nextLocked ? (
+              <Button
+                label={t("today.premiumCta")}
+                onPress={() => router.push("/paywall")}
+                testID="today-start-premium"
+              />
+            ) : null}
+          </View>
+
+          {/* The trail: every activity on the day's route, joined by a line. */}
+          <View testID="today-plan">
+            <SectionHeader title={t("today.sectionPlan")} />
             {activities.map((activity, index) => (
-              <ActivityCard
+              <ActivityRow
                 key={activity.lessonId}
                 activity={activity}
+                position={index + 1}
+                first={index === 0}
+                last={index === activities.length - 1}
                 locked={activity.premium && !isPremium}
-                emphasised={index === 0}
+                paused={resumable?.lessonSlug === activity.lessonSlug}
+                isNext={nextStartable?.lessonId === activity.lessonId}
+                doneAt={
+                  completedToday.find((r) => r.lessonId === activity.lessonId)
+                    ?.endedAt ?? null
+                }
+                locale={i18n.language}
                 onPress={() =>
                   router.push(
                     activity.premium && !isPremium
@@ -290,91 +466,103 @@ export default function TodayScreen() {
               />
             ))}
           </View>
-
-          {/*
-            One primary action, and it always does something honest: train the next thing that can be trained, or
-            — when everything left needs a subscription — say that plainly and lead to the paywall.
-          */}
-          {nextStartable ? (
-            <Button
-              label={t("today.start")}
-              onPress={() => router.push(`/lesson/${nextStartable.lessonSlug}`)}
-              testID="today-start"
-            />
-          ) : nextLocked ? (
-            <Button
-              label={t("today.premiumCta")}
-              onPress={() => router.push("/paywall")}
-              testID="today-start-premium"
-            />
-          ) : null}
-        </Section>
+        </>
       )}
-
-      {/*
-        The clicker stays one tap from home without taking a place in the primary navigation.
-
-        Now a card rather than a bare line of centred text. As a text link it read as a caption someone forgot to
-        attach to anything — no edge, no press affordance, and a touch target defined only by the glyph height.
-      */}
-      <Card
-        padding="compact"
-        onPress={() => router.push("/clicker")}
-        accessibilityLabel={t("today.clickerCta")}
-        testID="today-clicker"
-      >
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: theme.space[3],
-          }}
-        >
-          <View style={{ flex: 1, gap: theme.space[1] }}>
-            <Text variant="bodyStrong">{t("today.clickerCta")}</Text>
-            <Text variant="caption" tone="muted">
-              {t("today.clickerHint")}
-            </Text>
-          </View>
-          <ClickerGlyph />
-        </View>
-      </Card>
     </ScreenScroll>
   );
 }
 
-/**
- * One activity in today's plan.
- *
- * The reason leads, because "why is this here" is the question a generated plan has to answer before the user
- * will trust it. Done and locked are pills rather than coloured words, so the three states differ in shape and
- * not only in hue.
- */
-function ActivityCard({
-  activity,
+// ---------------------------------------------------------------------------------------------------------------
+
+/** The sentence at the top of the screen: the coach's answer to "what now". */
+function coachLine({
+  t,
+  name,
+  resumeTitleKey,
+  next,
   locked,
-  emphasised,
+}: {
+  t: TFunction;
+  name: string;
+  resumeTitleKey: string | null;
+  next: TodayActivityView | null;
+  locked: TodayActivityView | null;
+}): string {
+  if (resumeTitleKey)
+    return t("today.coach.resume", { lesson: t(resumeTitleKey) });
+  if (next) {
+    const reason = next.selectionReason as PlanSelectionReason;
+    const key = `today.coach.${reason}`;
+    const line = t(key, { name, lesson: t(next.titleKey) });
+    // An unknown reason falls back to the new-skill line rather than leaking a key.
+    return line === key
+      ? t("today.coach.new_skill", { name, lesson: t(next.titleKey) })
+      : line;
+  }
+  if (locked)
+    return t("today.coach.premiumFirst", { lesson: t(locked.titleKey) });
+  return t("today.greeting", { name });
+}
+
+/**
+ * One activity on the trail.
+ *
+ * A row, not a card: a mark in the leading column says where the activity is on the route (next, later, done,
+ * locked, paused), the title says what it is, and the meta sentence says how long and why. The state is also in
+ * the accessible name and in the words, never in colour alone — and a done row keeps its full ink, because it
+ * changed state, not visibility.
+ */
+function ActivityRow({
+  activity,
+  position,
+  first,
+  last,
+  locked,
+  paused,
+  isNext,
+  doneAt,
+  locale,
   onPress,
 }: {
   activity: TodayActivityView;
+  position: number;
+  first: boolean;
+  last: boolean;
   locked: boolean;
-  emphasised: boolean;
+  paused: boolean;
+  isNext: boolean;
+  doneAt: string | null;
+  locale: string;
   onPress: () => void;
 }) {
-  const theme = useTheme();
   const { t } = useTranslation();
 
-  const stateLabel = locked
-    ? t("today.activityPremium")
-    : activity.done
-      ? t("today.activityDone")
-      : t(`today.reason.${activity.selectionReason as PlanSelectionReason}`);
+  const state: TrailState = activity.done
+    ? "done"
+    : locked
+      ? "locked"
+      : paused
+        ? "paused"
+        : isNext
+          ? "next"
+          : "later";
+
+  const stateLabel = activity.done
+    ? doneAt
+      ? t("today.rowDoneAt", { time: formatTime(doneAt, locale) })
+      : t("today.activityDone")
+    : locked
+      ? t("today.activityPremium")
+      : paused
+        ? t("today.rowPaused")
+        : t(`today.reason.${activity.selectionReason as PlanSelectionReason}`);
+  const minutes = t("today.rowMinutes", { count: activity.estimatedMinutes });
 
   return (
-    <Card
-      padding="comfortable"
-      elevated={emphasised && !activity.done && !locked}
+    <Row
+      leading={<TrailMark state={state} label={String(position)} />}
+      connector={{ above: !first, below: !last }}
+      separator={!last}
       /**
        * A locked row opens the paywall, not the lesson.
        *
@@ -383,82 +571,107 @@ function ActivityCard({
        * cannot be started by a stray tap.
        */
       onPress={onPress}
-      // Both the lock and the done state are part of the accessible name, never conveyed by dimming alone.
-      accessibilityLabel={`${t(activity.titleKey)}. ${stateLabel}`}
+      // Both the lock and the done state are part of the accessible name, never conveyed by the mark alone.
+      accessibilityLabel={`${t(activity.titleKey)}. ${activity.done ? t("today.activityDone") : stateLabel} ${minutes}`}
       testID={`today-activity-${activity.lessonSlug}`}
-      {...(activity.done || locked ? { style: { opacity: 0.62 } } : {})}
     >
-      <View style={{ gap: theme.space[2] }}>
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: theme.space[2],
-          }}
+      <Text variant="bodyStrong">{t(activity.titleKey)}</Text>
+      <Text variant="secondary" tone="secondary">
+        {activity.done ? null : (
+          <Text variant="secondary" tone="secondary">{`${minutes} `}</Text>
+        )}
+        <Text
+          variant="secondary"
+          tone={activity.done ? "completed" : "secondary"}
+          testID={`today-activity-state-${activity.lessonSlug}`}
         >
-          {activity.done && !locked ? (
-            <StatusPill
-              label={stateLabel}
-              tone="success"
-              glyph="✓"
-              testID={`today-activity-state-${activity.lessonSlug}`}
-            />
-          ) : locked ? (
-            <StatusPill
-              label={stateLabel}
-              tone="brand"
-              testID={`today-activity-state-${activity.lessonSlug}`}
-            />
-          ) : (
-            <Text
-              variant="small"
-              tone="brand"
-              style={{ flex: 1 }}
-              testID={`today-activity-state-${activity.lessonSlug}`}
-            >
-              {stateLabel}
-            </Text>
-          )}
-          <Text variant="caption" tone="muted">
-            {t("today.totalTime", { count: activity.estimatedMinutes })}
-          </Text>
-        </View>
-
-        <Text variant="h3">{t(activity.titleKey)}</Text>
-        <Text variant="small" tone="muted" numberOfLines={2}>
-          {t(activity.goalKey)}
+          {stateLabel}
         </Text>
-      </View>
-    </Card>
+      </Text>
+    </Row>
   );
 }
 
-/** The clicker's mark, small. Drawn from primitives for the same reason the nav glyphs are. */
-function ClickerGlyph() {
+/**
+ * The day, finished.
+ *
+ * The dog becomes the centre of the screen, resting; the coach line says so in facts — which lessons, and that
+ * tomorrow is the same time; the trail beneath shows every mark filled. No confetti, no motes, no burst: the
+ * change of state is the celebration.
+ */
+function AllDone({
+  name,
+  breed,
+  activities,
+  onPractise,
+}: {
+  name: string;
+  breed: string | null;
+  activities: TodayActivityView[];
+  onPractise: () => void;
+}) {
   const theme = useTheme();
-  return (
-    <View
-      accessibilityElementsHidden
-      importantForAccessibility="no-hide-descendants"
-      style={{
-        width: 40,
-        height: 40,
-        borderRadius: theme.radius.pill,
-        backgroundColor: theme.colors.brand.primary,
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
-      <View
-        style={{
-          width: 14,
-          height: 14,
-          borderRadius: theme.radius.pill,
-          borderWidth: 2,
-          borderColor: theme.colors.text.onBrand,
-        }}
-      />
-    </View>
+  const { t } = useTranslation();
+  const lessons = joinNames(
+    activities.map((a) => t(a.titleKey)),
+    t,
   );
+
+  return (
+    <Reveal style={{ gap: theme.space[6] }} testID="today-all-done">
+      <View style={{ alignItems: "center", paddingTop: theme.space[2] }}>
+        <DogAvatar breed={breed} size={160} pose="scene" expression="resting" />
+      </View>
+      <View style={{ gap: theme.space[2] }}>
+        <Text
+          variant="headline"
+          accessibilityRole="header"
+          testID="today-greeting"
+        >
+          {t("today.allDoneTitle")}
+        </Text>
+        <Text variant="body" tone="secondary" testID="today-done-count">
+          {t("today.allDoneWith", { name, lessons })}
+        </Text>
+      </View>
+      <Button
+        label={t("today.practiseElse")}
+        variant="secondary"
+        onPress={onPractise}
+        testID="today-practise-else"
+      />
+      <View testID="today-plan">
+        <SectionHeader title={t("today.sectionPlan")} />
+        {activities.map((activity, index) => (
+          <Row
+            key={activity.lessonId}
+            leading={<TrailMark state="done" />}
+            connector={{
+              above: index > 0,
+              below: index < activities.length - 1,
+            }}
+            separator={index < activities.length - 1}
+            title={t(activity.titleKey)}
+            meta={t("today.activityDone")}
+            metaTone="completed"
+            accessibilityLabel={`${t(activity.titleKey)}. ${t("today.activityDone")}`}
+            testID={`today-activity-${activity.lessonSlug}`}
+          />
+        ))}
+      </View>
+    </Reveal>
+  );
+}
+
+function formatTime(iso: string, locale: string): string {
+  const parsed = Date.parse(iso);
+  if (Number.isNaN(parsed)) return "";
+  try {
+    return new Date(parsed).toLocaleTimeString(locale, {
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  } catch {
+    return "";
+  }
 }

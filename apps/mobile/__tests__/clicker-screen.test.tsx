@@ -6,7 +6,7 @@ import {
 } from "@testing-library/react-native";
 import { I18nextProvider } from "react-i18next";
 import { SafeAreaProvider, type Metrics } from "react-native-safe-area-context";
-import { ThemeProvider } from "@pawcue/ui";
+import { ThemeProvider, CLICKER_CORNER_RATIO } from "@pawcue/ui";
 import ClickerScreen from "../app/clicker";
 import { i18n } from "../src/i18n";
 import * as Haptics from "expo-haptics";
@@ -62,12 +62,12 @@ describe("Clicker screen", () => {
 
     await fireEvent.press(button);
     await waitFor(() =>
-      expect(screen.getByTestId("press-count")).toHaveTextContent("1"),
+      expect(screen.getByTestId("press-count")).toHaveTextContent(/\b1\b/),
     );
 
     await fireEvent.press(button);
     await waitFor(() =>
-      expect(screen.getByTestId("press-count")).toHaveTextContent("2"),
+      expect(screen.getByTestId("press-count")).toHaveTextContent(/\b2\b/),
     );
 
     expect(Haptics.impactAsync).toHaveBeenCalledTimes(2);
@@ -118,6 +118,7 @@ describe("Clicker screen", () => {
       ? Object.assign({}, ...button.props.style.flat())
       : button.props.style;
     expect(style.backgroundColor).toBe("#23473C"); // Deep Evergreen
-    expect(style.borderRadius).toBe(999); // radius.pill
+    // DESIGN_SYSTEM.md: "large rounded squircle" — the corner is the documented ratio of the 220pt surface.
+    expect(style.borderRadius).toBe(Math.round(220 * CLICKER_CORNER_RATIO));
   });
 });

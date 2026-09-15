@@ -9,6 +9,7 @@ import {
   pressScale,
   reducedMotionAlternative,
   pressScaleFor,
+  spring,
 } from "./motion";
 import {
   soundDurationBudgetMs,
@@ -30,43 +31,79 @@ import {
 import { createTheme, colorSchemes, defaultTheme } from "./theme";
 
 describe("typography", () => {
-  it("matches the DESIGN_SYSTEM.md scale exactly", () => {
-    expect(typography.display).toMatchObject({
-      fontSize: 32,
-      lineHeight: 38,
+  it("matches the field-notebook scale exactly (DESIGN_SYSTEM.md §Typography)", () => {
+    expect(typography.largeTitle).toMatchObject({
+      fontSize: 34,
+      lineHeight: 40,
+      fontWeight: "700",
+    });
+    expect(typography.headline).toMatchObject({
+      fontSize: 26,
+      lineHeight: 32,
       fontWeight: "600",
     });
-    expect(typography.h1).toMatchObject({
-      fontSize: 28,
-      lineHeight: 34,
-      fontWeight: "600",
-    });
-    expect(typography.h2).toMatchObject({
-      fontSize: 24,
-      lineHeight: 30,
-      fontWeight: "600",
-    });
-    expect(typography.h3).toMatchObject({
+    expect(typography.title).toMatchObject({
       fontSize: 20,
-      lineHeight: 26,
+      lineHeight: 25,
       fontWeight: "600",
     });
+    // iOS body is 17, not 16.
     expect(typography.body).toMatchObject({
-      fontSize: 16,
-      lineHeight: 23,
+      fontSize: 17,
+      lineHeight: 24,
       fontWeight: "400",
     });
-    expect(typography.small).toMatchObject({
-      fontSize: 14,
+    expect(typography.bodyStrong).toMatchObject({
+      fontSize: 17,
+      lineHeight: 24,
+      fontWeight: "600",
+    });
+    expect(typography.secondary).toMatchObject({
+      fontSize: 15,
       lineHeight: 20,
       fontWeight: "400",
     });
+    // A section heading is a signpost, not a headline: the same size as secondary copy, one weight up.
+    expect(typography.sectionLabel).toMatchObject({
+      fontSize: 15,
+      lineHeight: 20,
+      fontWeight: "600",
+    });
+    expect(typography.displayNumeral).toMatchObject({
+      fontSize: 56,
+      lineHeight: 60,
+      fontWeight: "700",
+    });
   });
 
-  it("keeps caption within the documented 12–13 / 17 range", () => {
-    expect(typography.caption.fontSize).toBeGreaterThanOrEqual(12);
-    expect(typography.caption.fontSize).toBeLessThanOrEqual(13);
-    expect(typography.caption.lineHeight).toBe(17);
+  it("keeps the legacy names on the same scale so unmigrated screens read as the same product", () => {
+    expect(typography.h1).toMatchObject({ fontSize: 28, fontWeight: "600" });
+    expect(typography.h2).toMatchObject({ fontSize: 24, fontWeight: "600" });
+    expect(typography.h3).toEqual(typography.title);
+    expect(typography.small).toEqual(typography.secondary);
+    expect(typography.display).toEqual(typography.largeTitle);
+  });
+
+  it("keeps caption at 13 / 18: small enough to disappear, large enough to read one-handed", () => {
+    expect(typography.caption.fontSize).toBe(13);
+    expect(typography.caption.lineHeight).toBe(18);
+  });
+
+  it("uses the full weight range — two weights is why every screen used to read at one volume", () => {
+    const weights = new Set(
+      Object.values(typography).map((style) => style.fontWeight),
+    );
+    expect(weights).toContain("400");
+    expect(weights).toContain("600");
+    expect(weights).toContain("700");
+  });
+
+  it("only tracks the large sizes, and never positively", () => {
+    for (const [name, style] of Object.entries(typography)) {
+      const tracking = (style as { letterSpacing?: number }).letterSpacing ?? 0;
+      expect(tracking, `${name} tracking`).toBeLessThanOrEqual(0);
+      if (tracking !== 0) expect(style.fontSize).toBeGreaterThanOrEqual(26);
+    }
   });
 
   it("keeps button text within the documented 16–17 semibold range", () => {
@@ -87,8 +124,17 @@ describe("typography", () => {
 
   it("leaves body-level text uncapped so Dynamic Type is never clamped where it matters most", () => {
     expect(maxFontSizeMultiplier.body).toBeUndefined();
+    expect(maxFontSizeMultiplier.bodyStrong).toBeUndefined();
+    expect(maxFontSizeMultiplier.secondary).toBeUndefined();
+    expect(maxFontSizeMultiplier.sectionLabel).toBeUndefined();
     expect(maxFontSizeMultiplier.small).toBeUndefined();
     expect(maxFontSizeMultiplier.caption).toBeUndefined();
+  });
+
+  it("caps the display numeral tightest — it is already the largest thing on its screen", () => {
+    expect(maxFontSizeMultiplier.displayNumeral).toBeLessThan(
+      maxFontSizeMultiplier.headline,
+    );
   });
 
   it("caps headings generously rather than tightly", () => {
@@ -129,14 +175,26 @@ describe("spacing", () => {
 });
 
 describe("radius", () => {
-  it("keeps card radii inside the documented 20–24 range", () => {
+  it("draws exactly three radii plus the sheet, the pill and the clicker ratio", () => {
+    const distinct = new Set(
+      Object.entries(radius)
+        .filter(([name]) => name !== "pill" && name !== "sheet")
+        .map(([, value]) => value),
+    );
+    expect([...distinct].sort((a, b) => a - b)).toEqual([12, 14, 16]);
+    expect(radius.field).toBe(12);
+    expect(radius.control).toBe(14);
+    expect(radius.object).toBe(16);
+  });
+
+  it("keeps card radii on the committed object radius", () => {
     for (const value of [radius.card, radius.cardLarge]) {
       expect(value).toBeGreaterThanOrEqual(RADIUS_BOUNDS.card.min);
       expect(value).toBeLessThanOrEqual(RADIUS_BOUNDS.card.max);
     }
   });
 
-  it("keeps button radii inside the documented 18–24 range", () => {
+  it("keeps button radii on the committed control radius", () => {
     for (const value of [radius.button, radius.buttonLarge]) {
       expect(value).toBeGreaterThanOrEqual(RADIUS_BOUNDS.button.min);
       expect(value).toBeLessThanOrEqual(RADIUS_BOUNDS.button.max);
@@ -172,10 +230,34 @@ describe("elevation", () => {
 
 describe("motion", () => {
   it("keeps ordinary transitions within 160–280ms", () => {
-    for (const token of ["fast", "base", "slow"] as const) {
+    for (const token of [
+      "fast",
+      "base",
+      "slow",
+      "state",
+      "exit",
+      "enter",
+    ] as const) {
       expect(duration[token]).toBeGreaterThanOrEqual(TRANSITION_BOUNDS.min);
       expect(duration[token]).toBeLessThanOrEqual(TRANSITION_BOUNDS.max);
     }
+  });
+
+  it("makes press feedback faster than any transition, and press-out slower than press-in", () => {
+    expect(duration.pressIn).toBeLessThan(TRANSITION_BOUNDS.min);
+    expect(duration.pressOut).toBeGreaterThan(duration.pressIn);
+  });
+
+  it("leaves faster than it arrives", () => {
+    expect(duration.exit).toBeLessThan(duration.enter);
+  });
+
+  it("ships two springs for the product and neither of them bounces", () => {
+    // Damping ratio ζ = c / (2·sqrt(k·m)); below ~0.7 a spring visibly overshoots more than once.
+    const ratio = (s: { damping: number; stiffness: number; mass: number }) =>
+      s.damping / (2 * Math.sqrt(s.stiffness * s.mass));
+    expect(ratio(spring.responsive)).toBeGreaterThanOrEqual(0.7);
+    expect(ratio(spring.soft)).toBeGreaterThanOrEqual(0.7);
   });
 
   it("holds plan generation to the documented 600–900ms window, not a fake delay", () => {

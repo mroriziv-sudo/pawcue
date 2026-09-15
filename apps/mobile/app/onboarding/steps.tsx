@@ -5,7 +5,6 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  TextInput,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -13,11 +12,13 @@ import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import {
   Text,
-  Card,
   Button,
-  ProgressBar,
+  Glyph,
+  Reveal,
+  SegmentedControl,
+  StepDots,
+  TextField,
   useTheme,
-  useDirection,
 } from "@pawcue/ui";
 import {
   ONBOARDING_STEPS,
@@ -28,6 +29,11 @@ import {
 import { useOnboardingStore } from "../../src/state/onboarding-store";
 import { useDogStore } from "../../src/state/dog-store";
 import { useBootstrapStore } from "../../src/state/bootstrap-store";
+import { DogAvatar } from "../../src/components/DogAvatar";
+import { BirthdatePicker } from "../../src/components/BirthdatePicker";
+import { BreedPicker } from "../../src/components/BreedPicker";
+import { BackControl } from "../../src/components/BackControl";
+import { OptionTile } from "../../src/components/OptionTile";
 
 /**
  * Onboarding — one renderer for every question.
@@ -37,10 +43,13 @@ import { useBootstrapStore } from "../../src/state/bootstrap-store";
  *
  * Answers live in the store and are persisted on every keystroke, which is what makes Back lossless and an
  * interrupted flow resumable. Nothing here decides what is valid — that is `validateField` in the domain.
+ *
+ * The dog takes shape as the questions are answered. It sits at the top of every step; once it has a name the
+ * questions use it, once it has an age it may become a puppy, and once it has a breed its face changes to match.
+ * By the last step the owner is looking at their dog.
  */
 export default function OnboardingStepsScreen() {
   const theme = useTheme();
-  const direction = useDirection();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { t } = useTranslation();
@@ -64,6 +73,8 @@ export default function OnboardingStepsScreen() {
   const total = ONBOARDING_STEPS.length;
   const isLast = stepIndex === total - 1;
   const validation = validateField(step.id, draft);
+  const validationMessage =
+    showValidation && !validation.ok ? t(validation.messageKey) : null;
 
   const advance = async () => {
     if (!validation.ok) {
@@ -111,112 +122,196 @@ export default function OnboardingStepsScreen() {
     goToStep(stepIndex - 1);
   };
 
+  const dogName = draft.name?.trim() ?? "";
+  const question = dogName
+    ? t(step.titleKey, { name: dogName })
+    : t(`${step.titleKey}NoName`, { defaultValue: t(step.titleKey) });
+
   return (
     <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: theme.colors.background.base }}
       // The name and breed steps put a text field mid-screen; without this the keyboard covers Continue.
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
-      <ScrollView
-        contentContainerStyle={{
-          flexGrow: 1,
-          paddingTop: insets.top + theme.space[4],
-          paddingBottom: insets.bottom + theme.space[6],
+      {/* The top bar: the way back, the step, the way past an optional question. */}
+      <View
+        style={{
+          paddingTop: insets.top + theme.space[2],
           paddingHorizontal: theme.screenGutter,
-          gap: theme.space[4],
+          gap: theme.space[2],
         }}
-        keyboardShouldPersistTaps="handled"
-        testID="onboarding-screen"
       >
-        <View style={{ gap: theme.space[2] }}>
-          <Text variant="small" tone="muted" testID="onboarding-progress">
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: theme.space[3],
+          }}
+        >
+          <BackControl onPress={goBack} testID="onboarding-back" />
+          <Text variant="caption" tone="secondary" testID="onboarding-progress">
             {t("onboarding.progress", { current: stepIndex + 1, total })}
           </Text>
-          <ProgressBar
-            ratio={stepIndex / total}
-            accessibilityLabel={t("onboarding.progressLabel", {
-              current: stepIndex + 1,
-              total,
-              percent: Math.round((stepIndex / total) * 100),
-            })}
-            testID="onboarding-progress-bar"
-          />
-        </View>
-
-        <Text variant="h1" testID="step-title">
-          {t(step.titleKey)}
-        </Text>
-        {step.hintKey ? (
-          <Text variant="body" tone="muted" testID="step-hint">
-            {t(step.hintKey)}
-          </Text>
-        ) : null}
-
-        <StepInput step={step} direction={direction} />
-
-        {showValidation && !validation.ok ? (
-          <Text variant="small" tone="error" testID="validation-message">
-            {t(validation.messageKey)}
-          </Text>
-        ) : null}
-
-        {createError ? (
-          <Text variant="small" tone="error" testID="create-error">
-            {createError}
-          </Text>
-        ) : null}
-
-        <View style={{ flex: 1 }} />
-
-        <View style={{ gap: theme.space[2] }}>
-          {creating ? (
-            <View
-              style={{ alignItems: "center", gap: theme.space[2] }}
-              testID="onboarding-creating"
-            >
-              <ActivityIndicator color={theme.colors.brand.primary} />
-              <Text variant="small" tone="muted">
-                {t("onboarding.creating")}
-              </Text>
-            </View>
-          ) : (
-            <Button
-              label={isLast ? t("onboarding.finish") : t("onboarding.next")}
-              onPress={() => void advance()}
-              testID="onboarding-next"
-            />
-          )}
-
           {step.optional && !isLast ? (
             <Pressable
               onPress={() => {
+                setShowValidation(false);
                 setField(step.id, undefined);
                 goToStep(stepIndex + 1);
               }}
               accessibilityRole="button"
               accessibilityLabel={t("onboarding.skip")}
-              hitSlop={12}
+              hitSlop={theme.space[2]}
               testID="onboarding-skip"
+              style={({ pressed }) => ({
+                minHeight: theme.minTouchTarget,
+                justifyContent: "center",
+                opacity: pressed ? 0.6 : 1,
+              })}
             >
-              <Text variant="small" tone="muted" align="center">
+              <Text variant="body" tone="brand">
                 {t("onboarding.skip")}
               </Text>
             </Pressable>
-          ) : null}
-
-          <Pressable
-            onPress={goBack}
-            accessibilityRole="button"
-            accessibilityLabel={t("onboarding.back")}
-            hitSlop={12}
-            testID="onboarding-back"
-          >
-            <Text variant="small" tone="muted" align="center">
-              {t("onboarding.back")}
-            </Text>
-          </Pressable>
+          ) : (
+            <View style={{ minWidth: theme.minTouchTarget }} />
+          )}
         </View>
+        <StepDots
+          total={total}
+          current={stepIndex + 1}
+          accessibilityLabel={t("onboarding.progressLabel", {
+            current: stepIndex + 1,
+            total,
+            percent: Math.round((stepIndex / total) * 100),
+          })}
+          testID="onboarding-progress-bar"
+        />
+      </View>
+
+      <ScrollView
+        contentContainerStyle={{
+          flexGrow: 1,
+          paddingTop: theme.space[5],
+          paddingBottom: theme.space[4],
+          paddingHorizontal: theme.screenGutter,
+          gap: theme.space[5],
+        }}
+        keyboardShouldPersistTaps="handled"
+        testID="onboarding-screen"
+      >
+        {/* The question, with the dog as far as it exists so far beside it. */}
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "flex-start",
+            gap: theme.space[4],
+          }}
+        >
+          <View style={{ flex: 1, gap: theme.space[2] }}>
+            <Text
+              variant="headline"
+              accessibilityRole="header"
+              testID="step-title"
+            >
+              {question}
+            </Text>
+            {step.hintKey ? (
+              <Text variant="body" tone="secondary" testID="step-hint">
+                {t(step.hintKey)}
+              </Text>
+            ) : null}
+          </View>
+          <View
+            accessibilityRole="image"
+            accessibilityLabel={
+              dogName
+                ? t("onboarding.meet", { name: dogName })
+                : t("common.nav.dog")
+            }
+            testID="onboarding-dog-preview"
+          >
+            <DogAvatar
+              breed={draft.breed ?? null}
+              birthdate={draft.birthdate ?? null}
+              size={96}
+            />
+          </View>
+        </View>
+
+        <Reveal key={step.id}>
+          <StepInput
+            step={step}
+            dogName={dogName}
+            validationMessage={validationMessage}
+          />
+        </Reveal>
+
+        {createError ? (
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: theme.space[2],
+            }}
+            accessibilityRole="alert"
+          >
+            <Glyph name="alert" size={16} color={theme.colors.text.error} />
+            <Text
+              variant="secondary"
+              tone="error"
+              style={{ flex: 1 }}
+              testID="create-error"
+            >
+              {createError}
+            </Text>
+          </View>
+        ) : null}
       </ScrollView>
+
+      {/* Continue, docked, above the keyboard. */}
+      <View
+        style={{
+          paddingHorizontal: theme.screenGutter,
+          paddingTop: theme.space[3],
+          paddingBottom: insets.bottom + theme.space[4],
+          backgroundColor: theme.colors.background.base,
+        }}
+      >
+        {creating ? (
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: theme.space[2],
+              minHeight: 52,
+            }}
+            accessible
+            accessibilityState={{ busy: true }}
+            accessibilityLabel={t("onboarding.creating")}
+            testID="onboarding-creating"
+          >
+            <ActivityIndicator color={theme.colors.brand.primary} />
+            <Text variant="secondary" tone="secondary">
+              {t("onboarding.creating")}
+            </Text>
+          </View>
+        ) : (
+          <Button
+            label={
+              isLast
+                ? dogName
+                  ? t("onboarding.finish", { name: dogName })
+                  : t("onboarding.finishNoName")
+                : t("onboarding.next")
+            }
+            onPress={() => void advance()}
+            testID="onboarding-next"
+          />
+        )}
+      </View>
     </KeyboardAvoidingView>
   );
 }
@@ -224,95 +319,139 @@ export default function OnboardingStepsScreen() {
 /**
  * The input for one step.
  *
- * Three kinds cover every question the flow asks. A new question is a new entry in `ONBOARDING_STEPS`, not a new
- * component, unless it genuinely needs an input shape that does not exist yet.
+ * Each question gets the input shaped for it: a large field for the name, native wheels for the age, two tiles
+ * for sex, a search over the breed list, a segmented control for the daily goal. A new question is a new entry
+ * in `ONBOARDING_STEPS`, not a new component, unless it genuinely needs an input shape that does not exist.
  */
 function StepInput({
   step,
-  direction,
+  dogName,
+  validationMessage,
 }: {
   step: OnboardingStepDef;
-  direction: "ltr" | "rtl";
+  dogName: string;
+  validationMessage: string | null;
 }) {
   const theme = useTheme();
   const { t } = useTranslation();
   const draft = useOnboardingStore((s) => s.draft);
   const setField = useOnboardingStore((s) => s.setField);
 
-  if (step.kind === "choice") {
-    const selected = String(draft[step.id] ?? "");
+  const message = validationMessage ? (
+    <View
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        gap: theme.space[1],
+      }}
+      accessibilityRole="alert"
+    >
+      <Glyph name="alert" size={16} color={theme.colors.text.error} />
+      <Text
+        variant="secondary"
+        tone="error"
+        style={{ flex: 1 }}
+        testID="validation-message"
+      >
+        {validationMessage}
+      </Text>
+    </View>
+  ) : null;
+
+  if (step.id === "sex") {
+    const selected = String(draft.sex ?? "");
     return (
-      <View style={{ gap: theme.space[2] }} testID={`choice-${step.id}`}>
-        {(step.choices ?? []).map((choice) => {
-          const isSelected = selected === choice.value;
-          return (
-            <Card
-              key={choice.value}
-              padding="compact"
-              onPress={() =>
-                setField(
-                  step.id,
-                  // Minutes are numeric in the domain; everything else is a string enum.
-                  step.id === "dailyTrainingMinutes"
-                    ? Number(choice.value)
-                    : choice.value,
-                )
-              }
-              accessibilityLabel={t(choice.labelKey)}
-              testID={`choice-${step.id}-${choice.value}`}
-            >
-              <View
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                }}
-              >
-                <Text variant="body">{t(choice.labelKey)}</Text>
-                {/* A checkmark, not colour alone — the design system forbids colour-only state. */}
-                <Text variant="body" tone={isSelected ? "success" : "muted"}>
-                  {isSelected ? "✓" : ""}
-                </Text>
-              </View>
-            </Card>
-          );
-        })}
+      <View style={{ gap: theme.space[3] }} testID="choice-sex">
+        {message}
+        <View style={{ flexDirection: "row", gap: theme.space[3] }}>
+          {(["female", "male"] as const).map((value) => (
+            <OptionTile
+              key={value}
+              label={t(`onboarding.sex.${value}`)}
+              selected={selected === value}
+              onPress={() => setField("sex", value)}
+              testID={`choice-sex-${value}`}
+            />
+          ))}
+        </View>
+      </View>
+    );
+  }
+
+  if (step.id === "dailyTrainingMinutes") {
+    const selected =
+      typeof draft.dailyTrainingMinutes === "number"
+        ? draft.dailyTrainingMinutes
+        : null;
+    return (
+      <View
+        style={{ gap: theme.space[3] }}
+        testID="choice-dailyTrainingMinutes"
+      >
+        {message}
+        <SegmentedControl
+          options={(step.choices ?? []).map((choice) => ({
+            value: Number(choice.value),
+            label: t(choice.labelKey),
+          }))}
+          value={selected}
+          onChange={(value) => setField("dailyTrainingMinutes", value)}
+          accessibilityLabel={t(step.titleKey)}
+          testID="choice-dailyTrainingMinutes"
+        />
+        {selected !== null ? (
+          <Text variant="body" testID="minutes-sentence">
+            {t(`onboarding.minutesSentence.${selected}`)}
+          </Text>
+        ) : null}
       </View>
     );
   }
 
   const value = String(draft[step.id] ?? "");
+
+  if (step.kind === "date") {
+    return (
+      <BirthdatePicker
+        value={value}
+        onChange={(next) => setField(step.id, next || undefined)}
+        inputTestID={`input-${step.id}`}
+        {...(validationMessage ? { error: validationMessage } : {})}
+        errorTestID="validation-message"
+      />
+    );
+  }
+
+  if (step.id === "breed") {
+    return (
+      <View style={{ gap: theme.space[2] }}>
+        {message}
+        <BreedPicker
+          value={value}
+          onChange={(next) => setField(step.id, next || undefined)}
+          inputTestID={`input-${step.id}`}
+          dogName={dogName}
+        />
+      </View>
+    );
+  }
+
   return (
-    <TextInput
+    <TextField
+      label={t("dogProfile.fields.name")}
       value={value}
       onChangeText={(next) => setField(step.id, next)}
       placeholder={step.placeholderKey ? t(step.placeholderKey) : undefined}
-      placeholderTextColor={theme.colors.text.disabled}
+      autoCapitalize="words"
+      autoCorrect={false}
+      autoFocus={step.id === "name"}
+      size="large"
+      // The headline above is the question; a second "Name" label would say it twice.
+      labelHidden
+      {...(validationMessage ? { error: validationMessage } : {})}
+      errorTestID="validation-message"
       accessibilityLabel={t(step.titleKey)}
       testID={`input-${step.id}`}
-      autoCapitalize={
-        step.id === "name" || step.id === "breed" ? "words" : "none"
-      }
-      autoCorrect={false}
-      keyboardType={
-        step.kind === "date" ? "numbers-and-punctuation" : "default"
-      }
-      // Dynamic Type: the field grows with the user's text size instead of clipping.
-      maxFontSizeMultiplier={1.6}
-      style={{
-        borderWidth: theme.border.hairline,
-        borderColor: theme.colors.border.subtle,
-        borderRadius: theme.radius.sm,
-        backgroundColor: theme.colors.surface.raised,
-        paddingHorizontal: theme.space[3],
-        paddingVertical: theme.space[3],
-        fontSize: theme.typography.body.fontSize,
-        color: theme.colors.text.primary,
-        // Logical alignment, so Hebrew input starts on the correct edge.
-        textAlign: direction === "rtl" ? "right" : "left",
-        writingDirection: direction,
-        minHeight: theme.minTouchTarget,
-      }}
     />
   );
 }

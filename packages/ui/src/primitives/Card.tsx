@@ -1,7 +1,11 @@
 import { View, type AccessibilityProps, type ViewProps } from "react-native";
 import { useTheme } from "../theme/ThemeProvider";
 import { PressableScale } from "./PressableScale";
-import { resolveCardStyle, type CardPadding } from "./styles/card-styles";
+import {
+  resolveCardStyle,
+  type CardPadding,
+  type CardSurface,
+} from "./styles/card-styles";
 
 export interface CardProps extends Pick<
   AccessibilityProps,
@@ -10,6 +14,8 @@ export interface CardProps extends Pick<
   children: React.ReactNode;
   emphasis?: "default" | "feature";
   padding?: CardPadding;
+  /** What the card is made of. Tints carry state; `brand` is the one dark surface a screen may carry. */
+  surface?: CardSurface;
   elevated?: boolean;
   /** Supplying `onPress` makes the card a button; without it the card is a plain container. */
   onPress?: () => void;
@@ -21,6 +27,7 @@ export function Card({
   children,
   emphasis = "default",
   padding = "comfortable",
+  surface = "raised",
   elevated = false,
   onPress,
   accessibilityLabel,
@@ -29,7 +36,13 @@ export function Card({
   testID,
 }: CardProps) {
   const theme = useTheme();
-  const cardStyle = resolveCardStyle({ emphasis, padding, elevated, theme });
+  const cardStyle = resolveCardStyle({
+    emphasis,
+    padding,
+    surface,
+    elevated,
+    theme,
+  });
 
   if (!onPress) {
     /**

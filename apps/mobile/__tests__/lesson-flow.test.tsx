@@ -198,23 +198,30 @@ describe("training flow", () => {
     );
   });
 
-  it("will not advance a clicker step until the clicker has been used", async () => {
+  it("will not advance a clicker step until the clicker has been used, and says why when pressed", async () => {
     await renderTraining();
     await fireEvent.press(screen.getByTestId("advance-step"));
     await waitFor(() =>
       expect(screen.getByTestId("session-clicker")).toBeTruthy(),
     );
 
+    // The control is never a dead disabled button: a press explains, and the step does not move.
     expect(
       screen.getByTestId("advance-step").props.accessibilityState,
-    ).toMatchObject({ disabled: true });
+    ).toMatchObject({ disabled: false });
+    await fireEvent.press(screen.getByTestId("advance-step"));
+    await waitFor(() =>
+      expect(screen.getByTestId("requirements-warning")).toBeTruthy(),
+    );
+    expect(screen.getByTestId("step-counter")).toHaveTextContent("Step 2 of 4");
 
     await fireEvent.press(screen.getByTestId("session-clicker"));
+    await fireEvent.press(screen.getByTestId("advance-step"));
 
     await waitFor(() =>
-      expect(
-        screen.getByTestId("advance-step").props.accessibilityState,
-      ).toMatchObject({ disabled: false }),
+      expect(screen.getByTestId("step-counter")).toHaveTextContent(
+        "Step 3 of 4",
+      ),
     );
   });
 
@@ -245,9 +252,15 @@ describe("training flow", () => {
     await renderTraining();
     await advanceToRepetitionStep();
 
-    expect(
-      screen.getByTestId("advance-step").props.accessibilityState,
-    ).toMatchObject({ disabled: true });
+    // Before the target: the control names the remaining work and a press refuses, with a reason.
+    expect(screen.getByTestId("advance-step").props.accessibilityLabel).toMatch(
+      /5/,
+    );
+    await fireEvent.press(screen.getByTestId("advance-step"));
+    await waitFor(() =>
+      expect(screen.getByTestId("requirements-warning")).toBeTruthy(),
+    );
+    expect(useSessionStore.getState().session?.status).toBe("in_progress");
 
     for (let i = 0; i < 5; i += 1) {
       await fireEvent.press(screen.getByTestId("add-repetition"));
@@ -258,9 +271,9 @@ describe("training flow", () => {
         "5 of 5",
       ),
     );
-    expect(
-      screen.getByTestId("advance-step").props.accessibilityState,
-    ).toMatchObject({ disabled: false });
+    expect(screen.getByTestId("advance-step").props.accessibilityLabel).toMatch(
+      /Finish/,
+    );
   });
 
   it("lets a mis-tapped repetition be taken back", async () => {

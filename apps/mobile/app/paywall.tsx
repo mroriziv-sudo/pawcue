@@ -9,7 +9,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { Text, Card, Button, useTheme } from "@pawcue/ui";
+import { Text, Button, Glyph, useTheme } from "@pawcue/ui";
 import {
   defaultSelection,
   isPremiumLesson,
@@ -121,7 +121,7 @@ export default function PaywallScreen() {
         paddingTop: insets.top + theme.space[3],
         paddingBottom: insets.bottom + theme.space[8],
         paddingHorizontal: theme.screenGutter,
-        gap: theme.space[4],
+        gap: theme.space[8],
       }}
       testID="paywall-screen"
     >
@@ -144,27 +144,31 @@ export default function PaywallScreen() {
           }}
           testID="paywall-close"
         >
-          <Text variant="body" tone="muted">
+          <Text variant="body" tone="brand">
             {t("common.cta.close")}
           </Text>
         </Pressable>
       </View>
 
       <View style={{ gap: theme.space[2] }}>
-        <Text variant="h1" testID="paywall-title">
+        <Text
+          variant="headline"
+          accessibilityRole="header"
+          testID="paywall-title"
+        >
           {dog?.name
             ? t("paywall.title", { dogName: dog.name })
             : t("paywall.titleNoDog")}
         </Text>
-        <Text variant="body" tone="muted">
+        <Text variant="body" tone="secondary">
           {t("paywall.intro")}
         </Text>
       </View>
 
       {view.isPremiumActive ? (
-        <Card padding="comfortable" testID="paywall-already-premium">
-          <Text variant="body">{t("paywall.alreadyPremium")}</Text>
-        </Card>
+        <Text variant="body" testID="paywall-already-premium">
+          {t("paywall.alreadyPremium")}
+        </Text>
       ) : null}
 
       {/*
@@ -174,7 +178,7 @@ export default function PaywallScreen() {
         would be a dark pattern if left to stand. The free tier is real and substantial, so it is named.
       */}
       {freeLessonCount > 0 ? (
-        <Text variant="small" tone="muted" testID="paywall-free-tier">
+        <Text variant="secondary" tone="secondary" testID="paywall-free-tier">
           {t("paywall.freeTier", { count: freeLessonCount })}
         </Text>
       ) : null}
@@ -197,19 +201,19 @@ export default function PaywallScreen() {
       </View>
 
       {purchase.phase === "unlocked" ? (
-        <Card padding="comfortable" testID="paywall-unlocked">
-          <View style={{ gap: theme.space[2] }}>
-            <Text variant="h3">{t("paywall.unlockedTitle")}</Text>
-            <Text variant="body" tone="muted">
-              {t("paywall.unlockedBody")}
-            </Text>
-            <Button
-              label={t("common.cta.close")}
-              onPress={close}
-              testID="paywall-unlocked-close"
-            />
-          </View>
-        </Card>
+        <View style={{ gap: theme.space[3] }} testID="paywall-unlocked">
+          <Text variant="title" accessibilityRole="header">
+            {t("paywall.unlockedTitle")}
+          </Text>
+          <Text variant="body" tone="secondary">
+            {t("paywall.unlockedBody")}
+          </Text>
+          <Button
+            label={t("common.cta.close")}
+            onPress={close}
+            testID="paywall-unlocked-close"
+          />
+        </View>
       ) : productsLoading ? (
         <ActivityIndicator
           color={theme.colors.brand.primary}
@@ -220,17 +224,19 @@ export default function PaywallScreen() {
           Nothing to sell. The screen says so and stays usable rather than showing an empty list of choices —
           a store outage or an unconfigured build is not the user's problem to decode.
         */
-        <Card padding="comfortable" testID="paywall-unavailable">
-          <View style={{ gap: theme.space[2] }}>
-            <Text variant="h3">{t("paywall.unavailableTitle")}</Text>
-            <Text variant="body" tone="muted">
-              {t("paywall.unavailableBody")}
-            </Text>
-          </View>
-        </Card>
+        <View style={{ gap: theme.space[2] }} testID="paywall-unavailable">
+          <Text variant="title" accessibilityRole="header">
+            {t("paywall.unavailableTitle")}
+          </Text>
+          <Text variant="body" tone="secondary">
+            {t("paywall.unavailableBody")}
+          </Text>
+        </View>
       ) : (
         <View style={{ gap: theme.space[3] }} testID="paywall-plans">
-          <Text variant="h3">{t("paywall.choosePlan")}</Text>
+          <Text variant="sectionLabel" accessibilityRole="header">
+            {t("paywall.choosePlan")}
+          </Text>
 
           {products.products.map((product) => (
             <PlanOption
@@ -247,10 +253,10 @@ export default function PaywallScreen() {
           */}
           <View style={{ gap: theme.space[1] }} testID="paywall-disclosure">
             <Disclosure products={products.products} selected={selected} />
-            <Text variant="caption" tone="muted">
+            <Text variant="caption" tone="secondary">
               {t("paywall.renewalNotice")}
             </Text>
-            <Text variant="caption" tone="muted">
+            <Text variant="caption" tone="secondary">
               {t("paywall.legalIntro")}
             </Text>
           </View>
@@ -268,9 +274,20 @@ export default function PaywallScreen() {
       )}
 
       {message ? (
-        <Card padding="compact" testID="paywall-message">
-          <Text variant="small">{message}</Text>
-        </Card>
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "flex-start",
+            gap: theme.space[2],
+          }}
+          accessibilityRole="alert"
+          testID="paywall-message"
+        >
+          <Glyph name="alert" size={18} color={theme.colors.text.secondary} />
+          <Text variant="secondary" style={{ flex: 1 }}>
+            {message}
+          </Text>
+        </View>
       ) : null}
 
       <View style={{ gap: theme.space[2] }}>
@@ -323,33 +340,11 @@ export default function PaywallScreen() {
  * decorative glyph read aloud before every line is noise.
  */
 function ValueLine({ text, testID }: { text: string; testID: string }) {
-  const theme = useTheme();
+  // A plain sentence on the paper. No bullet disc: the primary button is the one evergreen object on this screen.
   return (
-    <View
-      style={{
-        flexDirection: "row",
-        gap: theme.space[2],
-        alignItems: "flex-start",
-      }}
-      accessibilityRole="text"
-      accessibilityLabel={text}
-      testID={testID}
-    >
-      <View
-        accessibilityElementsHidden
-        importantForAccessibility="no-hide-descendants"
-        style={{
-          width: 6,
-          height: 6,
-          borderRadius: 3,
-          marginTop: 8,
-          backgroundColor: theme.colors.brand.primary,
-        }}
-      />
-      <Text variant="body" style={{ flex: 1 }}>
-        {text}
-      </Text>
-    </View>
+    <Text variant="body" accessibilityRole="text" testID={testID}>
+      {text}
+    </Text>
   );
 }
 
@@ -372,41 +367,52 @@ function PlanOption({
   const { t } = useTranslation();
   const period = t(`paywall.period.${product.period}`);
 
+  /*
+    The one card type: a standalone tappable object. Selection is the brand edge plus a check — a shape change,
+    never colour alone — and is part of the accessible name and announced as a radio.
+  */
   return (
-    <Card
-      padding="comfortable"
+    <Pressable
       onPress={onSelect}
-      elevated={selected}
-      // Selection is part of the accessible name, not conveyed by the border alone.
+      accessibilityRole="radio"
       accessibilityLabel={`${product.localizedPricePerPeriod}. ${
         selected ? t("paywall.selected") : ""
       }`.trim()}
+      accessibilityState={{ selected, checked: selected }}
       testID={`paywall-plan-${product.productId}`}
+      style={({ pressed }) => ({
+        flexDirection: "row",
+        alignItems: "center",
+        gap: theme.space[3],
+        minHeight: theme.minTouchTarget + 16,
+        paddingVertical: theme.space[4],
+        paddingHorizontal: theme.space[5],
+        borderRadius: theme.radius.object,
+        borderWidth: selected ? theme.border.focus : theme.border.hairline,
+        borderColor: selected
+          ? theme.colors.brand.primary
+          : theme.colors.border.separator,
+        backgroundColor: pressed
+          ? theme.colors.surface.pressed
+          : theme.colors.surface.raised,
+        margin: selected ? 0 : theme.border.focus - theme.border.hairline,
+      })}
     >
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: theme.space[2],
-        }}
-      >
-        <View style={{ flex: 1, gap: theme.space[1] }}>
-          <Text
-            variant="bodyStrong"
-            testID={`paywall-price-${product.productId}`}
-          >
-            {product.localizedPricePerPeriod}
-          </Text>
-          <Text variant="caption" tone="muted">
-            {period}
-          </Text>
-        </View>
-        <Text variant="body" tone={selected ? "success" : "muted"}>
-          {selected ? "✓" : ""}
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text
+          variant="bodyStrong"
+          testID={`paywall-price-${product.productId}`}
+        >
+          {product.localizedPricePerPeriod}
+        </Text>
+        <Text variant="secondary" tone="secondary">
+          {period}
         </Text>
       </View>
-    </Card>
+      {selected ? (
+        <Glyph name="check" size={20} color={theme.colors.brand.primary} />
+      ) : null}
+    </Pressable>
   );
 }
 
@@ -441,7 +447,7 @@ function Disclosure({
       });
 
   return (
-    <Text variant="small" testID="paywall-disclosure-text">
+    <Text variant="secondary" testID="paywall-disclosure-text">
       {text}
     </Text>
   );
@@ -476,12 +482,16 @@ function LegalLink({
         hitSlop={12}
         testID={testID}
       >
-        <Text variant="small" tone="muted">
+        <Text variant="secondary" tone="secondary">
           {label}
         </Text>
       </Pressable>
       {note ? (
-        <Text variant="caption" tone="muted" testID={`${testID}-unavailable`}>
+        <Text
+          variant="caption"
+          tone="secondary"
+          testID={`${testID}-unavailable`}
+        >
           {note}
         </Text>
       ) : null}

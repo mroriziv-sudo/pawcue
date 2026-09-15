@@ -113,7 +113,7 @@ describe("one press, one audible click (through the screen)", () => {
     }
 
     expect(silentPresses(recorder)).toBe(0);
-    expect(screen.getByTestId("press-count")).toHaveTextContent("3");
+    expect(screen.getByTestId("press-count")).toHaveTextContent(/\b3\b/);
   });
 
   it("plays on 10 presses", async () => {
@@ -126,7 +126,7 @@ describe("one press, one audible click (through the screen)", () => {
 
     expect(recorder.presses).toHaveLength(10);
     expect(silentPresses(recorder)).toBe(0);
-    expect(screen.getByTestId("press-count")).toHaveTextContent("10");
+    expect(screen.getByTestId("press-count")).toHaveTextContent(/\b10\b/);
   });
 
   it("plays on 10 rapid presses", async () => {
@@ -141,7 +141,7 @@ describe("one press, one audible click (through the screen)", () => {
 
     expect(recorder.presses).toHaveLength(10);
     expect(silentPresses(recorder)).toBe(0);
-    expect(screen.getByTestId("press-count")).toHaveTextContent("10");
+    expect(screen.getByTestId("press-count")).toHaveTextContent(/\b10\b/);
   });
 });
 
@@ -170,7 +170,7 @@ describe("sound setting", () => {
     // Both attributed presses were heard; the muted one in between never opened a window.
     expect(recorder.presses).toEqual([true, true]);
     expect(recorder.silentAttempts).toBe(0);
-    expect(screen.getByTestId("press-count")).toHaveTextContent("3");
+    expect(screen.getByTestId("press-count")).toHaveTextContent(/\b3\b/);
   });
 });
 

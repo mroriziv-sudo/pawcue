@@ -1,9 +1,11 @@
 import {
+  act,
   render,
   screen,
   fireEvent,
   waitFor,
 } from "@testing-library/react-native";
+import { StyleSheet } from "react-native";
 import { I18nextProvider } from "react-i18next";
 import { SafeAreaProvider, type Metrics } from "react-native-safe-area-context";
 import { ThemeProvider } from "@pawcue/ui";
@@ -323,12 +325,12 @@ describe("Today — the subtitle states one fact", () => {
     expect(screen.queryByTestId("today-daily-goal")).toBeNull();
   });
 
-  it("states the remaining time once, on the plan heading", async () => {
+  it("states the plan's length once, under the coach line", async () => {
     await renderScreen(<TodayScreen />);
     await waitFor(() => expect(screen.getByTestId("today-plan")).toBeTruthy());
 
     // It used to appear as a subtitle under the heading *and* on the only card beneath it.
-    expect(screen.getAllByTestId("today-total-time-trailing")).toHaveLength(1);
+    expect(screen.getAllByTestId("today-total-time")).toHaveLength(1);
   });
 });
 
@@ -677,5 +679,114 @@ describe("unfinished work survives a relaunch", () => {
 
     expect(useSessionStore.getState().session).toBeNull();
     expect(useSessionStore.getState().hydrated).toBe(true);
+  });
+});
+
+/**
+ * The Today redesign, as behaviour.
+ *
+ * Today is a coach line, one button and a trail. The coach line names the dog and the lesson; the button names
+ * the lesson and is the only way to start it from this screen; a finished activity changes state on the trail
+ * rather than fading; loading is one busy element that holds the page's shape. None of this asserts a colour or
+ * a radius.
+ */
+describe("Today — the coach line and the trail", () => {
+  it("answers 'what now' with a sentence and one button that names the lesson", async () => {
+    await renderScreen(<TodayScreen />);
+    await waitFor(() => expect(screen.getByTestId("today-plan")).toBeTruthy());
+
+    const coach = screen.getByTestId("today-greeting");
+    expect(coach).toHaveTextContent(/Libi/);
+    expect(coach.props.accessibilityRole).toBe("header");
+
+    // One primary action, and it says what it starts.
+    const start = screen.getByTestId("today-start");
+    expect(start.props.accessibilityLabel).toMatch(/^Start /);
+    expect(screen.queryByTestId("today-resume")).toBeNull();
+
+    // The plan's length is stated exactly once.
+    expect(screen.getAllByTestId("today-total-time")).toHaveLength(1);
+  });
+
+  it("puts every activity on the trail with its state in words, never only in a mark", async () => {
+    await renderScreen(<TodayScreen />);
+    await waitFor(() => expect(screen.getByTestId("today-plan")).toBeTruthy());
+
+    const rows = screen.getAllByTestId(/^today-activity-(?!state-)/);
+    expect(rows.length).toBeGreaterThan(0);
+    for (const row of rows) {
+      expect(row.props.accessibilityRole).toBe("button");
+      expect(row.props.accessibilityLabel).toMatch(/minute/);
+    }
+  });
+
+  it("ticks an activity off with a state change, never by dimming it", async () => {
+    // A lesson finished days ago is due for review, which gives the day two activities: a new skill and the
+    // review. (One new skill a day is the planner's own cap, so two *new* lessons would never make a pair.)
+    const daysAgo = (n: number) =>
+      new Date(Date.now() - n * 86_400_000).toISOString();
+    const review = record(LESSON.nameGame, "completed", daysAgo(5));
+    useTrainingLogStore.setState({ completed: [review], hydrated: true });
+
+    await renderScreen(<TodayScreen />);
+    await waitFor(() =>
+      expect(screen.getByTestId("today-activity-name_game")).toBeTruthy(),
+    );
+    expect(screen.getByTestId("today-activity-sit")).toBeTruthy();
+
+    // The plan exists; now a session for one of its activities finishes. The plan is not rebuilt (that is the
+    // lifecycle rule) — the activity is ticked off in place.
+    await act(async () => {
+      useTrainingLogStore.setState({
+        completed: [
+          review,
+          record(LESSON.nameGame, "completed", `${today()}T09:00:00.000Z`),
+        ],
+        hydrated: true,
+      });
+      await Promise.resolve();
+    });
+
+    await waitFor(() =>
+      expect(
+        screen.getByTestId("today-activity-state-name_game"),
+      ).toHaveTextContent(/Done/),
+    );
+
+    const row = screen.getByTestId("today-activity-name_game");
+    // The state is in the accessible name, and the row is at full opacity: it changed state, not visibility.
+    expect(row.props.accessibilityLabel).toMatch(/Done today/);
+    expect(StyleSheet.flatten(row.props.style).opacity ?? 1).toBe(1);
+
+    // And the button has moved on to the next thing.
+    expect(screen.getByTestId("today-start").props.accessibilityLabel).toMatch(
+      /Sit/,
+    );
+  });
+
+  it("holds the page's shape while the plan loads, as one busy element", async () => {
+    mockLoadCatalogue.mockReturnValue(new Promise(() => undefined));
+    await renderScreen(<TodayScreen />);
+
+    await waitFor(() =>
+      expect(screen.getByTestId("today-loading")).toBeTruthy(),
+    );
+    expect(
+      screen.getByTestId("today-loading").props.accessibilityState,
+    ).toEqual({ busy: true });
+    expect(screen.queryByTestId("today-start")).toBeNull();
+    expect(screen.queryByTestId("today-plan")).toBeNull();
+  });
+
+  it("renders the coach line and the trail in Hebrew", async () => {
+    await i18n.changeLanguage("he-IL");
+    await renderScreen(<TodayScreen />, "rtl");
+
+    await waitFor(() => expect(screen.getByTestId("today-plan")).toBeTruthy());
+    expect(screen.getByTestId("today-greeting")).toHaveTextContent(/Libi/);
+    expect(screen.getByTestId("today-greeting")).toHaveTextContent(/[֐-׿]/);
+    expect(screen.getByTestId("today-start").props.accessibilityLabel).toMatch(
+      /[֐-׿]/,
+    );
   });
 });

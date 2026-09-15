@@ -12,6 +12,8 @@ export interface TextProps extends Omit<RNTextProps, "style"> {
   tone?: TextTone;
   /** Logical alignment. There is no `left`/`right` on purpose — see DESIGN_SYSTEM.md §RTL. */
   align?: TextAlignment;
+  /** Tabular figures for counters and times. */
+  tabular?: boolean;
   style?: RNTextProps["style"];
 }
 
@@ -23,12 +25,20 @@ export function Text({
   variant = "body",
   tone = "primary",
   align = "start",
+  tabular = false,
   style,
   ...rest
 }: TextProps) {
   const theme = useTheme();
   const direction = useDirection();
-  const resolved = resolveTextStyle({ variant, tone, align, direction, theme });
+  const resolved = resolveTextStyle({
+    variant,
+    tone,
+    align,
+    tabular,
+    direction,
+    theme,
+  });
 
   return (
     <RNText

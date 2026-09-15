@@ -4,6 +4,9 @@ import { Tabs, usePathname, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { Text, useTheme } from "@pawcue/ui";
 import { NavGlyph, type NavGlyphName } from "../../src/components/NavGlyph";
+import { DogAvatar } from "../../src/components/DogAvatar";
+import { useDogStore } from "../../src/state/dog-store";
+import { useDogPhotoStore } from "../../src/state/dog-photo-store";
 
 /**
  * The primary navigation.
@@ -65,6 +68,9 @@ function PawCueTabBar() {
   const router = useRouter();
   const pathname = usePathname();
   const { t } = useTranslation();
+  const dog = useDogStore((s) => s.dog);
+  const dogId = useDogStore((s) => s.dogId);
+  const photoUri = useDogPhotoStore((s) => s.photoFor(dogId));
 
   return (
     <View
@@ -72,7 +78,7 @@ function PawCueTabBar() {
         flexDirection: "row",
         backgroundColor: theme.colors.surface.raised,
         borderTopWidth: theme.border.hairline,
-        borderTopColor: theme.colors.border.subtle,
+        borderTopColor: theme.colors.border.separator,
         paddingTop: theme.space[2],
         // The home indicator sits under the bar; without this the last row of labels is unreachable.
         paddingBottom: insets.bottom + theme.space[2],
@@ -110,12 +116,42 @@ function PawCueTabBar() {
               justifyContent: "center",
             }}
           >
-            <NavGlyph name={destination.glyph} active={selected} />
+            {/*
+              The Dog tab is the one place the dog's own face sits in chrome: the owner's dog, drawn or
+              photographed, with a brand ring when selected. Before there is a dog, the generic mark.
+            */}
+            {destination.glyph === "nav-dog" && dogId ? (
+              <View
+                style={{
+                  width: 30,
+                  height: 30,
+                  borderRadius: 15,
+                  borderWidth: selected ? 2 : 0,
+                  borderColor: theme.colors.brand.primary,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <DogAvatar
+                  breed={dog?.breed ?? null}
+                  birthdate={dog?.birthdate ?? null}
+                  photoUri={photoUri}
+                  size={selected ? 26 : 28}
+                />
+              </View>
+            ) : (
+              <NavGlyph name={destination.glyph} active={selected} />
+            )}
             <Text
               variant="caption"
-              tone={selected ? "brand" : "muted"}
+              tone={selected ? "brand" : "secondary"}
               align="center"
               style={selected ? { fontWeight: "600" } : undefined}
+              /**
+               * A tab label that grows without limit wraps into a second and third line inside a 48pt bar. Capped
+               * at 1.3; above that the platform's own large-content viewer is the accessible route to the label.
+               */
+              maxFontSizeMultiplier={1.3}
             >
               {label}
             </Text>

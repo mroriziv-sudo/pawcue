@@ -8,6 +8,7 @@ import { useOnboardingStore } from "./onboarding-store";
 import { usePlanStore } from "./plan-store";
 import { useSessionStore } from "./session-store";
 import { useTrainingLogStore } from "./training-log-store";
+import { useDogPhotoStore } from "./dog-photo-store";
 
 /**
  * The two ways an identity leaves this device: sign-out and account deletion.
@@ -53,6 +54,7 @@ export async function forgetLocalIdentity(): Promise<void> {
     useOnboardingStore.getState().forget(),
     useSessionStore.getState().clear(),
     useTrainingLogStore.getState().clear(),
+    useDogPhotoStore.getState().clear(),
   ]);
   usePlanStore.getState().clear();
 

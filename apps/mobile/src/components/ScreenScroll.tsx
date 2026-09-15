@@ -53,19 +53,28 @@ export function ScreenScroll({
 }
 
 /**
- * A group of related rows under one heading.
+ * A group of related rows under one label.
  *
- * The grouping is the point, not the heading: a section heading governs everything until the next one, and Phase 4
+ * The grouping is the point, not the label: a section label governs everything until the next one, and Phase 4
  * shipped a bug where two navigation cards sat under a "Language" heading and were read as language options. This
  * makes the boundary explicit rather than implied by whatever happens to be rendered next.
+ *
+ * Rows inside a section touch (they share hairlines), so the default gap is 0 and the label-to-first-row space
+ * is the 8pt the label's own margin provides.
  */
 export function Section({
   children,
   gap,
+  testID,
 }: {
   children: React.ReactNode;
   gap?: number;
+  testID?: string;
 }) {
   const theme = useTheme();
-  return <View style={{ gap: gap ?? theme.space[2] }}>{children}</View>;
+  return (
+    <View style={{ gap: gap ?? theme.space[2] }} testID={testID}>
+      {children}
+    </View>
+  );
 }

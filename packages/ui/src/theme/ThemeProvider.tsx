@@ -8,9 +8,21 @@ import {
 } from "../tokens/theme";
 import type { Direction } from "../a11y/direction";
 
+/**
+ * A platform symbol renderer, injected by the app. Given a mark's name, size and colour it returns a node — an
+ * SF Symbol on iOS — or `null` to let the design system draw its own vector path. Kept as a callback rather than a
+ * component so the ui package never imports a platform module it cannot run under test.
+ */
+export type GlyphRenderer = (props: {
+  name: string;
+  size: number;
+  color: string;
+}) => React.ReactNode | null;
+
 interface ThemeContextValue {
   theme: AppTheme;
   direction: Direction;
+  renderGlyph: GlyphRenderer | null;
 }
 
 /**
@@ -21,6 +33,7 @@ interface ThemeContextValue {
 const ThemeContext = createContext<ThemeContextValue>({
   theme: defaultTheme,
   direction: I18nManager.isRTL ? "rtl" : "ltr",
+  renderGlyph: null,
 });
 
 export interface ThemeProviderProps {
@@ -31,19 +44,23 @@ export interface ThemeProviderProps {
    * the locale drive `I18nManager` so React Native's own logical-property handling stays in sync.
    */
   direction?: Direction;
+  /** Substitutes platform symbols for the standard marks. Absent under test and on platforms without a set. */
+  renderGlyph?: GlyphRenderer;
 }
 
 export function ThemeProvider({
   children,
   colorScheme,
   direction,
+  renderGlyph,
 }: ThemeProviderProps) {
   const value = useMemo<ThemeContextValue>(
     () => ({
       theme: colorScheme ? createTheme(colorScheme) : defaultTheme,
       direction: direction ?? (I18nManager.isRTL ? "rtl" : "ltr"),
+      renderGlyph: renderGlyph ?? null,
     }),
-    [colorScheme, direction],
+    [colorScheme, direction, renderGlyph],
   );
 
   return (
@@ -61,4 +78,8 @@ export function useDirection(): Direction {
 
 export function useIsRtl(): boolean {
   return useDirection() === "rtl";
+}
+
+export function useGlyphRenderer(): GlyphRenderer | null {
+  return useContext(ThemeContext).renderGlyph;
 }

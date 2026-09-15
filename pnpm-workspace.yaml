@@ -25,6 +25,12 @@ overrides:
 # `@expo/metro-runtime` that pnpm will not place inside expo-router's own node_modules. Hoisting the Expo/RN
 # runtime packages to the root makes them resolvable without switching the whole repo to `node-linker=hoisted`,
 # which would give up isolation for every dependency.
+#
+# Native modules (react-native-svg and the like) are installed in `apps/mobile` only and reach `packages/*` through
+# this hoist. A workspace library must not declare a native module even as a peer: pnpm auto-installs a workspace
+# project's own peers, and because the library's `react-native` resolves with a different peer set than the app's,
+# pnpm keys a second copy of the same version into the store. Metro then bundles both, and React Native throws
+# "Tried to register two views with the same name RNSVGCircle" on launch.
 publicHoistPattern:
   - "@expo/*"
   - "expo-*"

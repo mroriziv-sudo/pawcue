@@ -11,7 +11,9 @@
       "close": "Close",
       "tryAgain": "Try again",
       "setReminder": "Set reminder",
-      "skip": "Skip"
+      "skip": "Skip",
+      "clear": "Clear",
+      "back": "Back"
     },
     "nav": {
       "today": "Today",
@@ -20,7 +22,13 @@
       "progress": "Progress",
       "dog": "Dog"
     },
-    "greeting": "Good morning, {{name}}"
+    "greeting": "Good morning, {{name}}",
+    "list": {
+      "pair": "{{a}} and {{b}}",
+      "more": "{{a}}, {{b}}",
+      "and": " and ",
+      "comma": ", "
+    }
   },
   "clicker": {
     "freeTitle": "Your free dog clicker",
@@ -32,7 +40,9 @@
     "soundEffects": "Sound Effects",
     "haptics": "Haptics",
     "howToUse": "How to use a clicker",
-    "volume": "Volume"
+    "volume": "Volume",
+    "pressCount_one": "{{count}} click",
+    "pressCount_other": "{{count}} clicks"
   },
   "onboarding": {
     "goalQuestion": "What do you want help with most?",
@@ -48,17 +58,20 @@
         "placeholder": "e.g. Luna"
       },
       "birthdate": {
-        "title": "When were they born?",
-        "hint": "Optional — it helps us pitch training at the right level.",
-        "placeholder": "YYYY-MM-DD"
+        "title": "How old is {{name}}?",
+        "hint": "Roughly is fine. It helps us pitch training at the right level.",
+        "placeholder": "YYYY-MM-DD",
+        "titleNoName": "How old is your dog?"
       },
       "sex": {
-        "title": "Is your dog male or female?"
+        "title": "Is {{name}} a boy or a girl?",
+        "titleNoName": "Is your dog a boy or a girl?"
       },
       "breed": {
-        "title": "What breed are they?",
-        "hint": "Optional. A mix is fine — just write what you'd call them.",
-        "placeholder": "e.g. Border Collie mix"
+        "title": "What breed is {{name}}?",
+        "hint": "A mix is fine, and so is not knowing.",
+        "placeholder": "e.g. Border Collie mix",
+        "titleNoName": "What breed is your dog?"
       },
       "minutes": {
         "title": "How long can you train each day?",
@@ -66,8 +79,8 @@
       }
     },
     "sex": {
-      "female": "Female",
-      "male": "Male",
+      "female": "Girl",
+      "male": "Boy",
       "unspecified": "Prefer not to say"
     },
     "minutes": {
@@ -80,13 +93,13 @@
     "progressLabel": "Step {{current}} of {{total}}, {{percent}} percent complete",
     "next": "Continue",
     "back": "Back",
-    "skip": "Skip this",
-    "finish": "Create profile",
+    "skip": "Skip",
+    "finish": "Create {{name}}'s profile",
     "creating": "Creating your dog's profile…",
-    "welcomeTitle": "Welcome to PawCue",
-    "welcomeBody": "Let's set up your dog's profile. It takes about a minute, and you can change anything later.",
-    "welcomeCta": "Get started",
-    "welcomeSkip": "Just let me use the clicker",
+    "welcomeTitle": "Train your dog a few minutes a day.",
+    "welcomeBody": "A clicker that works right now, and a short plan built around your dog.",
+    "welcomeCta": "Add your dog",
+    "welcomeSkip": "Just use the clicker",
     "validation": {
       "nameRequired": "Your dog needs a name to continue.",
       "nameTooLong": "That name is too long.",
@@ -97,7 +110,20 @@
     },
     "error": {
       "createFailed": "We couldn't create the profile. Check your connection and try again."
-    }
+    },
+    "meet": "Meet {{name}}",
+    "welcomePoint": {
+      "clicker": "A real clicker, ready right now",
+      "plan": "A short daily plan built around your dog",
+      "coaching": "Step-by-step coaching for every lesson"
+    },
+    "minutesSentence": {
+      "5": "5 minutes is one short lesson.",
+      "10": "10 minutes is two or three short lessons.",
+      "15": "15 minutes is three or four lessons with breaks.",
+      "20": "20 minutes is a full session. Keep it playful."
+    },
+    "finishNoName": "Create profile"
   },
   "plan": {
     "generatingTitle": "Building {{dogName}}'s training plan",
@@ -405,7 +431,10 @@
       "durationLabel_other": "About {{count}} minutes",
       "stepsLabel_one": "{{count}} step",
       "stepsLabel_other": "{{count}} steps",
-      "prerequisiteTitle": "Not quite ready for this yet"
+      "prerequisiteTitle": "Not quite ready for this yet",
+      "facts": "{{duration}}, {{steps}}.",
+      "needNothing": "Nothing but your dog.",
+      "premiumTitle": "Premium lesson"
     },
     "equipment": {
       "treats": "Treats",
@@ -435,13 +464,35 @@
       "repetitionsRemaining_one": "{{count}} more to go",
       "repetitionsRemaining_other": "{{count}} more to go",
       "pause": "Pause",
-      "pauseHint": "Your progress in this lesson is saved."
+      "pauseHint": "Your progress in this lesson is saved.",
+      "cueClickTitle": "Mark it",
+      "cueClick": "Click the instant your dog gets it right, then reward straight away.",
+      "cueRepsTitle": "Repeat",
+      "cueReps_one": "Aim for {{count}} clean rep. Stop while it's still going well.",
+      "cueReps_other": "Aim for {{count}} clean reps. Stop while it's still going well.",
+      "cueRewardTitle": "Reward",
+      "cueReward": "Every success earns a treat — keep them small and quick.",
+      "repHint": "Count a rep only when your dog did it without help.",
+      "clickerInline": "Clicker",
+      "nowLabel": "Now",
+      "stepDone": "Step done",
+      "countIt": "Count it",
+      "ofTarget": "of {{target}}",
+      "clickToContinue": "Click to continue",
+      "notGettingIt": "{{name}} isn't getting it?",
+      "coachClick": "Click the instant your dog gets it right, then reward straight away.",
+      "coachReps_one": "Aim for {{count}} clean rep. Stop while it's still going well.",
+      "coachReps_other": "Aim for {{count}} clean reps. Stop while it's still going well.",
+      "undo": "Undo"
     },
     "troubleshooting": {
       "title": "Not working?",
       "subtitle": "Pick what you're seeing.",
       "backToTraining": "Back to training",
-      "escalationNotice": "This one is worth getting hands-on help with."
+      "escalationNotice": "This one is worth getting hands-on help with.",
+      "pickHint": "Choose the closest match for a quick fix.",
+      "whatIsDoing": "What's {{name}} doing?",
+      "findTrainer": "This one is worth getting hands-on help with. A qualified trainer can see what a screen can't."
     },
     "complete": {
       "title": "Nice work.",
@@ -454,7 +505,20 @@
       "clicksSummary_other": "{{count}} clicks",
       "nextTitle": "Next in today's plan",
       "nextAllDone": "That's today's plan finished.",
-      "backToToday": "Back to Today"
+      "backToToday": "Back to Today",
+      "summaryTitle": "This session",
+      "kicker": "Lesson complete",
+      "lessonDone": "{{lesson}}, done.",
+      "factReps_one": "{{count}} rep",
+      "factReps_other": "{{count}} reps",
+      "factClicks_one": "{{count}} click",
+      "factClicks_other": "{{count}} clicks",
+      "factMinutes_one": "about {{count}} minute",
+      "factMinutes_other": "about {{count}} minutes",
+      "facts": "{{reps}}, {{clicks}}, {{minutes}}.",
+      "factsNoClicks": "{{reps}}, {{minutes}}.",
+      "nextLine_one": "Next in today's plan: {{lesson}}, about {{minutes}} minute.",
+      "nextLine_other": "Next in today's plan: {{lesson}}, about {{minutes}} minutes."
     },
     "errors": {
       "unavailableTitle": "Lesson unavailable",
@@ -541,10 +605,10 @@
     "emptyTitle": "Nothing to train right now",
     "emptyBody": "You've covered everything that's ready for {{name}}. Come back tomorrow — practice becomes useful again after a rest.",
     "emptyBodyGeneric": "You've covered everything that's ready. Come back tomorrow.",
-    "noDogTitle": "Set up your dog to get a plan",
-    "noDogBody": "PawCue builds a short daily plan once it knows who it's training.",
-    "noDogCta": "Create a profile",
-    "clickerCta": "Open the clicker",
+    "noDogTitle": "Who are we training?",
+    "noDogBody": "Add your dog and PawCue builds a short plan for today.",
+    "noDogCta": "Add your dog",
+    "clickerCta": "Clicker",
     "offlineNotice": "Showing your saved plan.",
     "unavailableTitle": "Can't build a plan right now",
     "unavailableBody": "We couldn't reach the lesson library. Your training is safe — try again when you're back online.",
@@ -561,7 +625,36 @@
     "resumeCta": "Pick up where you left off",
     "clickerHint": "Mark the moment your dog gets it right.",
     "dogUnavailableTitle": "Can't reach your dog's profile right now",
-    "dogUnavailableBody": "Your training is safe on this device. The plan comes back as soon as you're online."
+    "dogUnavailableBody": "Your training is safe on this device. The plan comes back as soon as you're online.",
+    "planProgress": "{{done}} of {{count}} done",
+    "planProgressShort": "{{done}}/{{count}}",
+    "allDoneKicker": "Plan complete",
+    "heroCount_one": "{{count}} activity",
+    "heroCount_other": "{{count}} activities",
+    "coach": {
+      "new_skill": "Something new for {{name}}: {{lesson}}.",
+      "spaced_review": "Worth practising again: {{lesson}}.",
+      "prerequisite_unlocked": "{{name}} is ready for {{lesson}}.",
+      "continue_unfinished": "Pick up {{lesson}} where you left off.",
+      "resume": "Pick up {{lesson}} where you left off.",
+      "premiumFirst": "{{lesson}} is part of Premium."
+    },
+    "planSize_one": "{{count}} lesson, about {{minutes}} minutes.",
+    "planSize_other": "{{count}} lessons, about {{minutes}} minutes.",
+    "planLeft_one": "{{count}} left, about {{minutes}} minutes.",
+    "planLeft_other": "{{count}} left, about {{minutes}} minutes.",
+    "goalSentence_one": "Your goal is {{count}} minute a day.",
+    "goalSentence_other": "Your goal is {{count}} minutes a day.",
+    "startLesson": "Start {{lesson}}",
+    "continueLesson": "Continue {{lesson}}",
+    "sectionPlan": "Today's plan",
+    "rowMinutes_one": "About {{count}} minute.",
+    "rowMinutes_other": "About {{count}} minutes.",
+    "rowDoneAt": "Done at {{time}}.",
+    "rowPaused": "Paused. Pick up where you left off.",
+    "allDoneWith": "{{name}} practised {{lessons}}. Same time tomorrow.",
+    "practiseElse": "Practise something else",
+    "noDogClicker": "Just use the clicker"
   },
   "train": {
     "title": "Train",
@@ -613,15 +706,16 @@
     "groupToday": "Today",
     "groupYesterday": "Yesterday",
     "sessionsThatDay_one": "{{count}} session",
-    "sessionsThatDay_other": "{{count}} sessions"
+    "sessionsThatDay_other": "{{count}} sessions",
+    "withName": "with {{name}}."
   },
   "dogTab": {
     "title": "{{name}}",
-    "trainingTitle": "Training",
+    "trainingTitle": "Training together",
     "profileTitle": "Profile",
     "editProfile": "Edit profile",
     "settings": "Settings",
-    "account": "Save your progress",
+    "account": "Account",
     "noDogTitle": "No dog yet",
     "noDogBody": "Create a profile and PawCue can build training around your dog.",
     "ageYears_one": "{{count}} year old",
@@ -632,7 +726,39 @@
     "dailyGoal": "{{count}} minutes a day",
     "manageTitle": "Manage",
     "unavailableTitle": "Can't load the profile right now",
-    "unavailableBody": "We couldn't reach your dog's details. Nothing is lost — try again when you're back online."
+    "unavailableBody": "We couldn't reach your dog's details. Nothing is lost — try again when you're back online.",
+    "since": "Training together since {{month}}.",
+    "sessionsLabel": "sessions",
+    "lessonsLabel": "lessons learned",
+    "avatarNote": "{{name}}'s look comes from the breed. Change the breed to change it.",
+    "edit": "Edit",
+    "summarySessions_one": "{{count}} session",
+    "summarySessions_other": "{{count}} sessions",
+    "summarySkills_one": "{{count}} skill learned",
+    "summarySkills_other": "{{count}} skills learned",
+    "summary": "{{sessions}}, {{skills}}.",
+    "nothingYet": "Nothing trained yet. Today's plan is the place to start.",
+    "recentStrip": "Trained {{count}} of the last 14 days",
+    "knows": "What {{name}} knows",
+    "workingOn": "Working on",
+    "comingUp": "Coming up",
+    "goals": "Goals",
+    "about": "About {{name}}",
+    "allLessons": "All lessons",
+    "learned": "Learned {{date}}.",
+    "readyToStart": "Ready to start.",
+    "afterPrerequisite": "After the lesson that teaches it.",
+    "goalRow": "Daily goal",
+    "goalNotSet": "Not set",
+    "photoTitle": "{{name}}'s photo",
+    "choosePhoto": "Choose a photo",
+    "changePhoto": "Change photo",
+    "removePhoto": "Remove photo",
+    "photoNote": "The drawing stays for training scenes. A photo becomes {{name}}'s picture everywhere else, and stays on this device.",
+    "photoDenied": "PawCue can't open your photos. Allow access in Settings to add a picture.",
+    "photoFailed": "That photo couldn't be saved. Try another.",
+    "identityUnknown": "Add a breed and a birthday to complete the picture.",
+    "accountMeta": "Sign in to keep training on another device."
   },
   "billing": {
     "sectionTitle": "Subscription",
@@ -673,6 +799,49 @@
       "notConfigured": "In-app purchases aren't available in this build yet.",
       "verificationFailed": "Your purchase went through. We're still confirming it — this can take a minute.",
       "unknown": "Something went wrong. Please try again."
+    }
+  },
+  "fields": {
+    "birthdate": {
+      "ageLabel": "Roughly how old?",
+      "exactLabel": "Date of birth",
+      "exactHint": "Year, month, day — for example 2023-05-14",
+      "years_one": "{{count}} year",
+      "years_other": "{{count}} years",
+      "months_one": "{{count}} month",
+      "months_other": "{{count}} months",
+      "yearsWheel": "Years",
+      "monthsWheel": "Months",
+      "summary": "{{age}}, born around {{month}}.",
+      "exactToggle": "I know the exact date",
+      "roughToggle": "Roughly is fine"
+    },
+    "breed": {
+      "searchLabel": "Breed",
+      "searchPlaceholder": "Search breeds",
+      "popular": "Common breeds",
+      "results": "Results",
+      "selected": "Selected",
+      "useTyped": "Use “{{text}}”",
+      "noResults": "No breed matches that yet. You can keep what you typed.",
+      "typeForMore": "Type to find more breeds.",
+      "unknown": "Not sure",
+      "unknownHint": "You can add it later.",
+      "common": "Common",
+      "all": "All breeds",
+      "familyHint": "Looks like a {{family}} type, so {{name}} gets a {{family}}'s face.",
+      "clear": "Clear breed",
+      "family": {
+        "sporting": "retriever",
+        "herding": "shepherd",
+        "hound": "hound",
+        "working": "working dog",
+        "terrier": "terrier",
+        "toy": "toy dog",
+        "non_sporting": "companion dog",
+        "spitz": "spitz",
+        "mixed": "mixed breed"
+      }
     }
   }
 }

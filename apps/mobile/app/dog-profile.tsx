@@ -1,28 +1,45 @@
 import { useEffect, useState } from "react";
-import { ScrollView, TextInput, View } from "react-native";
+import { KeyboardAvoidingView, Platform, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { Text, Card, Button, useTheme, useDirection } from "@pawcue/ui";
-import { validateField, type OnboardingDraft } from "@pawcue/domain";
+import {
+  Text,
+  Button,
+  Glyph,
+  SegmentedControl,
+  TextField,
+  useTheme,
+} from "@pawcue/ui";
+import {
+  ONBOARDING_STEPS,
+  validateField,
+  type OnboardingDraft,
+} from "@pawcue/domain";
 import { useDogStore } from "../src/state/dog-store";
 import type { DogUpdate } from "../src/dogs/dog-repository";
-import { useTrainingLogStore } from "../src/state/training-log-store";
-import { syncPendingSessions } from "../src/sync/session-sync";
+import { DogAvatar } from "../src/components/DogAvatar";
+import { BirthdatePicker } from "../src/components/BirthdatePicker";
+import { BreedPicker } from "../src/components/BreedPicker";
+import { BackControl } from "../src/components/BackControl";
+import { SectionHeader } from "../src/components/SectionHeader";
+import { Section } from "../src/components/ScreenScroll";
+import { OptionTile } from "../src/components/OptionTile";
 
 /**
- * The dog's profile — view and edit.
+ * Editing the dog.
  *
- * Scope is deliberately exactly the fields onboarding collects. A profile screen is a natural place for settings,
- * sharing, photos and everything else to accumulate; none of that belongs to this phase, and a photo in
- * particular would mean a camera or photo-library permission the brief rules out.
+ * The Dog tab is the profile; this is only the editor, opened from its Edit control or from any fact row. It
+ * uses exactly the inputs onboarding used — the same wheels, the same tiles, the same breed search — so an owner
+ * who edits later sees the form they already know, and the same `validateField` rules, so a name that was
+ * refused during setup is refused here too. The dog's bust follows the breed being chosen: the avatar is the
+ * preview of the change.
  *
- * Validation is the same `validateField` onboarding uses, so a name that was refused during setup is refused
- * here too rather than by a second, slightly different rule.
+ * Scope is the fields the product acts on. A photo is chosen from the Dog tab, not here, because it is a
+ * picture rather than a fact.
  */
 export default function DogProfileScreen() {
   const theme = useTheme();
-  const direction = useDirection();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { t } = useTranslation();
@@ -31,31 +48,20 @@ export default function DogProfileScreen() {
   const dogId = useDogStore((s) => s.dogId);
   const refresh = useDogStore((s) => s.refresh);
   const update = useDogStore((s) => s.update);
-  const pendingSync = useTrainingLogStore((s) => s.completed).filter(
-    (item) => !item.syncedToServer,
-  );
 
-  const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState<OnboardingDraft>({});
+  const [form, setForm] = useState<OnboardingDraft>(() => ({
+    name: dog?.name ?? "",
+    birthdate: dog?.birthdate ?? "",
+    breed: dog?.breed ?? "",
+    sex: dog?.sex,
+    dailyTrainingMinutes: dog?.dailyTrainingMinutes ?? undefined,
+  }));
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
   useEffect(() => {
     void refresh();
   }, [refresh]);
-
-  const beginEdit = () => {
-    setForm({
-      name: dog?.name ?? "",
-      birthdate: dog?.birthdate ?? "",
-      breed: dog?.breed ?? "",
-      sex: dog?.sex,
-      dailyTrainingMinutes: dog?.dailyTrainingMinutes ?? undefined,
-    });
-    setError(null);
-    setEditing(true);
-  };
 
   const save = async () => {
     for (const field of ["name", "birthdate", "breed"] as const) {
@@ -71,18 +77,19 @@ export default function DogProfileScreen() {
     try {
       // Built key by key so an untouched field is absent from the patch rather than sent as undefined — with
       // `exactOptionalPropertyTypes` those are different things, and the second would clear a value the user
-      // never edited.
+      // never edited. Cleared optional fields become null, not "", so "not set" stays distinguishable.
       const patch: DogUpdate = {
-        // Cleared optional fields become null, not "", so "not set" stays distinguishable from "set to empty".
         birthdate: form.birthdate?.trim() ? form.birthdate.trim() : null,
         breed: form.breed?.trim() ? form.breed.trim() : null,
       };
       const name = form.name?.trim();
       if (name) patch.name = name;
       if (form.sex) patch.sex = form.sex;
+      if (typeof form.dailyTrainingMinutes === "number")
+        patch.daily_training_minutes = form.dailyTrainingMinutes;
 
       await update(patch);
-      setEditing(false);
+      router.back();
     } catch {
       setError(t("dogProfile.saveFailed"));
     } finally {
@@ -110,224 +117,171 @@ export default function DogProfileScreen() {
     );
   }
 
-  const inputStyle = {
-    borderWidth: theme.border.hairline,
-    borderColor: theme.colors.border.subtle,
-    borderRadius: theme.radius.sm,
-    backgroundColor: theme.colors.surface.raised,
-    paddingHorizontal: theme.space[3],
-    paddingVertical: theme.space[3],
-    fontSize: theme.typography.body.fontSize,
-    color: theme.colors.text.primary,
-    textAlign: direction === "rtl" ? ("right" as const) : ("left" as const),
-    writingDirection: direction,
-    minHeight: theme.minTouchTarget,
-  };
+  const nameError =
+    error && !validateField("name", form).ok ? error : undefined;
+  const birthdateError =
+    error && !validateField("birthdate", form).ok ? error : undefined;
+  const minuteChoices =
+    ONBOARDING_STEPS.find((step) => step.id === "dailyTrainingMinutes")
+      ?.choices ?? [];
+  const name = form.name?.trim() || dog?.name || "";
 
   return (
-    <ScrollView
+    <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: theme.colors.background.base }}
-      contentContainerStyle={{
-        paddingTop: insets.top + theme.space[4],
-        paddingBottom: insets.bottom + theme.space[8],
-        paddingHorizontal: theme.screenGutter,
-        gap: theme.space[4],
-      }}
-      testID="dog-profile"
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
-      <Text variant="h1" testID="dog-profile-title">
-        {t("dogProfile.title", { name: dog?.name ?? "" })}
-      </Text>
+      <ScrollView
+        contentContainerStyle={{
+          paddingTop: insets.top + theme.space[2],
+          paddingBottom: theme.space[6],
+          paddingHorizontal: theme.screenGutter,
+          gap: theme.space[6],
+        }}
+        keyboardShouldPersistTaps="handled"
+        testID="dog-profile"
+      >
+        <BackControl onPress={() => router.back()} testID="dog-profile-back" />
 
-      {editing ? (
-        <View style={{ gap: theme.space[3] }} testID="dog-profile-editor">
-          <Field label={t("dogProfile.fields.name")}>
-            <TextInput
-              value={form.name ?? ""}
-              onChangeText={(value) => setForm((f) => ({ ...f, name: value }))}
-              accessibilityLabel={t("dogProfile.fields.name")}
-              testID="edit-name"
-              maxFontSizeMultiplier={1.6}
-              style={inputStyle}
-            />
-          </Field>
-          <Field label={t("dogProfile.fields.birthdate")}>
-            <TextInput
-              value={form.birthdate ?? ""}
-              onChangeText={(value) =>
-                setForm((f) => ({ ...f, birthdate: value }))
-              }
-              placeholder="YYYY-MM-DD"
-              placeholderTextColor={theme.colors.text.disabled}
-              accessibilityLabel={t("dogProfile.fields.birthdate")}
-              testID="edit-birthdate"
-              maxFontSizeMultiplier={1.6}
-              style={inputStyle}
-            />
-          </Field>
-          <Field label={t("dogProfile.fields.breed")}>
-            <TextInput
-              value={form.breed ?? ""}
-              onChangeText={(value) => setForm((f) => ({ ...f, breed: value }))}
-              accessibilityLabel={t("dogProfile.fields.breed")}
-              testID="edit-breed"
-              maxFontSizeMultiplier={1.6}
-              style={inputStyle}
-            />
-          </Field>
-
-          {error ? (
-            <Text variant="small" tone="error" testID="edit-error">
-              {error}
-            </Text>
-          ) : null}
-
-          <Button
-            label={t("dogProfile.save")}
-            onPress={() => void save()}
-            loading={saving}
-            testID="save-profile"
-          />
-          <Button
-            label={t("dogProfile.cancel")}
-            variant="secondary"
-            onPress={() => setEditing(false)}
-            testID="cancel-edit"
-          />
-        </View>
-      ) : (
-        <View style={{ gap: theme.space[2] }} testID="dog-profile-summary">
-          <ReadOnly
-            label={t("dogProfile.fields.name")}
-            value={dog?.name}
-            testID="value-name"
-          />
-          <ReadOnly
-            label={t("dogProfile.fields.birthdate")}
-            value={dog?.birthdate}
-            testID="value-birthdate"
-          />
-          <ReadOnly
-            label={t("dogProfile.fields.sex")}
-            value={dog ? t(`onboarding.sex.${dog.sex}`) : null}
-            testID="value-sex"
-          />
-          <ReadOnly
-            label={t("dogProfile.fields.breed")}
-            value={dog?.breed}
-            testID="value-breed"
-          />
-          <ReadOnly
-            label={t("dogProfile.fields.minutes")}
-            value={
-              dog?.dailyTrainingMinutes
-                ? t(`onboarding.minutes.${dog.dailyTrainingMinutes}`)
-                : null
-            }
-            testID="value-minutes"
-          />
-
-          <Button
-            label={t("dogProfile.edit")}
-            onPress={beginEdit}
-            testID="edit-profile"
-          />
-        </View>
-      )}
-
-      {/*
-        Sync status, shown plainly rather than hidden.
-
-        A user who trained offline should be able to see that their sessions are safe and not yet uploaded, rather
-        than having to trust that something invisible is working.
-      */}
-      <Card padding="compact" testID="sync-status">
-        <View style={{ gap: theme.space[2] }}>
-          <Text variant="small" tone="muted" testID="sync-summary">
-            {pendingSync.length === 0
-              ? t("dogProfile.syncedAll")
-              : t("dogProfile.syncPending", { count: pendingSync.length })}
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: theme.space[4],
+          }}
+        >
+          <Text
+            variant="headline"
+            style={{ flex: 1 }}
+            accessibilityRole="header"
+            testID="dog-profile-title"
+          >
+            {t("dogProfile.title", { name })}
           </Text>
-          {pendingSync.length > 0 ? (
-            <Button
-              label={t("dogProfile.syncNow")}
-              variant="secondary"
-              onPress={() => {
-                void syncPendingSessions(dogId).then((outcome) => {
-                  setSyncMessage(
-                    outcome.status === "synced"
-                      ? t("dogProfile.syncedAll")
-                      : t("dogProfile.syncFailed"),
-                  );
-                });
-              }}
-              testID="sync-now"
+          {/* The face follows the breed being chosen — the avatar is the preview of the change. */}
+          <DogAvatar
+            breed={form.breed ?? null}
+            birthdate={form.birthdate ?? null}
+            size={72}
+          />
+        </View>
+
+        <View style={{ gap: theme.space[6] }} testID="dog-profile-editor">
+          <TextField
+            label={t("dogProfile.fields.name")}
+            value={form.name ?? ""}
+            onChangeText={(value) => setForm((f) => ({ ...f, name: value }))}
+            autoCapitalize="words"
+            autoCorrect={false}
+            {...(nameError ? { error: nameError } : {})}
+            testID="edit-name"
+          />
+
+          <Section gap={theme.space[3]}>
+            <SectionHeader title={t("dogProfile.fields.birthdate")} />
+            <BirthdatePicker
+              value={form.birthdate ?? ""}
+              onChange={(value) => setForm((f) => ({ ...f, birthdate: value }))}
+              inputTestID="edit-birthdate"
+              {...(birthdateError ? { error: birthdateError } : {})}
             />
-          ) : null}
-          {syncMessage ? (
-            <Text variant="caption" tone="muted" testID="sync-message">
-              {syncMessage}
-            </Text>
+          </Section>
+
+          <Section gap={theme.space[3]}>
+            <SectionHeader title={t("dogProfile.fields.sex")} />
+            <View style={{ flexDirection: "row", gap: theme.space[3] }}>
+              {(["female", "male"] as const).map((value) => (
+                <OptionTile
+                  key={value}
+                  label={t(`onboarding.sex.${value}`)}
+                  selected={form.sex === value}
+                  onPress={() => setForm((f) => ({ ...f, sex: value }))}
+                  minHeight={64}
+                  testID={`edit-sex-${value}`}
+                />
+              ))}
+            </View>
+            <View style={{ alignItems: "flex-start" }}>
+              <Button
+                label={t("onboarding.sex.unspecified")}
+                variant="tertiary"
+                size="md"
+                fullWidth={false}
+                onPress={() => setForm((f) => ({ ...f, sex: "unspecified" }))}
+                testID="edit-sex-unspecified"
+              />
+            </View>
+          </Section>
+
+          <Section gap={theme.space[3]}>
+            <SectionHeader title={t("dogProfile.fields.breed")} />
+            <BreedPicker
+              value={form.breed ?? ""}
+              onChange={(value) => setForm((f) => ({ ...f, breed: value }))}
+              inputTestID="edit-breed"
+              dogName={name}
+              compact
+            />
+          </Section>
+
+          <Section gap={theme.space[3]}>
+            <SectionHeader title={t("dogProfile.fields.minutes")} />
+            <SegmentedControl
+              options={minuteChoices.map((choice) => ({
+                value: Number(choice.value),
+                label: t(choice.labelKey),
+              }))}
+              value={form.dailyTrainingMinutes ?? null}
+              onChange={(value) =>
+                setForm((f) => ({ ...f, dailyTrainingMinutes: value }))
+              }
+              accessibilityLabel={t("dogProfile.fields.minutes")}
+              testID="edit-minutes"
+            />
+          </Section>
+
+          {/* Field errors are shown on their field; anything else — a failed save — is shown here once. */}
+          {error && !nameError && !birthdateError ? (
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: theme.space[2],
+              }}
+              accessibilityRole="alert"
+            >
+              <Glyph name="alert" size={16} color={theme.colors.text.error} />
+              <Text
+                variant="secondary"
+                tone="error"
+                style={{ flex: 1 }}
+                testID="edit-error"
+              >
+                {error}
+              </Text>
+            </View>
           ) : null}
         </View>
-      </Card>
+      </ScrollView>
 
-      <Button
-        label={t("common.cta.close")}
-        variant="secondary"
-        onPress={() => router.back()}
-        testID="close-profile"
-      />
-    </ScrollView>
-  );
-}
-
-function Field({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  const theme = useTheme();
-  return (
-    <View style={{ gap: theme.space[1] }}>
-      <Text variant="small" tone="muted">
-        {label}
-      </Text>
-      {children}
-    </View>
-  );
-}
-
-function ReadOnly({
-  label,
-  value,
-  testID,
-}: {
-  label: string;
-  value: string | null | undefined;
-  testID: string;
-}) {
-  const theme = useTheme();
-  const { t } = useTranslation();
-  return (
-    <Card padding="compact">
       <View
         style={{
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
+          paddingHorizontal: theme.screenGutter,
+          paddingTop: theme.space[3],
+          paddingBottom: insets.bottom + theme.space[4],
           gap: theme.space[2],
+          borderTopWidth: theme.border.hairline,
+          borderTopColor: theme.colors.border.separator,
+          backgroundColor: theme.colors.background.base,
         }}
       >
-        <Text variant="small" tone="muted">
-          {label}
-        </Text>
-        <Text variant="body" testID={testID}>
-          {value || t("dogProfile.notSet")}
-        </Text>
+        <Button
+          label={t("dogProfile.save")}
+          onPress={() => void save()}
+          loading={saving}
+          testID="save-profile"
+        />
       </View>
-    </Card>
+    </KeyboardAvoidingView>
   );
 }

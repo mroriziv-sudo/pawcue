@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Switch, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { Text, Card, Button, useTheme } from "@pawcue/ui";
+import { Text, Button, Row, useTheme } from "@pawcue/ui";
 import { AccountDeletionError } from "../src/providers/SupabaseAuthProvider";
 import { useBootstrapStore } from "../src/state/bootstrap-store";
 import {
@@ -70,10 +70,14 @@ export default function DeleteAccountScreen() {
   if (phase === "deleted") {
     return (
       <ScreenScroll testID="delete-account-done">
-        <Text variant="h1" testID="delete-account-done-title">
+        <Text
+          variant="headline"
+          accessibilityRole="header"
+          testID="delete-account-done-title"
+        >
           {t("account.delete.doneTitle")}
         </Text>
-        <Text variant="body" tone="muted">
+        <Text variant="body" tone="secondary">
           {t("account.delete.doneBody")}
         </Text>
         <Button
@@ -87,10 +91,14 @@ export default function DeleteAccountScreen() {
 
   return (
     <ScreenScroll testID="delete-account-screen">
-      <Text variant="h1" testID="delete-account-title">
+      <Text
+        variant="headline"
+        accessibilityRole="header"
+        testID="delete-account-title"
+      >
         {t("account.delete.title")}
       </Text>
-      <Text variant="body" tone="muted" testID="delete-account-body">
+      <Text variant="body" tone="secondary" testID="delete-account-body">
         {isGuest
           ? t("account.delete.guestBody")
           : t("account.delete.accountBody")}
@@ -98,54 +106,46 @@ export default function DeleteAccountScreen() {
 
       <Section>
         <SectionHeader title={t("account.delete.consequencesTitle")} />
-        <Card padding="compact">
-          <View style={{ gap: theme.space[2] }}>
-            <Text variant="body">• {t("account.delete.consequenceDog")}</Text>
-            <Text variant="body">
-              • {t("account.delete.consequenceHistory")}
-            </Text>
-            {isGuest ? null : (
-              <Text variant="body" testID="delete-account-consequence-account">
-                • {t("account.delete.consequenceAccount")}
-              </Text>
-            )}
-          </View>
-        </Card>
-        <Card padding="compact">
-          <Text
-            variant="small"
-            tone="muted"
-            testID="delete-account-subscription"
-          >
-            {t("account.delete.subscriptionNote")}
-          </Text>
-        </Card>
+        <Row title={t("account.delete.consequenceDog")} />
+        <Row
+          title={t("account.delete.consequenceHistory")}
+          separator={!isGuest}
+        />
+        {isGuest ? null : (
+          <Row
+            title={t("account.delete.consequenceAccount")}
+            separator={false}
+            testID="delete-account-consequence-account"
+          />
+        )}
+        <Text
+          variant="secondary"
+          tone="secondary"
+          style={{ paddingTop: theme.space[2] }}
+          testID="delete-account-subscription"
+        >
+          {t("account.delete.subscriptionNote")}
+        </Text>
       </Section>
 
-      <Card padding="compact">
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: theme.space[3],
-          }}
-        >
-          <Text variant="body" style={{ flex: 1 }}>
-            {t("account.delete.acknowledge")}
-          </Text>
+      <Row
+        title={t("account.delete.acknowledge")}
+        separator={false}
+        trailingInteractive
+        trailing={
           <Switch
             value={acknowledged}
             onValueChange={setAcknowledged}
             disabled={phase !== "idle"}
             accessibilityLabel={t("account.delete.acknowledge")}
+            trackColor={{ true: theme.colors.status.error }}
             testID="delete-account-acknowledge"
           />
-        </View>
-      </Card>
+        }
+      />
 
       {message ? (
-        <Text variant="small" tone="error" testID="delete-account-message">
+        <Text variant="secondary" tone="error" testID="delete-account-message">
           {message}
         </Text>
       ) : null}

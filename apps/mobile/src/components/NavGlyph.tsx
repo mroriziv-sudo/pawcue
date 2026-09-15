@@ -1,133 +1,119 @@
-import { View } from "react-native";
+import Svg, { Circle, Path } from "react-native-svg";
 import { Icon, useTheme } from "@pawcue/ui";
 
 export type NavGlyphName =
   "nav-today" | "nav-train" | "nav-progress" | "nav-dog";
 
 /**
- * The four primary-navigation glyphs.
+ * The four primary-navigation marks.
  *
- * Drawn from primitives rather than pulled from an icon library: the design system's `Icon` deliberately renders
- * whatever children it is given, and adding a font or SVG dependency for four shapes would be a large amount of
- * weight for a small amount of art. They are simple on purpose — this is navigation, not decoration.
+ * Drawn on the same 24-unit grid and at the same stroke weight as the product's other marks, so the tab bar
+ * belongs to the same hand as the rest of the interface. Each says what its destination *is* — a day, an open
+ * notebook of lessons, a route with three stops, a dog — rather than borrowing an abstract shape from a kit.
  *
  * `Icon` wraps each one so RTL mirroring stays a single registered decision per glyph (see icon-mirroring.ts):
- * `nav-progress` mirrors because ascending bars read as growth along the reading direction; the other three are
+ * `nav-progress` mirrors because a route reads along the reading direction; the other three are
  * orientation-independent and do not.
+ *
+ * The active state is a fill, not only a tint: the tab bar also bolds the label and marks the tab selected for
+ * assistive technology.
  */
 export function NavGlyph({
   name,
   active,
-  size = 24,
+  size = 28,
 }: {
   name: NavGlyphName;
   active: boolean;
   size?: number;
 }) {
   const theme = useTheme();
-  // Colour alone never carries the selected state — the tab bar also bolds the label and marks it selected for
-  // assistive technology. This is reinforcement, not the signal.
-  const tint = active ? theme.colors.brand.primary : theme.colors.text.muted;
-  const unit = size / 6;
+  const tint = active
+    ? theme.colors.brand.primary
+    : theme.colors.text.secondary;
+  const stroke = {
+    stroke: tint,
+    strokeWidth: 1.8,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+    fill: "none",
+  };
 
   return (
     <Icon name={name} size={size}>
-      {name === "nav-today" ? (
-        // A day: a rounded square with a filled marker, like a date on a calendar.
-        <View
-          style={{
-            width: unit * 5,
-            height: unit * 5,
-            borderRadius: unit * 1.4,
-            borderWidth: 2,
-            borderColor: tint,
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <View
-            style={{
-              width: unit * 1.6,
-              height: unit * 1.6,
-              borderRadius: unit,
-              backgroundColor: tint,
-            }}
-          />
-        </View>
-      ) : null}
-
-      {name === "nav-train" ? (
-        // A stack of lessons: three stacked bars, the top one emphasised.
-        <View style={{ gap: unit * 0.7, alignItems: "center" }}>
-          {[0, 1, 2].map((row) => (
-            <View
-              key={row}
-              style={{
-                width: unit * 5,
-                height: unit * 0.9,
-                borderRadius: unit * 0.45,
-                backgroundColor: tint,
-                opacity: row === 0 ? 1 : 0.45,
-              }}
+      <Svg width={size} height={size} viewBox="0 0 24 24">
+        {name === "nav-today" ? (
+          // A day: the sun over a low horizon.
+          <>
+            <Path d="M4 18.5h16" {...stroke} />
+            <Path
+              d="M7 18.5a5 5 0 0 1 10 0"
+              {...stroke}
+              fill={active ? tint : "none"}
             />
-          ))}
-        </View>
-      ) : null}
-
-      {name === "nav-progress" ? (
-        // Ascending bars. Mirrored in RTL so growth follows the reading direction.
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "flex-end",
-            gap: unit * 0.6,
-          }}
-        >
-          {[2, 3.4, 4.8].map((height, index) => (
-            <View
-              key={index}
-              style={{
-                width: unit * 1.1,
-                height: unit * height,
-                borderRadius: unit * 0.5,
-                backgroundColor: tint,
-                opacity: index === 2 ? 1 : 0.5,
-              }}
+            <Path
+              d="M12 6.5v2.2M6.3 9.3l1.6 1.6M17.7 9.3l-1.6 1.6"
+              {...stroke}
             />
-          ))}
-        </View>
-      ) : null}
+          </>
+        ) : null}
 
-      {name === "nav-dog" ? (
-        // A paw: three toes over a pad.
-        <View style={{ alignItems: "center", gap: unit * 0.35 }}>
-          <View style={{ flexDirection: "row", gap: unit * 0.45 }}>
-            {[0, 1, 2].map((toe) => (
-              <View
-                key={toe}
-                style={{
-                  width: unit * 1.15,
-                  height: unit * 1.35,
-                  borderRadius: unit,
-                  backgroundColor: tint,
-                  opacity: toe === 1 ? 1 : 0.75,
-                }}
-              />
-            ))}
-          </View>
-          <View
-            style={{
-              width: unit * 3.6,
-              height: unit * 2.4,
-              borderTopStartRadius: unit * 1.8,
-              borderTopEndRadius: unit * 1.8,
-              borderBottomStartRadius: unit * 1.2,
-              borderBottomEndRadius: unit * 1.2,
-              backgroundColor: tint,
-            }}
-          />
-        </View>
-      ) : null}
+        {name === "nav-train" ? (
+          // An open notebook: the lessons.
+          <>
+            <Path
+              d="M12 7.2c-2.2-1.4-4.8-1.6-8-.9v11.5c3.2-.7 5.8-.5 8 .9"
+              {...stroke}
+              fill={active ? tint : "none"}
+            />
+            <Path
+              d="M12 7.2c2.2-1.4 4.8-1.6 8-.9v11.5c-3.2-.7-5.8-.5-8 .9"
+              {...stroke}
+              fill={active ? tint : "none"}
+            />
+            <Path d="M12 7.2v11.5" {...stroke} />
+          </>
+        ) : null}
+
+        {name === "nav-progress" ? (
+          // A route with three stops, reading along the line.
+          <>
+            <Path d="M6.6 15.6l3.9-4.2M13.6 9.4l3.6-2" {...stroke} />
+            <Circle cx={5} cy={17.5} r={2.2} fill={tint} />
+            <Circle
+              cx={12}
+              cy={10}
+              r={2.2}
+              {...stroke}
+              fill={active ? tint : "none"}
+            />
+            <Circle
+              cx={19}
+              cy={6.2}
+              r={2.2}
+              {...stroke}
+              fill={active ? tint : "none"}
+            />
+          </>
+        ) : null}
+
+        {name === "nav-dog" ? (
+          // A dog, head on: two ears, a muzzle.
+          <>
+            <Path
+              d="M7.2 6.6C6.4 5 4.6 4.6 3.6 5.2c-.7.4-.6 2.6.2 4.6.4 1 .3 1.6.1 2.4-.6 2.5.7 5.7 4.2 7.1 1.2.5 2.6.7 3.9.7s2.7-.2 3.9-.7c3.5-1.4 4.8-4.6 4.2-7.1-.2-.8-.3-1.4.1-2.4.8-2 .9-4.2.2-4.6-1-.6-2.8-.2-3.6 1.4-1.4-.6-3.2-.8-4.8-.8s-3.4.2-4.8.8z"
+              {...stroke}
+              fill={active ? tint : "none"}
+            />
+            <Circle
+              cx={12}
+              cy={15.2}
+              r={1.5}
+              fill={active ? theme.colors.background.base : tint}
+            />
+          </>
+        ) : null}
+      </Svg>
     </Icon>
   );
 }

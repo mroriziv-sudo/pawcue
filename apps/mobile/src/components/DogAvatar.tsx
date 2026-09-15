@@ -1,0 +1,277 @@
+import { useMemo } from "react";
+import { Image, View } from "react-native";
+import Svg, { Circle, Ellipse, G, Path } from "react-native-svg";
+import { useIsRtl, useTheme } from "@pawcue/ui";
+import { lookFor, type DogLook } from "../dogs/breed-lookup";
+import {
+  drawDog,
+  type DogExpression,
+  type DogPose,
+  type Shape,
+} from "../dogs/dog-art";
+import { monthsSince } from "./BirthdatePicker";
+import { Crossfade } from "./Crossfade";
+
+export type { DogExpression, DogPose };
+
+/** Under a year the dog is drawn as a puppy; past nine, with a grey muzzle. */
+const PUPPY_MONTHS = 12;
+const SENIOR_MONTHS = 9 * 12;
+
+export interface DogAvatarProps {
+  breed: string | null | undefined;
+  birthdate?: string | null;
+  size?: number;
+  /** Bust in rows and headers; scene (full body) where the moment carries emotion. */
+  pose?: DogPose;
+  expression?: DogExpression;
+  /** A photo of the dog. Replaces the drawn bust; the scene stays drawn, because a photo cannot pose. */
+  photoUri?: string | null;
+  /** Read by assistive technology only when the dog is the subject; otherwise the avatar is decorative. */
+  accessibilityLabel?: string;
+  testID?: string;
+}
+
+/**
+ * The dog.
+ *
+ * Every dog in the app is this character: drawn from `dog-art.ts` through the breed hierarchy in `lookFor` —
+ * exact breed where the dataset knows it, the breed family otherwise, a friendly mixed breed when nothing is
+ * known — so a "lab mix" typed by hand still gets a retriever's face in a mixed coat. The bust sits on a paper
+ * disc with a hairline ring; the scene stands on nothing.
+ *
+ * A photo, when the owner has added one, takes the bust's place: it is the dog's identity. The illustration
+ * stays for every scene, because it can sit, rest and look puzzled, and a photo cannot.
+ *
+ * Under RTL the drawing is mirrored so the dog's asymmetries (the tail, the half-pricked ear) turn with the
+ * layout and the character keeps looking toward the text beside it.
+ */
+export function DogAvatar({
+  breed,
+  birthdate,
+  size = 56,
+  pose = "bust",
+  expression = "attentive",
+  photoUri,
+  accessibilityLabel,
+  testID,
+}: DogAvatarProps) {
+  const look = useMemo(() => lookFor(breed), [breed]);
+  const months = birthdate ? monthsSince(birthdate) : null;
+  const puppy = months !== null && months < PUPPY_MONTHS;
+  const senior = months !== null && months >= SENIOR_MONTHS;
+
+  // What the dog looks like, as a key: a change cross-fades rather than swaps.
+  const stateKey = [
+    photoUri && pose === "bust" ? `photo:${photoUri}` : "drawn",
+    look.breedId ?? look.group,
+    look.ears,
+    puppy ? "puppy" : senior ? "senior" : "adult",
+    pose,
+    expression,
+  ].join("|");
+
+  return (
+    <Crossfade stateKey={stateKey}>
+      {photoUri && pose === "bust" ? (
+        <DogPhoto
+          uri={photoUri}
+          size={size}
+          {...(accessibilityLabel ? { accessibilityLabel } : {})}
+          {...(testID ? { testID } : {})}
+        />
+      ) : (
+        <DogFace
+          look={look}
+          size={size}
+          pose={pose}
+          expression={expression}
+          puppy={puppy}
+          senior={senior}
+          {...(accessibilityLabel ? { accessibilityLabel } : {})}
+          {...(testID ? { testID } : {})}
+        />
+      )}
+    </Crossfade>
+  );
+}
+
+/** The drawing for a resolved look — exported so the breed picker and the dev preview can show a face by look. */
+export function DogFace({
+  look,
+  size,
+  pose = "bust",
+  expression = "attentive",
+  puppy = false,
+  senior = false,
+  accessibilityLabel,
+  testID,
+}: {
+  look: DogLook;
+  size: number;
+  pose?: DogPose;
+  expression?: DogExpression;
+  puppy?: boolean;
+  senior?: boolean;
+  accessibilityLabel?: string;
+  testID?: string;
+}) {
+  const theme = useTheme();
+  const rtl = useIsRtl();
+  const drawing = useMemo(
+    () =>
+      drawDog({
+        group: look.group,
+        size: look.size,
+        ears: look.ears,
+        ...(look.breedId ? { breedId: look.breedId } : {}),
+        puppy,
+        senior,
+        pose,
+        expression,
+      }),
+    [
+      look.group,
+      look.size,
+      look.ears,
+      look.breedId,
+      puppy,
+      senior,
+      pose,
+      expression,
+    ],
+  );
+  const [x, y, w, h] = drawing.viewBox;
+  const height = pose === "scene" ? (size * h) / w : size;
+  const decorative = !accessibilityLabel;
+
+  return (
+    <View
+      accessibilityElementsHidden={decorative}
+      importantForAccessibility={decorative ? "no-hide-descendants" : "yes"}
+      {...(accessibilityLabel
+        ? {
+            accessible: true,
+            accessibilityRole: "image" as const,
+            accessibilityLabel,
+          }
+        : {})}
+      testID={testID}
+      style={{
+        width: size,
+        height,
+        ...(pose === "bust"
+          ? {
+              borderRadius: size / 2,
+              backgroundColor: theme.colors.background.base,
+              borderWidth: theme.border.hairline,
+              borderColor: theme.colors.border.separator,
+              overflow: "hidden",
+            }
+          : {}),
+        // The hairline sits outside the drawing, so the canvas is inset by it.
+        ...(pose === "bust" ? { padding: 0 } : {}),
+      }}
+    >
+      <Svg
+        width={pose === "bust" ? size - 2 * theme.border.hairline : size}
+        height={pose === "bust" ? size - 2 * theme.border.hairline : height}
+        viewBox={`${x} ${y} ${w} ${h}`}
+        style={rtl ? { transform: [{ scaleX: -1 }] } : undefined}
+      >
+        <G>{drawing.shapes.map((shape, index) => renderShape(shape, index))}</G>
+      </Svg>
+    </View>
+  );
+}
+
+function renderShape(shape: Shape, index: number) {
+  switch (shape.kind) {
+    case "ellipse":
+      return (
+        <Ellipse
+          key={index}
+          cx={shape.cx}
+          cy={shape.cy}
+          rx={shape.rx}
+          ry={shape.ry}
+          fill={shape.fill}
+          {...(shape.rotate
+            ? { transform: `rotate(${shape.rotate} ${shape.cx} ${shape.cy})` }
+            : {})}
+        />
+      );
+    case "circle":
+      return (
+        <Circle
+          key={index}
+          cx={shape.cx}
+          cy={shape.cy}
+          r={shape.r}
+          fill={shape.fill}
+        />
+      );
+    case "path": {
+      const origin = shape.origin ?? [0, 0];
+      return (
+        <Path
+          key={index}
+          d={shape.d}
+          fill={shape.fill ?? "none"}
+          {...(shape.stroke
+            ? {
+                stroke: shape.stroke,
+                strokeWidth: shape.width ?? 2,
+                strokeLinecap: "round" as const,
+                strokeLinejoin: "round" as const,
+              }
+            : {})}
+          {...(shape.rotate
+            ? { transform: `rotate(${shape.rotate} ${origin[0]} ${origin[1]})` }
+            : {})}
+        />
+      );
+    }
+  }
+}
+
+/** The owner's photo, cropped to the same disc and ring as the drawn bust. */
+function DogPhoto({
+  uri,
+  size,
+  accessibilityLabel,
+  testID,
+}: {
+  uri: string;
+  size: number;
+  accessibilityLabel?: string;
+  testID?: string;
+}) {
+  const theme = useTheme();
+  const decorative = !accessibilityLabel;
+  return (
+    <View
+      accessibilityElementsHidden={decorative}
+      importantForAccessibility={decorative ? "no-hide-descendants" : "yes"}
+      testID={testID}
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        borderWidth: theme.border.hairline,
+        borderColor: theme.colors.border.separator,
+        backgroundColor: theme.colors.background.base,
+        overflow: "hidden",
+      }}
+    >
+      <Image
+        source={{ uri }}
+        style={{ width: "100%", height: "100%" }}
+        resizeMode="cover"
+        {...(accessibilityLabel
+          ? { accessible: true, accessibilityLabel }
+          : { accessible: false })}
+      />
+    </View>
+  );
+}

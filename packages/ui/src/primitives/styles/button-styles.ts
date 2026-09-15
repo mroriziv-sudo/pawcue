@@ -11,10 +11,15 @@ import type { TextTone } from "./text-styles";
  * `destructive` is for the one irreversible action the product has (account deletion). It is a bordered, raised
  * button in the status error colour — visually unlike the primary CTA so it cannot be mistaken for "continue",
  * and never the default or the only enabled control on a screen.
+ *
+ * `inverted` is the primary action when it sits *on* the brand surface — the ivory button inside the Evergreen hero.
+ * A brand-coloured button on a brand-coloured card would vanish; this keeps one primary action per screen while
+ * letting that action live inside the one dark card.
  */
 export type ButtonVariant =
-  "primary" | "secondary" | "tertiary" | "destructive";
-export type ButtonSize = "md" | "lg";
+  "primary" | "secondary" | "tertiary" | "destructive" | "inverted";
+/** md 48: a compact control. lg 52: the standard full-width button. xl 56: the one control a busy hand reaches for in a session. */
+export type ButtonSize = "md" | "lg" | "xl";
 
 export interface ButtonStyleOptions {
   variant: ButtonVariant;
@@ -39,13 +44,19 @@ const SIZE_SPEC = {
   md: {
     minHeight: 48,
     paddingH: 20,
-    radius: "button",
+    radius: "control",
     labelVariant: "buttonCompact",
   },
   lg: {
+    minHeight: 52,
+    paddingH: 24,
+    radius: "control",
+    labelVariant: "button",
+  },
+  xl: {
     minHeight: 56,
     paddingH: 24,
-    radius: "buttonLarge",
+    radius: "control",
     labelVariant: "button",
   },
 } as const;
@@ -112,6 +123,14 @@ export function resolveButtonStyle({
         borderWidth: theme.border.focus,
       };
       labelTone = "error";
+      break;
+    case "inverted":
+      container = {
+        ...base,
+        backgroundColor: theme.colors.background.base,
+        borderColor: theme.colors.background.base,
+      };
+      labelTone = "brand";
       break;
   }
 

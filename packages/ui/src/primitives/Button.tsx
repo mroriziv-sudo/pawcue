@@ -10,8 +10,9 @@ import {
 
 export interface ButtonProps extends Pick<
   AccessibilityProps,
-  "accessibilityHint"
+  "accessibilityHint" | "accessibilityLabel"
 > {
+  /** The visible label. Also the accessible name unless `accessibilityLabel` says more. */
   label: string;
   onPress: () => void;
   variant?: ButtonVariant;
@@ -34,6 +35,7 @@ export function Button({
   fullWidth = true,
   icon,
   accessibilityHint,
+  accessibilityLabel,
   testID,
 }: ButtonProps) {
   const theme = useTheme();
@@ -54,7 +56,7 @@ export function Button({
       disabled={isInactive}
       style={resolved.container}
       accessibilityRole="button"
-      accessibilityLabel={label}
+      accessibilityLabel={accessibilityLabel ?? label}
       accessibilityHint={accessibilityHint}
       /**
        * State is announced, not merely drawn. `busy` tells a screen-reader user that a spinner is showing, which

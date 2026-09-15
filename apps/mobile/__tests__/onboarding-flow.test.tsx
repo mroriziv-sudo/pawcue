@@ -155,15 +155,30 @@ describe("moving through the flow", () => {
     );
   });
 
-  it("rejects a malformed birthdate even though the step is optional", async () => {
+  it("writes a real date from the age wheels, so a malformed birthdate cannot be entered", async () => {
     useOnboardingStore.setState({ draft: { name: "Luna" }, stepIndex: 1 });
     await renderSteps();
 
-    await fireEvent.changeText(screen.getByTestId("input-birthdate"), "soon");
-    await fireEvent.press(screen.getByTestId("onboarding-next"));
+    // The wheels are the platform's own; the only thing they can produce is a whole number of years and months.
+    await fireEvent(screen.getByTestId("input-birthdate-years"), "change", {
+      nativeEvent: { newValue: 2, newIndex: 2 },
+    });
 
     await waitFor(() =>
-      expect(screen.getByTestId("validation-message")).toBeTruthy(),
+      expect(useOnboardingStore.getState().draft.birthdate).toMatch(
+        /^\d{4}-\d{2}-\d{2}$/,
+      ),
+    );
+    // And it reads the choice back as a sentence.
+    expect(screen.getByTestId("input-birthdate-summary")).toHaveTextContent(
+      /2 years/,
+    );
+
+    await fireEvent.press(screen.getByTestId("onboarding-next"));
+    await waitFor(() =>
+      expect(screen.getByTestId("onboarding-progress")).toHaveTextContent(
+        "Step 3 of 5",
+      ),
     );
   });
 

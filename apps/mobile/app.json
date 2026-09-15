@@ -110,7 +110,16 @@
           "enableBackgroundPlayback": false
         }
       ],
-      "expo-apple-authentication"
+      "expo-apple-authentication",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "PawCue uses your photo library only to set a picture for your dog's profile.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
+      ],
+      "@react-native-community/datetimepicker"
     ],
     "experiments": {
       "typedRoutes": true

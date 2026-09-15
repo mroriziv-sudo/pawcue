@@ -73,6 +73,8 @@ describe("developer-only clicker sound selector", () => {
     expect(view.queryByTestId("diagnostics")).toBeNull();
     // Including the Phase 5 plan inspector, which shows engine reasoning a user must never see.
     expect(view.queryByTestId("open-dev-plan")).toBeNull();
+    // And the UI preview, which renders fixtures a user must never mistake for their own dog.
+    expect(view.queryByTestId("open-dev-preview")).toBeNull();
   });
 
   it("still renders the real settings when the developer blocks are gone", async () => {

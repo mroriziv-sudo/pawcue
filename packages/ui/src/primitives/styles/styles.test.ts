@@ -3,7 +3,11 @@ import { createTheme } from "../../tokens/theme";
 import { resolveTextStyle } from "./text-styles";
 import { resolveButtonStyle } from "./button-styles";
 import { resolveCardStyle } from "./card-styles";
-import { contrastRatio, AA_NORMAL_TEXT } from "../../a11y/contrast";
+import {
+  contrastRatio,
+  AA_NORMAL_TEXT,
+  AA_NON_TEXT,
+} from "../../a11y/contrast";
 
 const theme = createTheme();
 
@@ -63,6 +67,41 @@ describe("text styles", () => {
     ).toBe("rtl");
   });
 
+  it("gives Hebrew more line height and drops Latin tracking", () => {
+    const latin = resolveTextStyle({
+      variant: "headline",
+      direction: "ltr",
+      theme,
+    }).style;
+    const hebrew = resolveTextStyle({
+      variant: "headline",
+      direction: "rtl",
+      theme,
+    }).style;
+    expect(latin.letterSpacing).toBeLessThan(0);
+    expect(hebrew.letterSpacing).toBeUndefined();
+    expect(hebrew.lineHeight).toBe((latin.lineHeight as number) + 2);
+  });
+
+  it("sets tabular figures on request, and always for the display numeral", () => {
+    expect(
+      resolveTextStyle({ variant: "body", direction: "ltr", theme }).style
+        .fontVariant,
+    ).toBeUndefined();
+    expect(
+      resolveTextStyle({
+        variant: "body",
+        tabular: true,
+        direction: "ltr",
+        theme,
+      }).style.fontVariant,
+    ).toEqual(["tabular-nums"]);
+    expect(
+      resolveTextStyle({ variant: "displayNumeral", direction: "ltr", theme })
+        .style.fontVariant,
+    ).toEqual(["tabular-nums"]);
+  });
+
   it("leaves body text uncapped and caps headings for Dynamic Type", () => {
     expect(
       resolveTextStyle({ variant: "body", direction: "ltr", theme })
@@ -80,6 +119,8 @@ describe("text styles", () => {
       "muted",
       "disabled",
       "onBrand",
+      "onBrandMuted",
+      "mutedOnTint",
       "error",
       "success",
       "brand",
@@ -143,14 +184,49 @@ describe("button styles", () => {
     ).toBeGreaterThanOrEqual(AA_NORMAL_TEXT);
   });
 
-  it("uses a button radius from the documented range", () => {
-    const { container } = resolveButtonStyle({
-      variant: "primary",
-      size: "lg",
+  it("keeps the inverted label readable on its own surface, and that surface visible on the brand card", () => {
+    const { container, labelTone } = resolveButtonStyle({
+      variant: "inverted",
       theme,
     });
-    expect(container.borderRadius).toBeGreaterThanOrEqual(18);
-    expect(container.borderRadius).toBeLessThanOrEqual(24);
+    const { style } = resolveTextStyle({
+      variant: "button",
+      tone: labelTone,
+      direction: "ltr",
+      theme,
+    });
+    expect(
+      contrastRatio(style.color as string, container.backgroundColor as string),
+    ).toBeGreaterThanOrEqual(AA_NORMAL_TEXT);
+    // The button has to read as a control against the hero it sits on, not only as text on its own fill.
+    expect(
+      contrastRatio(
+        container.backgroundColor as string,
+        theme.colors.surface.brand,
+      ),
+    ).toBeGreaterThanOrEqual(AA_NON_TEXT);
+  });
+
+  it("uses the control radius at every size — a button is a button, never a pill", () => {
+    for (const size of ["md", "lg", "xl"] as const) {
+      const { container } = resolveButtonStyle({
+        variant: "primary",
+        size,
+        theme,
+      });
+      expect(container.borderRadius).toBe(theme.radius.control);
+    }
+  });
+
+  it("sizes the standard button at 52 and the session's control at 56", () => {
+    expect(
+      resolveButtonStyle({ variant: "primary", size: "lg", theme }).container
+        .minHeight,
+    ).toBe(52);
+    expect(
+      resolveButtonStyle({ variant: "primary", size: "xl", theme }).container
+        .minHeight,
+    ).toBe(56);
   });
 
   it("signals disabled with more than colour — opacity plus tone change", () => {
@@ -208,17 +284,21 @@ describe("card styles", () => {
     );
   });
 
-  it("uses card radii from the documented range", () => {
+  it("draws one card radius whatever emphasis a legacy caller passes", () => {
     for (const emphasis of ["default", "feature"] as const) {
       const radius = resolveCardStyle({ emphasis, theme })
         .borderRadius as number;
-      expect(radius).toBeGreaterThanOrEqual(20);
-      expect(radius).toBeLessThanOrEqual(24);
+      expect(radius).toBe(theme.radius.object);
     }
   });
 
   it("keeps padding on the spacing grid", () => {
-    for (const padding of ["none", "compact", "comfortable"] as const) {
+    for (const padding of [
+      "none",
+      "compact",
+      "comfortable",
+      "spacious",
+    ] as const) {
       expect((resolveCardStyle({ padding, theme }).padding as number) % 4).toBe(
         0,
       );
@@ -227,6 +307,31 @@ describe("card styles", () => {
 
   it("carries a 1px hairline border", () => {
     expect(resolveCardStyle({ theme }).borderWidth).toBe(1);
+  });
+
+  it("draws tinted and brand surfaces edge-to-fill, keeping the border width so content never shifts", () => {
+    const raised = resolveCardStyle({ theme });
+    for (const surface of [
+      "brand",
+      "tintSage",
+      "tintWarm",
+      "tintCool",
+    ] as const) {
+      const style = resolveCardStyle({ surface, theme });
+      expect(style.borderWidth, surface).toBe(raised.borderWidth);
+      expect(style.borderColor, surface).toBe(style.backgroundColor);
+      expect(style.padding, surface).toBe(raised.padding);
+    }
+    expect(raised.borderColor).toBe(theme.colors.border.subtle);
+  });
+
+  it("resolves each surface to its own colour role", () => {
+    expect(resolveCardStyle({ surface: "brand", theme }).backgroundColor).toBe(
+      theme.colors.surface.brand,
+    );
+    expect(
+      resolveCardStyle({ surface: "tintSage", theme }).backgroundColor,
+    ).toBe(theme.colors.surface.tintSage);
   });
 
   it("changes surface on press", () => {

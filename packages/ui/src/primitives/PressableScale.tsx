@@ -1,6 +1,7 @@
 import { useCallback, useRef } from "react";
 import {
   Animated,
+  Easing,
   Pressable,
   type GestureResponderEvent,
   type PressableProps,
@@ -42,31 +43,37 @@ export function PressableScale({
 
   const target = pressScaleFor(scaleToken, reduceMotion);
 
+  /**
+   * In fast, out a little slower: the surface has to move before the finger has finished landing, and the
+   * release reads as a settle rather than a snap. Both ease out — an ease-in on a press is the one curve that
+   * makes an interface feel late.
+   */
   const animateTo = useCallback(
-    (value: number) => {
+    (value: number, duration: number) => {
       Animated.timing(scale, {
         toValue: value,
-        duration: theme.duration.fast,
+        duration,
+        easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }).start();
     },
-    [scale, theme.duration.fast],
+    [scale],
   );
 
   const handlePressIn = useCallback(
     (event: GestureResponderEvent) => {
-      if (target !== 1) animateTo(target);
+      if (target !== 1) animateTo(target, theme.duration.pressIn);
       onPressIn?.(event);
     },
-    [animateTo, target, onPressIn],
+    [animateTo, target, onPressIn, theme.duration.pressIn],
   );
 
   const handlePressOut = useCallback(
     (event: GestureResponderEvent) => {
-      if (target !== 1) animateTo(1);
+      if (target !== 1) animateTo(1, theme.duration.pressOut);
       onPressOut?.(event);
     },
-    [animateTo, target, onPressOut],
+    [animateTo, target, onPressOut, theme.duration.pressOut],
   );
 
   return (

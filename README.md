@@ -65,6 +65,11 @@ database types are guarded against domain drift. Tagged `phase-0-baseline`.
 **Phase 1** — the design system: tokens, accessibility foundations (real WCAG contrast maths) and UI primitives.
 Tagged `phase-1-baseline`.
 
+**Phase 10** — the field-notebook redesign: one visual language across every screen (paper, rows, the trail, the
+drawn dog), device-local dog photos, native onboarding inputs and SF Symbols on iOS. See
+[docs/architecture/phase-10-field-notebook.md](docs/architecture/phase-10-field-notebook.md) and DESIGN_SYSTEM.md.
+Requires a new development build (six native modules were added).
+
 **Phase 2** adds a running Expo app shell: boot, Expo Router navigation, English + Hebrew, persisted language,
 Supabase client + guest auth, API client, permission architecture and a jest-expo render harness.
 

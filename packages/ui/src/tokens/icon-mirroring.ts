@@ -37,13 +37,23 @@ export const NEVER_MIRRORED = [
   "settings",
   "search",
   "bell",
-  "heart",
-  "star",
   // Media controls are conventionally NOT mirrored: play still points along the timeline, not the reading direction.
   "play",
   "pause",
   // Represents a physical object — a clock face doesn't mirror.
   "clock",
+  // Physical objects and universal symbols drawn for the Today ledger. A padlock has no handedness; a sparkle,
+  // a refresh loop and an alert mark read the same in either direction.
+  "lock",
+  "unlock",
+  "repeat",
+  "alert",
+  // A treat, a target, a heart, a photograph: objects and symbols, not directions.
+  "treat",
+  "target",
+  "photo",
+  "female",
+  "male",
   // Primary navigation. None encode a direction of travel: a day, a stack of lessons and a dog are all
   // orientation-independent, so mirroring them would be change for its own sake.
   "nav-today",

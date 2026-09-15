@@ -3,7 +3,7 @@ import { Platform, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { Text, Card, Button, useTheme } from "@pawcue/ui";
+import { Text, Button, useTheme } from "@pawcue/ui";
 import { DEFAULT_FEATURE_FLAGS } from "@pawcue/config";
 import {
   authProvider,
@@ -206,8 +206,10 @@ export default function AccountScreen() {
     >
       {merged ? (
         <View style={{ gap: theme.space[3] }} testID="account-merged">
-          <Text variant="h1">{t("account.mergedTitle")}</Text>
-          <Text variant="body" tone="muted">
+          <Text variant="headline" accessibilityRole="header">
+            {t("account.mergedTitle")}
+          </Text>
+          <Text variant="body" tone="secondary">
             {t("account.mergedBody")}
           </Text>
           <Button
@@ -218,17 +220,21 @@ export default function AccountScreen() {
         </View>
       ) : isSignedIn ? (
         <View style={{ gap: theme.space[3] }} testID="account-signed-in">
-          <Text variant="h1" testID="account-title">
+          <Text
+            variant="headline"
+            accessibilityRole="header"
+            testID="account-title"
+          >
             {t("account.signedInAs")}
           </Text>
-          <Text variant="body" tone="muted">
+          <Text variant="body" tone="secondary">
             {t("account.signedInBody")}
           </Text>
-          <Card padding="compact">
-            <Text variant="small" tone="muted">
+          <View style={{ gap: theme.space[1] }}>
+            <Text variant="secondary" tone="secondary">
               {t("account.signOutBody")}
             </Text>
-          </Card>
+          </View>
           <Button
             label={signingOut ? t("account.signingOut") : t("account.signOut")}
             variant="secondary"
@@ -237,7 +243,7 @@ export default function AccountScreen() {
             testID="sign-out"
           />
           {message ? (
-            <Text variant="small" tone="error" testID="account-message">
+            <Text variant="secondary" tone="error" testID="account-message">
               {message}
             </Text>
           ) : null}
@@ -258,19 +264,23 @@ export default function AccountScreen() {
         </View>
       ) : (
         <>
-          <Text variant="h1" testID="account-title">
+          <Text
+            variant="headline"
+            accessibilityRole="header"
+            testID="account-title"
+          >
             {t("account.title")}
           </Text>
-          <Text variant="body" tone="muted" testID="account-body">
+          <Text variant="body" tone="secondary" testID="account-body">
             {t("account.body")}
           </Text>
 
           {isGuest ? (
-            <Card padding="compact" testID="guest-notice">
-              <Text variant="small" tone="muted">
+            <View style={{ gap: theme.space[1] }} testID="guest-notice">
+              <Text variant="secondary" tone="secondary">
                 {t("account.guestNotice")}
               </Text>
-            </Card>
+            </View>
           ) : null}
 
           <View style={{ gap: theme.space[2] }}>
@@ -299,7 +309,7 @@ export default function AccountScreen() {
           </View>
 
           {message ? (
-            <Text variant="small" tone="error" testID="account-message">
+            <Text variant="secondary" tone="error" testID="account-message">
               {message}
             </Text>
           ) : null}

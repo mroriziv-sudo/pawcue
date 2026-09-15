@@ -9,13 +9,23 @@
  * not a thing each screen has to remember (brief §21).
  */
 
-/** DESIGN_SYSTEM.md: "Typical transitions: 160–280 ms." */
+/** DESIGN_SYSTEM.md: "Typical transitions: 160–280 ms." Press feedback is faster than a transition on purpose. */
 export const duration = {
-  /** Press feedback — must feel immediate. */
+  /** Press-in: the surface has to move before the finger has finished landing. */
+  pressIn: 100,
+  /** Press-out: a little slower than in, so the release reads as a settle rather than a snap. */
+  pressOut: 180,
+  /** A mark filling, a segment completing, a button morphing — a change of state in place. */
+  state: 220,
+  /** Content leaving. Always shorter than content arriving. */
+  exit: 200,
+  /** Content arriving: a sheet, the next instruction, a screen's content. */
+  enter: 280,
+  /** Legacy default press duration. */
   fast: 160,
-  /** Default transition. */
+  /** Legacy default transition. */
   base: 220,
-  /** Larger surfaces entering/leaving. */
+  /** Legacy: larger surfaces entering/leaving. */
   slow: 280,
   /**
    * Plan generation holds a minimum visible state so a fast server response doesn't flash — capped tightly because
@@ -52,10 +62,18 @@ export const pressScale = {
 
 export type PressScaleToken = keyof typeof pressScale;
 
-/** Spring used for completion moments (checkmark draw, streak increase). Restrained on purpose — no confetti. */
+/**
+ * Two springs, and only two. `responsive` is for controls and marks: it settles in about 250ms with no visible
+ * overshoot. `soft` is for content and the character arriving: one small overshoot, settled in about 400ms.
+ * Nothing in the product bounces — bounce reads as a toy. `gentle` is the legacy completion spring.
+ */
 export const spring = {
+  responsive: { damping: 26, stiffness: 320, mass: 1 },
+  soft: { damping: 20, stiffness: 180, mass: 1 },
   gentle: { damping: 18, stiffness: 180, mass: 1 },
 } as const;
+
+export type SpringToken = keyof typeof spring;
 
 export type MotionEffect = "scale" | "translate" | "spring" | "fade" | "none";
 

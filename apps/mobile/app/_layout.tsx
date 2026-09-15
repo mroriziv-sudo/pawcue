@@ -6,6 +6,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { I18nextProvider } from "react-i18next";
 import { ThemeProvider, defaultTheme } from "@pawcue/ui";
+import { renderSystemSymbol } from "../src/components/SystemSymbol";
 import { i18n } from "../src/i18n";
 import { useBootstrapStore } from "../src/state/bootstrap-store";
 import { useSettingsStore } from "../src/state/settings-store";
@@ -64,7 +65,10 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <I18nextProvider i18n={i18n}>
         {/* Direction is passed explicitly so the React tree agrees with I18nManager even before a reload lands. */}
-        <ThemeProvider direction={isRtlLocale(language) ? "rtl" : "ltr"}>
+        <ThemeProvider
+          direction={isRtlLocale(language) ? "rtl" : "ltr"}
+          renderGlyph={renderSystemSymbol}
+        >
           <QueryClientProvider client={queryClient}>
             <StatusBar style="dark" />
             <Stack

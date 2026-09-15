@@ -1,7 +1,14 @@
-import { ActivityIndicator, View } from "react-native";
+import { ActivityIndicator } from "react-native";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { Text, Card, useTheme } from "@pawcue/ui";
+import {
+  Glyph,
+  Row,
+  Text,
+  TrailMark,
+  useTheme,
+  type TrailState,
+} from "@pawcue/ui";
 import {
   lessonGate,
   type LessonGate,
@@ -13,14 +20,14 @@ import { useEntitlementStore } from "../../src/state/entitlement-store";
 import { EmptyState } from "../../src/components/EmptyState";
 import { ScreenScroll, Section } from "../../src/components/ScreenScroll";
 import { SectionHeader } from "../../src/components/SectionHeader";
-import { StatusPill } from "../../src/components/StatusPill";
 
 /**
  * Train — the lesson catalogue.
  *
  * Phase 0 defines no courses or categories, so this does not invent them. The honest structure the data does
  * support is by state: what was left unfinished, what can be trained now, what has been learned, what is locked
- * behind a prerequisite — and, separately, what a subscription would unlock.
+ * behind a prerequisite — and, separately, what a subscription would unlock. Each group is rows on the paper
+ * with a trail mark that says the state in shape, and a meta line that says it in words.
  *
  * Every state is derived from real history by `deriveLessonStatuses`; nothing here is stored or counted twice.
  */
@@ -33,28 +40,12 @@ export default function TrainScreen() {
   const { statuses, loading, error } = useLessonStatuses();
   const entitlement = useEntitlementStore((s) => s.view);
 
-  /**
-   * Each lesson's two locks, resolved once.
-   *
-   * `lessonGate` keeps them separate: a prerequisite lock and a premium lock have different causes and different
-   * ways out, and a lesson can carry both. Nothing below collapses them into a single "locked".
-   */
+  /** Each lesson's two locks, resolved once. `lessonGate` keeps them separate: different causes, different ways out. */
   const gated = statuses.map((detail) => ({
     detail,
     gate: lessonGate(detail, entitlement),
   }));
 
-  /**
-   * Unfinished work leads, ahead of everything never started.
-   *
-   * It used to sit mixed into "Ready to train", indistinguishable from a lesson nobody had opened. A lesson
-   * someone began and stopped is a different thing to come back to — it is the planner's highest-priority rule for
-   * exactly that reason, and the catalogue should agree with the plan.
-   *
-   * Premium content keeps its own section rather than being folded into "Coming up": "you have not trained the
-   * prerequisite yet" and "this is part of the subscription" are not the same state, and a user who reads them as
-   * one will try to train their way to content that training cannot reach.
-   */
   const sections = [
     {
       key: "unfinished",
@@ -93,15 +84,12 @@ export default function TrainScreen() {
   ].filter((section) => section.items.length > 0);
 
   return (
-    <ScreenScroll testID="train-screen">
-      <View style={{ gap: theme.space[1] }}>
-        <Text variant="h1">{t("train.title")}</Text>
-        <Text variant="small" tone="muted">
-          {dog
-            ? t("train.subtitle", { name: dog.name })
-            : t("train.subtitleGeneric")}
-        </Text>
-      </View>
+    <ScreenScroll testID="train-screen" gap={theme.space[8]}>
+      <Text variant="headline" accessibilityRole="header">
+        {dog
+          ? t("train.subtitle", { name: dog.name })
+          : t("train.subtitleGeneric")}
+      </Text>
 
       {loading ? (
         <ActivityIndicator
@@ -117,24 +105,23 @@ export default function TrainScreen() {
       ) : (
         sections.map((section) => (
           <Section key={section.key}>
-            {/* The count rides the heading rather than being repeated on every card. */}
+            {/* The count rides the label rather than being repeated on every row. */}
             <SectionHeader
               title={t(section.titleKey)}
               trailing={String(section.items.length)}
               testID={`train-section-${section.key}`}
             />
-            {section.items.map(({ detail, gate }) => (
-              <LessonCard
+            {section.items.map(({ detail, gate }, index) => (
+              <LessonRow
                 key={detail.lesson.id}
                 detail={detail}
                 gate={gate}
+                last={index === section.items.length - 1}
                 /**
                  * The handler exists only when the lesson can actually be started, and the two locks route
                  * differently: a premium lock leads to the paywall, because that is the way out of it, while a
-                 * prerequisite lock leads nowhere — there is nothing to buy and nothing to open.
-                 *
-                 * Deciding here rather than inside the card means a locked lesson has no navigation to the lesson
-                 * attached at any level, so there is nothing for a stray press to find.
+                 * prerequisite lock leads nowhere — there is nothing to buy and nothing to open. Deciding here
+                 * means a locked lesson has no navigation attached at any level.
                  */
                 {...(gate.canStart
                   ? {
@@ -157,41 +144,38 @@ export default function TrainScreen() {
  * One lesson in the catalogue.
  *
  * A lesson that cannot be started is not pressable *into the lesson*, rather than pressable-and-then-refused:
- * withholding `onPress` also removes the button role, so assistive technology is told the same thing the visual
- * treatment says. A premium-locked lesson is pressable, but it opens the paywall — the thing that actually
- * resolves its lock.
- *
- * Both locks are stated, in that order, whenever both apply. "Premium" alone would tell a user to pay for
- * something they still could not train.
+ * withholding `onPress` also removes the button role, so assistive technology is told the same thing the mark
+ * says. Both locks are stated, in that order, whenever both apply.
  */
-function LessonCard({
+function LessonRow({
   detail,
   gate,
+  last,
   onPress,
 }: {
   detail: LessonStatusDetail;
   gate: LessonGate;
-  /** Absent when there is nowhere useful to go. Its absence is what makes the card inert. */
+  last: boolean;
+  /** Absent when there is nowhere useful to go. Its absence is what makes the row inert. */
   onPress?: () => void;
 }) {
   const theme = useTheme();
   const { t } = useTranslation();
 
-  // What the badge says: the premium lock is the headline when it applies, since it is the one with a way out.
-  const badge: {
-    label: string;
-    tone: "success" | "brand" | "muted";
-    glyph?: string;
-  } = gate.premiumLocked
-    ? { label: t("train.premiumLocked"), tone: "brand" }
+  const state: TrailState = gate.premiumLocked
+    ? "locked"
     : detail.status === "completed"
-      ? { label: t("train.status.completed"), tone: "success", glyph: "✓" }
+      ? "done"
       : detail.status === "unfinished"
-        ? { label: t("train.status.unfinished"), tone: "brand" }
-        : {
-            label: t(`train.status.${detail.status}`),
-            tone: "muted",
-          };
+        ? "paused"
+        : detail.status === "locked"
+          ? "locked"
+          : "later";
+
+  // What the state line says: the premium lock is the headline when it applies, since it has a way out.
+  const stateLabel = gate.premiumLocked
+    ? t("train.premiumLocked")
+    : t(`train.status.${detail.status}`);
 
   const accessibleState = [
     gate.premiumLocked ? t("train.premiumLocked") : null,
@@ -205,91 +189,71 @@ function LessonCard({
     .join(". ");
 
   return (
-    <Card
-      padding="compact"
+    <Row
+      leading={<TrailMark state={state} />}
+      trailing={
+        onPress ? (
+          <Glyph
+            name="chevron-end"
+            size={20}
+            color={theme.colors.text.secondary}
+          />
+        ) : undefined
+      }
+      separator={!last}
       {...(onPress ? { onPress } : {})}
-      // Every lock is part of the accessible name, never conveyed by colour or dimming alone.
+      // Every lock is part of the accessible name, never conveyed by the mark alone.
       accessibilityLabel={`${t(detail.lesson.titleKey)}. ${accessibleState}`}
       testID={`lesson-card-${detail.lesson.slug}`}
-      {...(gate.canStart ? {} : { style: { opacity: 0.6 } })}
     >
-      <View style={{ gap: theme.space[2] }}>
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: theme.space[2],
-          }}
+      <Text variant="bodyStrong">{t(detail.lesson.titleKey)}</Text>
+      <Text variant="secondary" tone="secondary">
+        <Text
+          variant="secondary"
+          tone={state === "done" ? "completed" : "secondary"}
+          testID={`lesson-status-${detail.lesson.slug}`}
         >
-          <Text variant="bodyStrong" style={{ flex: 1 }}>
-            {t(detail.lesson.titleKey)}
-          </Text>
-          <StatusPill
-            label={badge.label}
-            tone={badge.tone}
-            {...(badge.glyph ? { glyph: badge.glyph } : {})}
-            testID={`lesson-status-${detail.lesson.slug}`}
-          />
-        </View>
-
-        <Text variant="small" tone="muted" numberOfLines={2}>
-          {t(detail.lesson.goalKey)}
+          {stateLabel}
         </Text>
-
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            gap: theme.space[3],
-            flexWrap: "wrap",
-          }}
+        {"."}{" "}
+        <Text variant="secondary" tone="secondary">
+          {t("session.overview.durationLabel", {
+            count: detail.lesson.estimatedMinutes,
+          })}
+          {"."}
+        </Text>
+        {/* Completion acknowledged in the catalogue, counted from real session records. */}
+        {detail.status === "completed" && detail.completions > 0 ? (
+          <Text
+            variant="secondary"
+            tone="secondary"
+            testID={`lesson-completions-${detail.lesson.slug}`}
+          >
+            {" "}
+            {t("train.completedCount", { count: detail.completions })}
+            {"."}
+          </Text>
+        ) : null}
+      </Text>
+      {/* Each lock explains itself in its own words. Shown together when both apply. */}
+      {gate.premiumLocked ? (
+        <Text
+          variant="caption"
+          tone="secondary"
+          testID={`lesson-premium-${detail.lesson.slug}`}
         >
-          <Text variant="caption" tone="muted">
-            {t("session.overview.durationLabel", {
-              count: detail.lesson.estimatedMinutes,
-            })}
-          </Text>
-
-          {/*
-            Completion acknowledged in the catalogue, not only on the completion screen. Counted from real
-            session records, which is also why it can say "4 times" rather than just "done".
-          */}
-          {detail.status === "completed" && detail.completions > 0 ? (
-            <Text
-              variant="caption"
-              tone="muted"
-              testID={`lesson-completions-${detail.lesson.slug}`}
-            >
-              {t("train.completedCount", { count: detail.completions })}
-            </Text>
-          ) : null}
-        </View>
-
-        {/*
-          Each lock explains itself in its own words. Shown together when both apply, so the user learns that
-          subscribing alone will not make this lesson startable.
-        */}
-        {gate.premiumLocked ? (
-          <Text
-            variant="caption"
-            tone="muted"
-            testID={`lesson-premium-${detail.lesson.slug}`}
-          >
-            {t("train.premiumHint")}
-          </Text>
-        ) : null}
-
-        {gate.prerequisiteLocked ? (
-          <Text
-            variant="caption"
-            tone="muted"
-            testID={`lesson-locked-${detail.lesson.slug}`}
-          >
-            {t("train.lockedHint")}
-          </Text>
-        ) : null}
-      </View>
-    </Card>
+          {t("train.premiumHint")}
+        </Text>
+      ) : null}
+      {gate.prerequisiteLocked ? (
+        <Text
+          variant="caption"
+          tone="secondary"
+          testID={`lesson-locked-${detail.lesson.slug}`}
+        >
+          {t("train.lockedHint")}
+        </Text>
+      ) : null}
+    </Row>
   );
 }

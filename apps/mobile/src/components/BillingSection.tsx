@@ -2,7 +2,7 @@ import { ActivityIndicator, Linking, Platform, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useAnnounce } from "../hooks/useAnnounce";
-import { Text, Card, Button, useTheme } from "@pawcue/ui";
+import { Text, Button, useTheme } from "@pawcue/ui";
 import type { EntitlementStatus } from "@pawcue/domain";
 import { useEntitlementStore } from "../state/entitlement-store";
 
@@ -84,47 +84,47 @@ export function BillingSection() {
     : null;
 
   return (
-    <View style={{ gap: theme.space[2] }} testID="billing-section">
-      <Text variant="h3">{t("settings.billingSection")}</Text>
+    <View style={{ gap: theme.space[3] }} testID="billing-section">
+      <Text variant="sectionLabel" accessibilityRole="header">
+        {t("settings.billingSection")}
+      </Text>
 
-      <Card padding="compact">
-        <View style={{ gap: theme.space[2] }}>
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: theme.space[2],
-            }}
+      {/* The state, as sentences on the paper: what the plan is, what that means, and until when. */}
+      <View style={{ gap: theme.space[1] }}>
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: theme.space[2],
+          }}
+        >
+          <Text
+            variant="bodyStrong"
+            style={{ flex: 1 }}
+            testID="billing-status"
           >
-            <Text
-              variant="bodyStrong"
-              style={{ flex: 1 }}
-              testID="billing-status"
-            >
-              {t(PLAN_KEY[view.status])}
-            </Text>
-            {refreshing ? (
-              <ActivityIndicator
-                color={theme.colors.brand.primary}
-                testID="billing-refreshing"
-              />
-            ) : null}
-          </View>
-
-          {bodyKey ? (
-            <Text variant="small" tone="muted" testID="billing-body">
-              {t(bodyKey)}
-            </Text>
-          ) : null}
-
-          {dateLine ? (
-            <Text variant="caption" tone="muted" testID="billing-date">
-              {dateLine}
-            </Text>
+            {t(PLAN_KEY[view.status])}
+          </Text>
+          {refreshing ? (
+            <ActivityIndicator
+              color={theme.colors.brand.primary}
+              testID="billing-refreshing"
+            />
           ) : null}
         </View>
-      </Card>
+
+        {bodyKey ? (
+          <Text variant="secondary" tone="secondary" testID="billing-body">
+            {t(bodyKey)}
+          </Text>
+        ) : null}
+
+        {dateLine ? (
+          <Text variant="caption" tone="secondary" testID="billing-date">
+            {dateLine}
+          </Text>
+        ) : null}
+      </View>
 
       {/*
         One primary action, chosen by state. An entitled user is never shown an upgrade button, and a free user is
@@ -142,7 +142,7 @@ export function BillingSection() {
             }}
             testID="billing-manage"
           />
-          <Text variant="caption" tone="muted">
+          <Text variant="caption" tone="secondary">
             {MANAGE_SUBSCRIPTION_URL
               ? t("billing.manageHint")
               : t("billing.manageUnavailable")}
@@ -179,7 +179,11 @@ export function BillingSection() {
       />
 
       {restore.messageKey ? (
-        <Text variant="small" tone="muted" testID="billing-restore-message">
+        <Text
+          variant="secondary"
+          tone="secondary"
+          testID="billing-restore-message"
+        >
           {t(restore.messageKey)}
         </Text>
       ) : null}

@@ -15,8 +15,10 @@ Location, microphone, contacts, Bluetooth, motion data, health data, or any adve
 See [DATA_MAP.md](DATA_MAP.md) for the exhaustive field-level list. In summary: an identity (guest, or Sign in with
 Apple — email scope only, no name), a dog profile the user chooses to create, training activity needed to compute
 the plan/progress/streak shown back to the user, and subscription state. The schema also provides for first-party
-product analytics events (closed enum, no free-text properties — brief §29) and an optional dog photo; **neither is
-written by the app as built** — nothing calls `app_events`, and no photo picker or camera permission exists. Both
+product analytics events (closed enum, no free-text properties — brief §29) and an optional dog photo. **Neither
+reaches the server as built** — nothing calls `app_events`, and the dog photo, when an owner adds one, is stored on
+the device only (see DATA_MAP.md): the photo-library permission is requested only from the explicit "Choose a photo"
+action, and no camera permission exists. Both
 must be added to this document, DATA_MAP.md, the privacy manifest (`app.json` → `ios.privacyManifests`) and the
 published policy before they ship.
 

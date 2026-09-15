@@ -11,7 +11,9 @@
       "close": "סגור",
       "tryAgain": "נסה שוב",
       "setReminder": "הגדר תזכורת",
-      "skip": "דלג"
+      "skip": "דלג",
+      "clear": "ניקוי",
+      "back": "חזרה"
     },
     "nav": {
       "today": "היום",
@@ -20,7 +22,13 @@
       "progress": "התקדמות",
       "dog": "כלב"
     },
-    "greeting": "בוקר טוב, {{name}}"
+    "greeting": "בוקר טוב, {{name}}",
+    "list": {
+      "pair": "{{a}} ו{{b}}",
+      "more": "{{a}}, {{b}}",
+      "and": " ו",
+      "comma": ", "
+    }
   },
   "clicker": {
     "freeTitle": "הקליקר החינמי שלך לאילוף כלבים",
@@ -32,7 +40,11 @@
     "soundEffects": "אפקטים קוליים",
     "haptics": "רטט",
     "howToUse": "איך להשתמש בקליקר",
-    "volume": "עוצמת קול"
+    "volume": "עוצמת קול",
+    "pressCount_one": "קליק אחד",
+    "pressCount_two": "שני קליקים",
+    "pressCount_many": "{{count}} קליקים",
+    "pressCount_other": "{{count}} קליקים"
   },
   "onboarding": {
     "goalQuestion": "במה תרצו הכי הרבה עזרה?",
@@ -48,17 +60,20 @@
         "placeholder": "לדוגמה: לונה"
       },
       "birthdate": {
-        "title": "מתי הוא נולד?",
-        "hint": "אופציונלי — עוזר לנו להתאים את רמת האימון.",
-        "placeholder": "YYYY-MM-DD"
+        "title": "בן כמה {{name}}?",
+        "hint": "בערך זה מספיק. זה עוזר לנו להתאים את רמת האימון.",
+        "placeholder": "YYYY-MM-DD",
+        "titleNoName": "בן כמה הכלב שלכם?"
       },
       "sex": {
-        "title": "זכר או נקבה?"
+        "title": "{{name}} זכר או נקבה?",
+        "titleNoName": "הכלב שלכם זכר או נקבה?"
       },
       "breed": {
-        "title": "מאיזה גזע?",
-        "hint": "אופציונלי. גם תערובת זה בסדר — פשוט כתבו איך אתם קוראים לו.",
-        "placeholder": "לדוגמה: תערובת בורדר קולי"
+        "title": "מאיזה גזע {{name}}?",
+        "hint": "גם תערובת זה בסדר, וגם לא לדעת.",
+        "placeholder": "לדוגמה: תערובת בורדר קולי",
+        "titleNoName": "מאיזה גזע הכלב שלכם?"
       },
       "minutes": {
         "title": "כמה זמן תוכלו לאמן כל יום?",
@@ -81,12 +96,12 @@
     "next": "המשך",
     "back": "חזרה",
     "skip": "דילוג",
-    "finish": "יצירת פרופיל",
+    "finish": "יצירת הפרופיל של {{name}}",
     "creating": "יוצרים את פרופיל הכלב…",
-    "welcomeTitle": "ברוכים הבאים ל-PawCue",
-    "welcomeBody": "בואו נגדיר את פרופיל הכלב. זה לוקח כדקה, ואפשר לשנות הכול אחר כך.",
-    "welcomeCta": "בואו נתחיל",
-    "welcomeSkip": "רק רוצים את הקליקר",
+    "welcomeTitle": "לאמן את הכלב שלכם כמה דקות ביום.",
+    "welcomeBody": "קליקר שעובד כבר עכשיו, ותוכנית קצרה שנבנית סביב הכלב שלכם.",
+    "welcomeCta": "הוספת הכלב שלכם",
+    "welcomeSkip": "רק להשתמש בקליקר",
     "validation": {
       "nameRequired": "צריך שם כדי להמשיך.",
       "nameTooLong": "השם ארוך מדי.",
@@ -97,7 +112,20 @@
     },
     "error": {
       "createFailed": "לא הצלחנו ליצור את הפרופיל. בדקו את החיבור ונסו שוב."
-    }
+    },
+    "meet": "הכירו את {{name}}",
+    "welcomePoint": {
+      "clicker": "קליקר אמיתי, מוכן כבר עכשיו",
+      "plan": "תוכנית יומית קצרה שנבנית סביב הכלב שלכם",
+      "coaching": "הדרכה צעד־אחר־צעד בכל שיעור"
+    },
+    "minutesSentence": {
+      "5": "5 דקות הן שיעור קצר אחד.",
+      "10": "10 דקות הן שניים או שלושה שיעורים קצרים.",
+      "15": "15 דקות הן שלושה או ארבעה שיעורים עם הפסקות.",
+      "20": "20 דקות הן אימון מלא. שמרו על זה משחקי."
+    },
+    "finishNoName": "יצירת פרופיל"
   },
   "plan": {
     "generatingTitle": "בונים את תוכנית האימונים של {{dogName}}",
@@ -413,7 +441,10 @@
       "stepsLabel_one": "שלב אחד",
       "stepsLabel_two": "שני שלבים",
       "stepsLabel_other": "{{count}} שלבים",
-      "prerequisiteTitle": "עדיין לא מוכנים לזה"
+      "prerequisiteTitle": "עדיין לא מוכנים לזה",
+      "facts": "{{duration}}, {{steps}}.",
+      "needNothing": "רק הכלב שלכם.",
+      "premiumTitle": "שיעור פרימיום"
     },
     "equipment": {
       "treats": "חטיפים",
@@ -444,13 +475,39 @@
       "repetitionsRemaining_two": "עוד שתי חזרות",
       "repetitionsRemaining_other": "עוד {{count}} חזרות",
       "pause": "השהיה",
-      "pauseHint": "ההתקדמות שלכם בשיעור הזה נשמרת."
+      "pauseHint": "ההתקדמות שלכם בשיעור הזה נשמרת.",
+      "cueClickTitle": "סמנו את הרגע",
+      "cueClick": "לחצו בדיוק ברגע שהכלב מצליח, ותגמלו מיד אחר כך.",
+      "cueRepsTitle": "חזרו",
+      "cueReps_one": "כוונו לחזרה נקייה אחת. עצרו כשזה עדיין הולך טוב.",
+      "cueReps_two": "כוונו לשתי חזרות נקיות. עצרו כשזה עדיין הולך טוב.",
+      "cueReps_many": "כוונו ל־{{count}} חזרות נקיות. עצרו כשזה עדיין הולך טוב.",
+      "cueReps_other": "כוונו ל־{{count}} חזרות נקיות. עצרו כשזה עדיין הולך טוב.",
+      "cueRewardTitle": "תגמול",
+      "cueReward": "כל הצלחה מזכה בחטיף — קטן ומהיר.",
+      "repHint": "ספרו חזרה רק כשהכלב עשה את זה בלי עזרה.",
+      "clickerInline": "קליקר",
+      "nowLabel": "עכשיו",
+      "stepDone": "השלב הושלם",
+      "countIt": "זו אחת",
+      "ofTarget": "מתוך {{target}}",
+      "clickToContinue": "לחצו על הקליקר כדי להמשיך",
+      "notGettingIt": "{{name}} מתקשה?",
+      "coachClick": "לחצו בדיוק ברגע שהכלב מצליח, ותגמלו מיד אחר כך.",
+      "coachReps_one": "כוונו לחזרה נקייה אחת. עצרו כשזה עדיין הולך טוב.",
+      "coachReps_two": "כוונו לשתי חזרות נקיות. עצרו כשזה עדיין הולך טוב.",
+      "coachReps_many": "כוונו ל־{{count}} חזרות נקיות. עצרו כשזה עדיין הולך טוב.",
+      "coachReps_other": "כוונו ל־{{count}} חזרות נקיות. עצרו כשזה עדיין הולך טוב.",
+      "undo": "ביטול"
     },
     "troubleshooting": {
       "title": "לא עובד?",
       "subtitle": "בחרו מה קורה.",
       "backToTraining": "חזרה לאימון",
-      "escalationNotice": "במקרה כזה כדאי לקבל ליווי מקצועי."
+      "escalationNotice": "במקרה כזה כדאי לקבל ליווי מקצועי.",
+      "pickHint": "בחרו את התיאור הקרוב ביותר לפתרון מהיר.",
+      "whatIsDoing": "מה {{name}} עושה?",
+      "findTrainer": "במקרה כזה כדאי לקבל ליווי מקצועי. מאלף מוסמך רואה מה שמסך לא יכול."
     },
     "complete": {
       "title": "כל הכבוד.",
@@ -465,7 +522,28 @@
       "clicksSummary_other": "{{count}} קליקים",
       "nextTitle": "הבא בתוכנית של היום",
       "nextAllDone": "סיימתם את התוכנית של היום.",
-      "backToToday": "חזרה להיום"
+      "backToToday": "חזרה להיום",
+      "summaryTitle": "האימון הזה",
+      "kicker": "השיעור הושלם",
+      "lessonDone": "סיימתם את {{lesson}}.",
+      "factReps_one": "חזרה אחת",
+      "factReps_two": "שתי חזרות",
+      "factReps_many": "{{count}} חזרות",
+      "factReps_other": "{{count}} חזרות",
+      "factClicks_one": "קליק אחד",
+      "factClicks_two": "שני קליקים",
+      "factClicks_many": "{{count}} קליקים",
+      "factClicks_other": "{{count}} קליקים",
+      "factMinutes_one": "כדקה",
+      "factMinutes_two": "כשתי דקות",
+      "factMinutes_many": "כ-{{count}} דקות",
+      "factMinutes_other": "כ-{{count}} דקות",
+      "facts": "{{reps}}, {{clicks}}, {{minutes}}.",
+      "factsNoClicks": "{{reps}}, {{minutes}}.",
+      "nextLine_one": "הבא בתוכנית של היום: {{lesson}}, כדקה.",
+      "nextLine_two": "הבא בתוכנית של היום: {{lesson}}, כשתי דקות.",
+      "nextLine_many": "הבא בתוכנית של היום: {{lesson}}, כ-{{minutes}} דקות.",
+      "nextLine_other": "הבא בתוכנית של היום: {{lesson}}, כ-{{minutes}} דקות."
     },
     "errors": {
       "unavailableTitle": "השיעור לא זמין",
@@ -554,10 +632,10 @@
     "emptyTitle": "אין מה לאמן כרגע",
     "emptyBody": "סיימתם את כל מה שמוכן עבור {{name}}. חזרו מחר — תרגול חוזר מועיל יותר אחרי הפסקה.",
     "emptyBodyGeneric": "סיימתם את כל מה שמוכן. חזרו מחר.",
-    "noDogTitle": "הגדירו את הכלב כדי לקבל תוכנית",
-    "noDogBody": "PawCue בונה תוכנית יומית קצרה ברגע שהיא יודעת את מי היא מאמנת.",
-    "noDogCta": "יצירת פרופיל",
-    "clickerCta": "פתיחת הקליקר",
+    "noDogTitle": "את מי אנחנו מאמנים?",
+    "noDogBody": "הוסיפו את הכלב שלכם ו-PawCue תבנה תוכנית קצרה להיום.",
+    "noDogCta": "הוספת הכלב שלכם",
+    "clickerCta": "קליקר",
     "offlineNotice": "מוצגת התוכנית השמורה שלכם.",
     "unavailableTitle": "לא הצלחנו לבנות תוכנית",
     "unavailableBody": "לא הצלחנו להגיע לספריית השיעורים. האימונים שלכם שמורים — נסו שוב כשתהיו מחוברים.",
@@ -577,7 +655,46 @@
     "resumeCta": "המשיכו מהנקודה שעצרתם",
     "clickerHint": "סמנו את הרגע שבו הכלב שלכם מצליח.",
     "dogUnavailableTitle": "לא ניתן להגיע לפרופיל הכלב כרגע",
-    "dogUnavailableBody": "האימונים שלכם שמורים במכשיר הזה. התוכנית תחזור ברגע שתהיו מחוברים."
+    "dogUnavailableBody": "האימונים שלכם שמורים במכשיר הזה. התוכנית תחזור ברגע שתהיו מחוברים.",
+    "planProgress": "{{done}} מתוך {{count}} הושלמו",
+    "planProgressShort": "{{done}}/{{count}}",
+    "allDoneKicker": "התוכנית הושלמה",
+    "heroCount_one": "פעילות אחת",
+    "heroCount_two": "שתי פעילויות",
+    "heroCount_many": "{{count}} פעילויות",
+    "heroCount_other": "{{count}} פעילויות",
+    "coach": {
+      "new_skill": "משהו חדש ל{{name}}: {{lesson}}.",
+      "spaced_review": "שווה לתרגל שוב: {{lesson}}.",
+      "prerequisite_unlocked": "אפשר להתחיל {{lesson}} עם {{name}}.",
+      "continue_unfinished": "ממשיכים עם {{lesson}} מהנקודה שעצרתם.",
+      "resume": "ממשיכים עם {{lesson}} מהנקודה שעצרתם.",
+      "premiumFirst": "{{lesson}}: שיעור פרימיום."
+    },
+    "planSize_one": "שיעור אחד, כדקה.",
+    "planSize_two": "שני שיעורים, כ-{{minutes}} דקות.",
+    "planSize_many": "{{count}} שיעורים, כ-{{minutes}} דקות.",
+    "planSize_other": "{{count}} שיעורים, כ-{{minutes}} דקות.",
+    "planLeft_one": "נשאר אחד, כ-{{minutes}} דקות.",
+    "planLeft_two": "נשארו שניים, כ-{{minutes}} דקות.",
+    "planLeft_many": "נשארו {{count}}, כ-{{minutes}} דקות.",
+    "planLeft_other": "נשארו {{count}}, כ-{{minutes}} דקות.",
+    "goalSentence_one": "היעד שלכם הוא דקת אימון ביום.",
+    "goalSentence_two": "היעד שלכם הוא {{count}} דקות ביום.",
+    "goalSentence_many": "היעד שלכם הוא {{count}} דקות ביום.",
+    "goalSentence_other": "היעד שלכם הוא {{count}} דקות ביום.",
+    "startLesson": "מתחילים {{lesson}}",
+    "continueLesson": "המשיכו עם {{lesson}}",
+    "sectionPlan": "התוכנית להיום",
+    "rowMinutes_one": "כדקה.",
+    "rowMinutes_two": "כשתי דקות.",
+    "rowMinutes_many": "כ-{{count}} דקות.",
+    "rowMinutes_other": "כ-{{count}} דקות.",
+    "rowDoneAt": "הושלם ב-{{time}}.",
+    "rowPaused": "בהשהיה. ממשיכים מהנקודה שעצרתם.",
+    "allDoneWith": "תרגלתם היום עם {{name}}: {{lessons}}. נתראה מחר באותה שעה.",
+    "practiseElse": "לתרגל משהו אחר",
+    "noDogClicker": "רק להשתמש בקליקר"
   },
   "train": {
     "title": "אימון",
@@ -637,15 +754,16 @@
     "sessionsThatDay_one": "אימון אחד",
     "sessionsThatDay_two": "{{count}} אימונים",
     "sessionsThatDay_many": "{{count}} אימונים",
-    "sessionsThatDay_other": "{{count}} אימונים"
+    "sessionsThatDay_other": "{{count}} אימונים",
+    "withName": "עם {{name}}."
   },
   "dogTab": {
     "title": "{{name}}",
-    "trainingTitle": "אימונים",
+    "trainingTitle": "מתאמנים יחד",
     "profileTitle": "פרופיל",
     "editProfile": "עריכת פרופיל",
     "settings": "הגדרות",
-    "account": "שמירת ההתקדמות",
+    "account": "חשבון",
     "noDogTitle": "עדיין אין כלב",
     "noDogBody": "צרו פרופיל ו-PawCue תבנה אימונים סביב הכלב שלכם.",
     "ageYears_one": "בן שנה",
@@ -658,7 +776,43 @@
     "dailyGoal": "{{count}} דקות ביום",
     "manageTitle": "ניהול",
     "unavailableTitle": "לא ניתן לטעון את הפרופיל כרגע",
-    "unavailableBody": "לא הצלחנו להגיע לפרטי הכלב. שום דבר לא אבד — נסו שוב כשתחזרו לרשת."
+    "unavailableBody": "לא הצלחנו להגיע לפרטי הכלב. שום דבר לא אבד — נסו שוב כשתחזרו לרשת.",
+    "since": "מתאמנים יחד מאז {{month}}.",
+    "sessionsLabel": "אימונים",
+    "lessonsLabel": "שיעורים שנלמדו",
+    "avatarNote": "המראה של {{name}} נקבע לפי הגזע. שנו את הגזע כדי לשנות אותו.",
+    "edit": "עריכה",
+    "summarySessions_one": "אימון אחד",
+    "summarySessions_two": "שני אימונים",
+    "summarySessions_many": "{{count}} אימונים",
+    "summarySessions_other": "{{count}} אימונים",
+    "summarySkills_one": "מיומנות אחת נלמדה",
+    "summarySkills_two": "שתי מיומנויות נלמדו",
+    "summarySkills_many": "{{count}} מיומנויות נלמדו",
+    "summarySkills_other": "{{count}} מיומנויות נלמדו",
+    "summary": "{{sessions}}, {{skills}}.",
+    "nothingYet": "עדיין לא אימנתם. התוכנית של היום היא המקום להתחיל.",
+    "recentStrip": "אימנתם {{count}} מתוך 14 הימים האחרונים",
+    "knows": "מה {{name}} כבר יודע",
+    "workingOn": "עובדים על",
+    "comingUp": "בהמשך",
+    "goals": "יעדים",
+    "about": "על {{name}}",
+    "allLessons": "כל השיעורים",
+    "learned": "נלמד ב{{date}}.",
+    "readyToStart": "מוכן להתחלה.",
+    "afterPrerequisite": "אחרי השיעור שמלמד את זה.",
+    "goalRow": "יעד יומי",
+    "goalNotSet": "לא הוגדר",
+    "photoTitle": "התמונה של {{name}}",
+    "choosePhoto": "בחירת תמונה",
+    "changePhoto": "החלפת תמונה",
+    "removePhoto": "הסרת התמונה",
+    "photoNote": "הציור נשאר בסצנות האימון. התמונה הופכת לתמונה של {{name}} בכל מקום אחר, ונשמרת במכשיר הזה בלבד.",
+    "photoDenied": "PawCue לא יכולה לפתוח את התמונות שלכם. אפשרו גישה בהגדרות כדי להוסיף תמונה.",
+    "photoFailed": "לא הצלחנו לשמור את התמונה. נסו אחרת.",
+    "identityUnknown": "הוסיפו גזע ותאריך לידה כדי להשלים את התמונה.",
+    "accountMeta": "היכנסו כדי להמשיך לאמן גם במכשיר אחר."
   },
   "billing": {
     "sectionTitle": "מנוי",
@@ -699,6 +853,53 @@
       "notConfigured": "רכישות בתוך האפליקציה עדיין לא זמינות בגרסה הזו.",
       "verificationFailed": "הרכישה הושלמה. אנחנו עדיין מאשרים אותה — זה עשוי לקחת דקה.",
       "unknown": "משהו השתבש. אנא נסו שוב."
+    }
+  },
+  "fields": {
+    "birthdate": {
+      "ageLabel": "בערך בן כמה?",
+      "exactLabel": "תאריך לידה",
+      "exactHint": "שנה, חודש, יום — לדוגמה 2023-05-14",
+      "years_one": "שנה",
+      "years_two": "שנתיים",
+      "years_many": "{{count}} שנים",
+      "years_other": "{{count}} שנים",
+      "months_one": "חודש",
+      "months_two": "חודשיים",
+      "months_many": "{{count}} חודשים",
+      "months_other": "{{count}} חודשים",
+      "yearsWheel": "שנים",
+      "monthsWheel": "חודשים",
+      "summary": "{{age}}, נולד בערך ב{{month}}.",
+      "exactToggle": "יודעים את התאריך המדויק",
+      "roughToggle": "בערך זה מספיק"
+    },
+    "breed": {
+      "searchLabel": "גזע",
+      "searchPlaceholder": "חיפוש גזעים",
+      "popular": "גזעים נפוצים",
+      "results": "תוצאות",
+      "selected": "נבחר",
+      "useTyped": "להשתמש ב\"{{text}}\"",
+      "noResults": "אין גזע שמתאים לזה עדיין. אפשר להשאיר מה שכתבתם.",
+      "typeForMore": "הקלידו כדי למצוא גזעים נוספים.",
+      "unknown": "לא בטוחים",
+      "unknownHint": "אפשר להוסיף אחר כך.",
+      "common": "נפוצים",
+      "all": "כל הגזעים",
+      "familyHint": "נראה כמו סוג של {{family}}, אז {{name}} מקבל פנים של {{family}}.",
+      "clear": "ניקוי הגזע",
+      "family": {
+        "sporting": "רטריבר",
+        "herding": "רועה",
+        "hound": "כלב ציד",
+        "working": "כלב עבודה",
+        "terrier": "טרייר",
+        "toy": "כלב מחמד קטן",
+        "non_sporting": "כלב חברה",
+        "spitz": "שפיץ",
+        "mixed": "מעורב"
+      }
     }
   }
 }
