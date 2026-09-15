@@ -31,6 +31,7 @@ export function Text({
   align = "start",
   tabular = false,
   style,
+  maxFontSizeMultiplier,
   ...rest
 }: TextProps) {
   const theme = useTheme();
@@ -52,10 +53,15 @@ export function Text({
       style={[resolved.style, style]}
       /**
        * Font scaling stays ON everywhere. Headings get a ceiling (so a Display line can't push the primary action
-       * off-screen at the largest accessibility sizes) but body copy is never clamped.
+       * off-screen at the largest accessibility sizes) but body copy is never clamped. A caller that names its own
+       * ceiling — the tab bar's labels, which have 48pt and a quarter of the width to live in — keeps it: setting
+       * the variant's default after the spread used to silently discard it, and the labels broke mid-word at the
+       * largest accessibility size (Phase 10 native acceptance).
        */
       allowFontScaling
-      maxFontSizeMultiplier={resolved.maxFontSizeMultiplier}
+      maxFontSizeMultiplier={
+        maxFontSizeMultiplier ?? resolved.maxFontSizeMultiplier
+      }
     />
   );
 }
