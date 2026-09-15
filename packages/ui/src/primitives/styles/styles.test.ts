@@ -51,6 +51,50 @@ describe("text styles", () => {
     expect(rtl.style.textAlign).toBe("left");
   });
 
+  /**
+   * React Native flips `left`/`right` text alignment itself whenever the native hierarchy is laid out RTL, so the
+   * resolver must hand it the opposite value to land on the reading edge. Without this, every Hebrew paragraph
+   * on a real RTL build sits flush-left (Phase 10 native acceptance) — Expo Go never laid the tree out RTL, which
+   * is why the tests above, which describe a native LTR layout, were true and yet not enough.
+   */
+  it("pre-flips alignment when the native layout is RTL, because React Native flips it again", () => {
+    const start = resolveTextStyle({
+      variant: "body",
+      direction: "rtl",
+      nativeDirection: "rtl",
+      theme,
+    });
+    const end = resolveTextStyle({
+      variant: "body",
+      align: "end",
+      direction: "rtl",
+      nativeDirection: "rtl",
+      theme,
+    });
+    // "left" reaches the platform as the right edge once RN has swapped it.
+    expect(start.style.textAlign).toBe("left");
+    expect(end.style.textAlign).toBe("right");
+  });
+
+  it("keeps the physical edge while the native layout still lags a language change", () => {
+    // Hebrew chosen in Settings but the app not yet relaunched: the tree is RTL, native is LTR, nothing is swapped.
+    const pending = resolveTextStyle({
+      variant: "body",
+      direction: "rtl",
+      nativeDirection: "ltr",
+      theme,
+    });
+    expect(pending.style.textAlign).toBe("right");
+    // And the reverse: English chosen while the native layout is still RTL from the Hebrew launch.
+    const reverse = resolveTextStyle({
+      variant: "body",
+      direction: "ltr",
+      nativeDirection: "rtl",
+      theme,
+    });
+    expect(reverse.style.textAlign).toBe("right");
+  });
+
   it("leaves centre alignment direction-independent", () => {
     for (const direction of ["ltr", "rtl"] as const) {
       expect(

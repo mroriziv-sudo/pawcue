@@ -38,7 +38,16 @@ export interface TextStyleOptions {
   align?: TextAlignment;
   /** Tabular figures — every counter and time, so digits line up as they change. Always on for the display numeral. */
   tabular?: boolean;
+  /** The reading direction the app has decided on (the theme's). */
   direction: Direction;
+  /**
+   * The direction React Native actually laid the native view hierarchy out in — `I18nManager.isRTL` — which can
+   * lag `direction` until the app relaunches after a language change. It matters because RN swaps `left` and
+   * `right` text alignment before handing them to the platform whenever the native layout is RTL (Fabric:
+   * `RCTAttributedTextUtils.mm`; Paper: `RCTTextAttributes.mm`). Omitted means "not swapped", i.e. a native LTR
+   * layout, so a caller that only knows the reading direction gets the physical value it asked for.
+   */
+  nativeDirection?: Direction;
   theme: AppTheme;
 }
 
@@ -80,10 +89,17 @@ function toneColor(tone: TextTone, theme: AppTheme): string {
 /**
  * Resolves alignment. `start`/`end` are logical: they follow the reading direction, which is why screens must never
  * pass `left`/`right` (DESIGN_SYSTEM.md bans physical values in this package).
+ *
+ * The value handed to React Native is not the physical edge when the native layout is RTL: RN flips `left` and
+ * `right` for every paragraph laid out right-to-left, so the physical edge has to be pre-flipped to survive that.
+ * Found on the Phase 10 development build (docs/architecture/phase-10-native-acceptance.md): with the simulator
+ * in Hebrew, every paragraph landed flush-left because "right" had been flipped to left on the way down. Expo Go
+ * never showed it — it cannot lay the hierarchy out RTL, so nothing was ever swapped.
  */
 function resolveAlign(
   align: TextAlignment,
   direction: Direction,
+  nativeDirection: Direction,
 ): TextStyle["textAlign"] {
   switch (align) {
     case "center":
@@ -91,10 +107,22 @@ function resolveAlign(
     case "auto":
       return "auto";
     case "start":
-      return textAlignFor(direction);
+      return forNativeLayout(textAlignFor(direction), nativeDirection);
     case "end":
-      return direction === "rtl" ? "left" : "right";
+      return forNativeLayout(
+        direction === "rtl" ? "left" : "right",
+        nativeDirection,
+      );
   }
+}
+
+/** The value that makes React Native land on `physical` once it has applied its own RTL swap. */
+function forNativeLayout(
+  physical: "left" | "right",
+  nativeDirection: Direction,
+): "left" | "right" {
+  if (nativeDirection !== "rtl") return physical;
+  return physical === "left" ? "right" : "left";
 }
 
 export function resolveTextStyle({
@@ -103,6 +131,7 @@ export function resolveTextStyle({
   align = "start",
   tabular = false,
   direction,
+  nativeDirection = "ltr",
   theme,
 }: TextStyleOptions): ResolvedTextStyle {
   const scale: TypeStyle = theme.typography[variant];
@@ -123,7 +152,7 @@ export function resolveTextStyle({
       ...(tracking !== 0 && !rtl ? { letterSpacing: tracking } : {}),
       ...(useTabular ? { fontVariant: ["tabular-nums"] } : {}),
       color: toneColor(tone, theme),
-      textAlign: resolveAlign(align, direction),
+      textAlign: resolveAlign(align, direction, nativeDirection),
       /**
        * Keeps mixed Hebrew/Latin runs — a Hebrew sentence containing a Latin dog name, which is extremely common
        * for this product — ordered correctly rather than by the first strong character alone.

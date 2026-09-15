@@ -1,4 +1,8 @@
-import { Text as RNText, type TextProps as RNTextProps } from "react-native";
+import {
+  I18nManager,
+  Text as RNText,
+  type TextProps as RNTextProps,
+} from "react-native";
 import { useTheme, useDirection } from "../theme/ThemeProvider";
 import {
   resolveTextStyle,
@@ -37,6 +41,8 @@ export function Text({
     align,
     tabular,
     direction,
+    // What the native hierarchy was laid out in, which RN uses to flip left/right alignment (see text-styles).
+    nativeDirection: I18nManager.isRTL ? "rtl" : "ltr",
     theme,
   });
 
