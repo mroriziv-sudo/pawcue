@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { Stack } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -27,6 +28,14 @@ installAccountDevBridge();
 // Apple revoking the app's credential signs this device out. Process-lifetime; nothing to unsubscribe.
 installAppleRevocationHandler();
 
+/**
+ * The native launch screen is the dog on paper (app.json → expo-splash-screen). It stays up until settings have
+ * hydrated and the first real screen can render, so a cold launch never shows a blank frame or a spinner between
+ * the icon and the app — the dog is what the user sees for every load. Hidden with a short fade once ready.
+ */
+void SplashScreen.preventAutoHideAsync();
+SplashScreen.setOptions({ duration: 200, fade: true });
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: { retry: false, refetchOnWindowFocus: false, staleTime: 60_000 },
@@ -42,9 +51,14 @@ export default function RootLayout() {
     void bootstrap();
   }, [bootstrap]);
 
+  useEffect(() => {
+    if (status === "ready") void SplashScreen.hideAsync();
+  }, [status]);
+
   /**
-   * Held until settings hydrate — a single spinner is better than painting English/LTR and then snapping to
-   * Hebrew/RTL a frame later. This wait is local storage only; nothing here blocks on the network.
+   * Held until settings hydrate, so the app never paints English/LTR and then snaps to Hebrew/RTL a frame later.
+   * The native splash covers this wait; the spinner beneath it is only ever seen if the splash was hidden early.
+   * This wait is local storage only; nothing here blocks on the network.
    */
   if (status !== "ready") {
     return (

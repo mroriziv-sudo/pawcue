@@ -7,19 +7,20 @@ recalled — see citations. This doc is the source of truth for `package.json` v
 
 ## Mobile
 
-| Package                 | Version              | Note                                                                                                                                          |
-| ----------------------- | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| Expo SDK                | **57.0.0**           | bundles React Native 0.86 + React 19.2.3. Do not install standalone RN 0.87 alongside Expo — Expo pins its own RN minor.                      |
-| expo-router             | **57.0.20**          |                                                                                                                                               |
-| @tanstack/react-query   | **5.102.8**          |                                                                                                                                               |
-| zustand                 | **5.0.15**           |                                                                                                                                               |
-| react-hook-form         | **7.87.0**           |                                                                                                                                               |
-| zod                     | **4.5.4**            | v4 is now the default `zod` package export (no `zod/v4` subpath needed)                                                                       |
-| expo-audio              | latest for SDK 57    | **use this, not `expo-av`** — expo-av is deprecated/frozen with no further patches. Clicker sound + success sound both go through expo-audio. |
-| expo-haptics            | **57.0.2**           |                                                                                                                                               |
-| react-native-reanimated | **4.6.0**            | supports RN 0.83–0.87                                                                                                                         |
-| expo-secure-store       | **57.0.3**           |                                                                                                                                               |
-| i18next / react-i18next | **26.4.2 / 17.0.13** |                                                                                                                                               |
+| Package                 | Version              | Note                                                                                                                                                                                          |
+| ----------------------- | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Expo SDK                | **57.0.0**           | bundles React Native 0.86 + React 19.2.3. Do not install standalone RN 0.87 alongside Expo — Expo pins its own RN minor.                                                                      |
+| expo-router             | **57.0.20**          |                                                                                                                                                                                               |
+| @tanstack/react-query   | **5.102.8**          |                                                                                                                                                                                               |
+| zustand                 | **5.0.15**           |                                                                                                                                                                                               |
+| react-hook-form         | **7.87.0**           |                                                                                                                                                                                               |
+| zod                     | **4.5.4**            | v4 is now the default `zod` package export (no `zod/v4` subpath needed)                                                                                                                       |
+| expo-audio              | latest for SDK 57    | **use this, not `expo-av`** — expo-av is deprecated/frozen with no further patches. Clicker sound + success sound both go through expo-audio.                                                 |
+| expo-haptics            | **57.0.2**           |                                                                                                                                                                                               |
+| react-native-reanimated | **4.6.0**            | supports RN 0.83–0.87                                                                                                                                                                         |
+| expo-secure-store       | **57.0.3**           |                                                                                                                                                                                               |
+| expo-splash-screen      | **~57.0.9**          | Native launch screen: the welcome-screen dog on Warm Ivory, held until settings hydrate (`app/_layout.tsx`), so a cold launch never paints a blank frame. Added 2026-09-16 with the app icon. |
+| i18next / react-i18next | **26.4.2 / 17.0.13** |                                                                                                                                                                                               |
 
 ## Dev tooling
 
