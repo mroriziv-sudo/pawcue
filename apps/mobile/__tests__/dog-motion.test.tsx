@@ -141,15 +141,19 @@ interface Host {
   props: Record<string, unknown>;
 }
 
+/** A test-renderer instance, walked either down through `children` or up through `parent`. */
+interface HostInstance {
+  type?: unknown;
+  props?: Record<string, unknown>;
+  children?: unknown[];
+  parent?: HostInstance | null;
+}
+
 function hostNodes(node: unknown, types: readonly string[]): Host[] {
   const out: Host[] = [];
   const walk = (n: unknown) => {
     if (!n || typeof n !== "object") return;
-    const element = n as {
-      type?: unknown;
-      props?: Record<string, unknown>;
-      children?: unknown[];
-    };
+    const element = n as HostInstance;
     if (typeof element.type === "string" && types.includes(element.type)) {
       out.push({ type: element.type, props: element.props ?? {} });
     }
@@ -187,16 +191,57 @@ function expectDrawnAs(testID: string, appearance: DogAppearance) {
   }
 }
 
-/** Whether any drawn group under the node is turned: the tail group mid-wag carries a non-identity matrix. */
-function isTurned(node: unknown): boolean {
+/**
+ * The rotation, in degrees, of the one drawn group that is turned — 0 if every group is still at identity. The
+ * tail is the only shape ever wrapped in a group with a transform, so a non-identity matrix is always its wag.
+ */
+function tailAngleDeg(node: unknown): number {
   const identity = [1, 0, 0, 1, 0, 0];
-  return hostNodes(node, ["RNSVGGroup"]).some(({ props }) => {
+  for (const { props } of hostNodes(node, ["RNSVGGroup"])) {
     const matrix = props["matrix"] as number[] | undefined;
-    return (
+    if (
       Array.isArray(matrix) &&
       matrix.some((v, i) => Math.abs(v - (identity[i] ?? 0)) > 1e-6)
-    );
-  });
+    ) {
+      // react-native-svg's matrix is [a, b, c, d, tx, ty]; for a pure rotation a = cosθ, b = sinθ.
+      return (Math.atan2(matrix[1] ?? 0, matrix[0] ?? 1) * 180) / Math.PI;
+    }
+  }
+  return 0;
+}
+
+/** Whether any drawn group under the node is turned: the tail group mid-wag carries a non-identity matrix. */
+function isTurned(node: unknown): boolean {
+  return tailAngleDeg(node) !== 0;
+}
+
+/**
+ * Neither the drawn shapes under `testID` nor any View wrapping them (up through the avatar's own motion
+ * wrapper) carries a resolved opacity below 1. An expression change — including a rep's happy face — swaps the
+ * eye/eyelid/face shapes in place; nothing here is ever wrapped in a fade, so this holds throughout a reaction as
+ * much as at rest.
+ *
+ * The finding this guards against lived one level up from the shapes: `Crossfade`'s own wrapping `Animated.View`
+ * used to re-key on every expression change and fade its `style.opacity`, taking the whole dog — body included
+ * — down with it for a few frames at the moment the happy face landed (motion pass,
+ * phase-11-the-dog-at-work.md). A check that only read each shape's own `opacity` prop would never have caught
+ * that: react-native-svg's shapes never carry one, in the old code or the new. This walks the ancestor chain,
+ * the way the fade actually happened.
+ */
+function expectOpaque(testID: string) {
+  for (const { props } of hostNodes(dog(testID), SHAPES)) {
+    const opacity = props["opacity"];
+    expect(opacity === undefined || opacity === 1).toBe(true);
+  }
+  let node: HostInstance | null = dog(testID) as unknown as HostInstance;
+  for (let hops = 0; hops < 8 && node; hops += 1) {
+    const style = node.props?.["style"];
+    for (const s of Array.isArray(style) ? style : [style]) {
+      const opacity = (s as { opacity?: unknown } | null | undefined)?.opacity;
+      if (typeof opacity === "number") expect(opacity).toBe(1);
+    }
+    node = node.parent ?? null;
+  }
 }
 
 function eyelidsOf(appearance: DogAppearance): string[] {
@@ -372,18 +417,59 @@ describe("idle", () => {
     expect(
       screen.queryByTestId("dog-motion", { includeHiddenElements: true }),
     ).toBeNull();
-    // The happy face lands at once (the cross-fade's outgoing layer is gone after its own settle).
-    await tick(500);
+    // The happy face lands at once: an expression change is an in-place swap, with no cross-fade to wait out —
+    // the old version of this test waited 500ms here for a whole-dog fade that no longer exists.
+    await tick(0);
     expectDrawnAs("dog", { ...SIT_DEMO, expression: "happy" });
     expect(isTurned(dog("dog"))).toBe(false);
-    // And the caller's face comes back after 700ms.
+    // And the caller's face comes back after 700ms, just as instantly.
     await tick(DOG_MOTION.wag.happyFor);
-    await tick(500);
     expectDrawnAs("dog", SIT_DEMO);
 
     await tick(DOG_MOTION.blink.maxGap + DOG_MOTION.blink.closed);
     expect(drawsEyelids("dog", SIT_DEMO)).toBe(false);
     expect(loops).toHaveLength(0);
+  });
+
+  it("wags the tail through two full cycles, reaching ±18° and home within the 400ms budget, while the body stays opaque", async () => {
+    await render(
+      wrap(
+        <DogAvatar
+          breed={null}
+          size={140}
+          pose="sit"
+          expression="focused"
+          props={["treat"]}
+          reaction={{ kind: "rep", key: 1 }}
+          testID="dog"
+        />,
+      ),
+    );
+    const happy: DogAppearance = { ...SIT_DEMO, expression: "happy" };
+
+    // The face swaps at once; the body is drawn exactly as always and nothing on it is faded.
+    await tick(0);
+    expectDrawnAs("dog", happy);
+    expectOpaque("dog");
+    expect(tailAngleDeg(dog("dog"))).toBe(0);
+
+    // First peak, 100ms in: the swing reaches its full amplitude.
+    await tick(100);
+    expect(Math.abs(tailAngleDeg(dog("dog")))).toBeGreaterThanOrEqual(15);
+    expectDrawnAs("dog", happy);
+    expectOpaque("dog");
+
+    // Second peak, 300ms in (cumulative): the swing back the other way — the second of the two cycles.
+    await tick(200);
+    expect(Math.abs(tailAngleDeg(dog("dog")))).toBeGreaterThanOrEqual(15);
+    expectOpaque("dog");
+
+    // Home by the end of the 400ms budget (100ms of buffer for the fake-timer clock's own granularity).
+    await tick(200);
+    expect(tailAngleDeg(dog("dog"))).toBeCloseTo(0, 0);
+    expect(isTurned(dog("dog"))).toBe(false);
+    expectDrawnAs("dog", happy);
+    expectOpaque("dog");
   });
 });
 
@@ -408,29 +494,41 @@ describe("reactive, on the session screen", () => {
     return content;
   }
 
-  it("wags for a counted rep and returns to the demo expression after 700ms", async () => {
+  it("wags for a counted rep and returns to the demo expression after 700ms, with the body never faded", async () => {
     await renderTraining();
     await layout("session-instruction-region", 700);
     await layout("session-text-block", 120);
     await tick(0);
     expectDrawnAs("session-demo-sit", SIT_DEMO);
+    expectOpaque("session-demo-sit");
     expect(isTurned(screen.getByTestId("session-demo"))).toBe(false);
 
     const content = await advanceToReps();
     expect(screen.getByTestId("repetition-counter")).toBeTruthy();
 
     await act(() => useSessionStore.getState().addRepetition(content));
-    // Mid-burst: the tail group is turned, and the face is the happy one.
+    // The happy face lands at once — an expression change is an in-place swap, not a cross-fade of the whole
+    // dog — and the body is drawn exactly as before, with nothing on it faded.
+    await tick(0);
+    expectDrawnAs("session-demo-sit", { ...SIT_DEMO, expression: "happy" });
+    expectOpaque("session-demo-sit");
+
+    // Mid-burst: the tail group is turned, the face is still the happy one, and the body is still untouched.
     await tick(100);
     expect(isTurned(screen.getByTestId("session-demo"))).toBe(true);
-    await tick(400);
-    // The wag is a burst: home again inside 400ms, while the happy face is still up.
+    expectDrawnAs("session-demo-sit", { ...SIT_DEMO, expression: "happy" });
+    expectOpaque("session-demo-sit");
+
+    await tick(DOG_MOTION.wag.duration);
+    // The wag is a burst: home again inside 400ms (100ms of buffer past that), while the happy face is still up.
     expect(isTurned(screen.getByTestId("session-demo"))).toBe(false);
     expectDrawnAs("session-demo-sit", { ...SIT_DEMO, expression: "happy" });
+    expectOpaque("session-demo-sit");
 
-    await tick(DOG_MOTION.wag.happyFor);
-    await tick(500);
+    // 700ms since the trigger (100 + 400 so far, 200 more to go): the caller's face comes back, at once.
+    await tick(200);
     expectDrawnAs("session-demo-sit", SIT_DEMO);
+    expectOpaque("session-demo-sit");
 
     // Twice in a row: a second rep is a second wag.
     await act(() => useSessionStore.getState().addRepetition(content));

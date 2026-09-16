@@ -26,9 +26,15 @@ export type DogExpression =
   "attentive" | "happy" | "focused" | "resting" | "puzzled";
 /** The three objects the dog meets. Declared by the caller, never implied by a pose. */
 export type DogProp = "treat" | "mat" | "leash";
-/** What a shape is, so a renderer can address the tail and the eyes without knowing the geometry. */
+/**
+ * What a shape is, so a renderer can address the tail and the eyes without knowing the geometry. `face` is the
+ * brow, mouth and tongue — the parts that change with the expression but are not `eye`/`eyelid`. An expression
+ * change therefore only ever touches `eye`, `eyelid` and `face` shapes; every other tag is the same geometry
+ * whatever the face is doing, so a renderer can leave it alone (docs/architecture/phase-11-the-dog-at-work.md,
+ * "Motion").
+ */
 export type DogPart =
-  "eye" | "eyelid" | "tail" | "body" | "head" | "ear" | "prop";
+  "eye" | "eyelid" | "face" | "tail" | "body" | "head" | "ear" | "prop";
 
 export interface DogAppearance {
   group: BreedGroup;
@@ -591,7 +597,7 @@ export function drawDog(appearance: DogAppearance): DogDrawing {
         width: 1.6,
         rotate: tilt,
         origin,
-        part: "head",
+        part: "face",
       });
     }
   }
@@ -608,7 +614,7 @@ export function drawDog(appearance: DogAppearance): DogDrawing {
     part: "head",
   });
 
-  // Mouth.
+  // Mouth. Face-tagged: the shape it changes to differs by expression, unlike the nose above it.
   const mouthY = noseY + noseR * 1.2;
   if (expression === "happy") {
     shapes.push({
@@ -617,7 +623,7 @@ export function drawDog(appearance: DogAppearance): DogDrawing {
       fill: feature,
       rotate: tilt,
       origin,
-      part: "head",
+      part: "face",
     });
     shapes.push({
       kind: "ellipse",
@@ -627,7 +633,7 @@ export function drawDog(appearance: DogAppearance): DogDrawing {
       ry: 3.2,
       fill: TONGUE,
       rotate: tilt,
-      part: "head",
+      part: "face",
     });
   } else {
     shapes.push({
@@ -637,7 +643,7 @@ export function drawDog(appearance: DogAppearance): DogDrawing {
       width: 1.5,
       rotate: tilt,
       origin,
-      part: "head",
+      part: "face",
     });
   }
 

@@ -1,14 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { Animated, AppState, Easing } from "react-native";
-import type { AppTheme } from "@pawcue/ui";
 
 /**
  * How the dog moves — the numbers from docs/architecture/phase-11-the-dog-at-work.md, in one place.
  *
  * Two idle loops and two reactions, and nothing else. The idle loops run only on a drawn body pose of at least
  * `minSize` points while the app is in the foreground; a bust, a photo, a row and the tab bar never move. Under
- * Reduce Motion the loops are off and the reactions reduce to the expression change alone, which the avatar's
- * cross-fade already carries.
+ * Reduce Motion the loops are off and the reactions reduce to the expression change alone — an in-place swap of
+ * the face shapes, never a fade of the whole dog (see `DogAvatar`'s `stateKey`).
  */
 export const DOG_MOTION = {
   /** Below this the dog is a still drawing: nothing loops, nothing reacts beyond the expression. */
@@ -17,8 +16,12 @@ export const DOG_MOTION = {
   blink: { minGap: 4000, maxGap: 7000, closed: 120 },
   /** The whole dog at 1.5% scale over 3 seconds, ease in and out, continuous. Native driver. */
   breath: { scale: 1.015, period: 3000 },
-  /** A counted repetition: a 400ms wag of the tail about its root, and the happy face for 700ms. */
-  wag: { duration: 400, degrees: 14, happyFor: 700 },
+  /**
+   * A counted repetition: the tagged tail group turned ±18° through two full cycles inside the 400ms budget, and
+   * the happy face for 700ms. The amplitude and cycle count are the number that reads as a wag rather than a
+   * twitch on the device, at 140pt (found on the motion pass, phase-11-the-dog-at-work.md, "Motion").
+   */
+  wag: { duration: 400, degrees: 18, cycles: 2, happyFor: 700 },
   /** Completion: one 300ms bounce of the whole dog, once, when the screen arrives. Native driver. */
   bounce: { duration: 300, rise: 8 },
 } as const;
@@ -64,12 +67,10 @@ export function useDogMotion({
   enabled,
   reduceMotion,
   reaction,
-  theme,
 }: {
   enabled: boolean;
   reduceMotion: boolean;
   reaction: DogReaction | null | undefined;
-  theme: AppTheme;
 }): DogMotion {
   const breath = useRef(new Animated.Value(1)).current;
   const bounce = useRef(new Animated.Value(0)).current;
@@ -155,7 +156,7 @@ export function useDogMotion({
       );
       let burst: Animated.CompositeAnimation | null = null;
       if (enabled && !reduceMotion) {
-        burst = wagBurst(wag, theme);
+        burst = wagBurst(wag);
         burst.start(() => wag.setValue(0));
       }
       return () => {
@@ -175,49 +176,32 @@ export function useDogMotion({
       };
     }
     return undefined;
-  }, [reaction, enabled, reduceMotion, wag, bounce, theme]);
+  }, [reaction, enabled, reduceMotion, wag, bounce]);
 
   return { blink, celebrating, breath, bounce, wag };
 }
 
 /**
- * Four swings in 400ms — out, across, back, home — on the JS thread, because the value turns a group inside the
- * SVG. A burst, never a loop. The `responsive` spring would settle the last swing but not inside the budget:
- * with React Native's rest thresholds it needs another half second, so the return is timed too.
+ * Two full swings — out, back, out the other way, back — in 400ms on the JS thread, because the value turns a
+ * group inside the SVG. A burst, never a loop.
+ *
+ * One `Animated.timing` from 0 to 1, whose easing function is the oscillation itself: `sin(2π · cycles · t)`
+ * traces exactly `cycles` full periods as `t` runs 0 to 1, starting and ending at 0 by construction, so the tail
+ * is always home when the burst ends — no separate "return" segment to keep in sync. The phase is warped through
+ * `Easing.inOut(Easing.quad)` first, so the swing builds out of rest and settles back into it rather than
+ * snapping at either end; the four turning points fall in the faster middle of the 400ms, which is what read as
+ * a wag rather than a flicker at the amplitude and duration the contract sets (motion pass,
+ * phase-11-the-dog-at-work.md).
  */
-function wagBurst(
-  wag: Animated.Value,
-  theme: AppTheme,
-): Animated.CompositeAnimation {
-  const [out, across, back, home] = [90, 120, 100, 90];
-  const [x1, y1, x2, y2] = theme.easing.standard;
-  const standard = Easing.bezier(x1, y1, x2, y2);
-  return Animated.sequence([
-    Animated.timing(wag, {
-      toValue: 1,
-      duration: out,
-      easing: Easing.out(Easing.quad),
-      useNativeDriver: false,
-    }),
-    Animated.timing(wag, {
-      toValue: -1,
-      duration: across,
-      easing: Easing.inOut(Easing.quad),
-      useNativeDriver: false,
-    }),
-    Animated.timing(wag, {
-      toValue: 0.5,
-      duration: back,
-      easing: Easing.inOut(Easing.quad),
-      useNativeDriver: false,
-    }),
-    Animated.timing(wag, {
-      toValue: 0,
-      duration: home,
-      easing: standard,
-      useNativeDriver: false,
-    }),
-  ]);
+function wagBurst(wag: Animated.Value): Animated.CompositeAnimation {
+  const { duration, cycles } = DOG_MOTION.wag;
+  const buildUp = Easing.inOut(Easing.quad);
+  return Animated.timing(wag, {
+    toValue: 1,
+    duration,
+    easing: (t) => Math.sin(2 * Math.PI * cycles * buildUp(t)),
+    useNativeDriver: false,
+  });
 }
 
 /** Up quickly, down a little slower: 300ms, once. */

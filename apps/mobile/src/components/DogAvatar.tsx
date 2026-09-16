@@ -59,11 +59,13 @@ export interface DogAvatarProps {
  * layout and the character keeps looking toward the text beside it.
  *
  * A drawn body pose of at least 120pt is alive (phase-11-the-dog-at-work.md, "Motion"): it blinks every few
- * seconds, breathes, wags for a counted rep and bounces once on completion. The blink is state — two shapes
- * redraw — and the breathing and the bounce are transforms on one Animated.View around the whole avatar, on the
- * native driver; the wag turns the tagged tail group for 400ms on the JS thread. A bust, a photo and a smaller
- * dog render exactly as they always did, with no Animated wrapper at all. Under Reduce Motion the loops are off
- * and a reaction is the expression change alone, which the cross-fade carries.
+ * seconds, breathes, wags for a counted rep and bounces once on completion. Like the blink, an expression change
+ * — including the rep reaction's happy face — is state, not a new drawing: only the eye/eyelid/face shapes swap,
+ * in place, with no cross-fade and no opacity change on the rest of the dog. The breathing and the bounce are
+ * transforms on one Animated.View around the whole avatar, on the native driver; the wag turns the tagged tail
+ * group for 400ms on the JS thread. A bust, a photo and a smaller dog render exactly as they always did, with no
+ * Animated wrapper at all. Under Reduce Motion the loops are off and a reaction is the expression change alone —
+ * still an in-place swap, so it lands with nothing else moving.
  */
 export function DogAvatar({
   breed,
@@ -77,7 +79,6 @@ export function DogAvatar({
   accessibilityLabel,
   testID,
 }: DogAvatarProps) {
-  const theme = useTheme();
   const reduceMotion = useReducedMotion();
   const look = useMemo(() => lookFor(breed), [breed]);
   const months = birthdate ? monthsSince(birthdate) : null;
@@ -91,19 +92,24 @@ export function DogAvatar({
     enabled: alive && !reduceMotion,
     reduceMotion,
     reaction,
-    theme,
   });
   // A rep is celebrated with the happy face whatever the caller asked for, and the caller's face comes back.
   const shown = alive && motion.celebrating ? "happy" : expression;
 
-  // What the dog looks like, as a key: a change cross-fades rather than swaps. A blink is not a change.
+  /**
+   * What the dog looks like structurally, as a key: a breed, an age, a pose, a prop change re-mounts the drawing
+   * and cross-fades. Expression is deliberately not here — like the blink, an expression change is state, not a
+   * new drawing: the eye/eyelid/face shapes below swap in place and every other shape keeps its identity and
+   * its opacity. A whole-dog cross-fade on every expression change (including the rep reaction's happy face)
+   * used to read as a flicker rather than the wag it was meant to accompany — found on the motion pass,
+   * phase-11-the-dog-at-work.md.
+   */
   const stateKey = [
     photo ? `photo:${photoUri}` : "drawn",
     look.breedId ?? look.group,
     look.ears,
     puppy ? "puppy" : senior ? "senior" : "adult",
     pose,
-    shown,
     props?.join(",") ?? "",
   ].join("|");
 

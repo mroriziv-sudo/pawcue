@@ -74,11 +74,13 @@ The session keys on the lesson's skill; a skill not in the table shows `sit`, `a
 
 ## Parts, for the motion session
 
-Every shape the module returns carries a `part`: `eye`, `eyelid`, `tail`, `body`, `head`, `ear` or `prop`. Open
-eyes are `eye`; the closed-eye arcs of `resting` are `eyelid`; the tail is the one stroked path tagged `tail`;
-legs, paws, torso and collar are `body`; the head ellipse, its markings, muzzle, nose, mouth and brows are `head`;
-ears and their inner ears are `ear`; the three objects are `prop`. A renderer addresses the tail and the eyes by
-tag and never by geometry.
+Every shape the module returns carries a `part`: `eye`, `eyelid`, `face`, `tail`, `body`, `head`, `ear` or `prop`.
+Open eyes are `eye`; the closed-eye arcs of `resting` are `eyelid`; the mouth, tongue and the focused brow are
+`face` — the parts an expression change actually redraws (added on the motion pass, below, once a whole-dog
+cross-fade on the mouth's own change turned out to read as a flicker); the tail is the one stroked path tagged
+`tail`; legs, paws, torso and collar are `body`; the head ellipse, its markings, muzzle and nose are `head`; ears
+and their inner ears are `ear`; the three objects are `prop`. A renderer addresses the tail, the eyes and the
+face by tag and never by geometry.
 
 Motion rules, decided here so the next sessions do not invent them:
 
@@ -208,57 +210,75 @@ row and the tab bar render exactly as before, with no Animated wrapper at all.
 
 **What moves, and when.**
 
-| Motion    | When                                          | What                                                                                                                                                                                   | Driver                                       |
-| --------- | --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
-| Blink     | Every 4 to 7 seconds while idle               | The eyes closed for 120ms: the `eyelid` arcs drawn in place of the `eye` circles, nothing else. State on a timer; two shapes redraw, no cross-fade.                                    | A timer                                      |
-| Breathing | Continuous while idle                         | The whole avatar at 1.5% scale over 3 seconds, ease in and out, growing up from the paws (the transform origin is bottom centre, so the ground line holds).                            | Native, `Animated.loop`                      |
-| Wag       | A counted repetition, when the scene is drawn | The tagged `tail` group turned ±14° about its declared root: out, across, back, home in 400ms. A burst, never a loop. With it the `happy` face for 700ms, then the caller's face back. | JS thread, `setNativeProps` on the SVG group |
-| Bounce    | Once, as the completion screen arrives        | The whole avatar up 8pt and down in 300ms.                                                                                                                                             | Native, one sequence                         |
+| Motion    | When                                          | What                                                                                                                                                                                                                             | Driver                                       |
+| --------- | --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| Blink     | Every 4 to 7 seconds while idle               | The eyes closed for 120ms: the `eyelid` arcs drawn in place of the `eye` circles, nothing else. State on a timer; two shapes redraw, no cross-fade.                                                                              | A timer                                      |
+| Breathing | Continuous while idle                         | The whole avatar at 1.5% scale over 3 seconds, ease in and out, growing up from the paws (the transform origin is bottom centre, so the ground line holds).                                                                      | Native, `Animated.loop`                      |
+| Wag       | A counted repetition, when the scene is drawn | The tagged `tail` group turned ±18° through two full cycles inside the 400ms budget, eased. A burst, never a loop. With it the `happy` face for 700ms, then the caller's face back — an in-place swap, not a cross-fade (below). | JS thread, `setNativeProps` on the SVG group |
+| Bounce    | Once, as the completion screen arrives        | The whole avatar up 8pt and down in 300ms.                                                                                                                                                                                       | Native, one sequence                         |
 
 Idle means: enabled, and the app in the foreground. Both loops stop when the app leaves the foreground
-(`AppState`) and on unmount, and start again on return. The contract's "on the responsive spring" for the wag
-became a timed return: with React Native's rest thresholds that spring needs another half second to settle the
-last swing, outside the 400ms budget, so the fourth swing home is timed on the standard curve instead.
+(`AppState`) and on unmount, and start again on return. The wag is one `Animated.timing` from 0 to 1 whose
+easing function _is_ the oscillation — `sin(2π · 2 · t)` traces two full periods as `t` runs 0 to 1, so it
+starts and ends at exactly 0 by construction, with no separate "return" segment to keep in sync. `t` itself is
+warped through `Easing.inOut(Easing.quad)` first, so the swing builds out of rest and settles back into it
+rather than snapping at either end, with the four turning points falling in the faster middle of the budget.
+(The contract's "on the responsive spring" was tried first and dropped: with React Native's rest thresholds
+that spring needs another half second to settle, outside the 400ms budget.)
 
-**Reduce Motion.** Neither loop starts. A counted rep is the `happy` face for 700ms and nothing else — the
-cross-fade at its Reduce Motion fade, no wag; completion is the screen's own arrival, no bounce. The expression
-change is kept on purpose: it is the only feedback left.
+**Reduce Motion.** Neither loop starts, and a reaction is the expression change alone: the `happy` face lands
+at once, with no wag and no cross-fade of its own to wait out (an expression change is never a cross-fade — see
+below), and completion is the screen's own arrival, no bounce. The expression change is kept on purpose: it is
+the only feedback left.
 
 **The wag appears only where the scene fits.** A rep counted while the scene is not drawn fires nothing and
 is not remembered: a dog that arrives later, when the text shrinks, arrives still. The scene is never drawn to
 make a reaction possible. On the iPhone 17 Pro that means the wag is seen on the counted steps of the five
 spoken-marker lessons and not on the clicker lessons, whose taller dock leaves the scene no room ("Wired").
 
-**A cross-fade fix, found here.** The first recording of a wag showed the whole dog vanish for one frame at
-each expression change. `Crossfade` re-mounted the previous content as its fading copy, and a freshly mounted
-`Svg` draws nothing on its first frame. It now keeps the outgoing content's instance — the layers are keyed by
-state, so React moves the old one into the fading layer instead of creating it again — and sets the incoming
-opacity before the first paint, so the new state no longer flashes at full strength before its fade.
-`crossfade.test.tsx` asserts the old content is not mounted twice; the rep-wag recording below has no blank
-frame.
+**A cross-fade fix, found on first recording.** The very first capture of a wag showed the whole dog vanish for
+one frame at each expression change. `Crossfade` re-mounted the previous content as its fading copy, and a
+freshly mounted `Svg` draws nothing on its first frame. It now keeps the outgoing content's instance — the
+layers are keyed by state, so React moves the old one into the fading layer instead of creating it again — and
+sets the incoming opacity before the first paint, so the new state no longer flashes at full strength before
+its fade. `crossfade.test.tsx` asserts the old content is not mounted twice.
+
+**A whole-dog fade fix, found in review.** With that fix in place the wag still didn't read as a wag: the whole
+dog — body included — dropped to about half opacity for a few frames at 4.83–4.90s and again at 5.53–5.63s in
+the first recording of a rep, and the tail's own motion was masked underneath it. `DogAvatar`'s `stateKey` — the
+key `Crossfade` re-mounts on — included the shown expression, so the rep reaction's `happy` face (the caller's
+expression standing in for 700ms) was, itself, a cross-fade of the _entire drawing_: an outgoing copy of the
+whole dog fading out under an incoming copy fading in, both still nearly identical since only the mouth had
+changed, which is exactly what reads as a flicker rather than a swap. The blink was never built this way — it
+is state, not a cross-fade — and the brief's fix is to make every expression change behave the same: `shown` (and
+therefore the caller's `expression` prop) is no longer part of `stateKey` at all. `DogFace` still recomputes its
+`drawDog(...)` call on every expression change and redraws in place — the `eye`, `eyelid` and now `face` shapes
+(the brow, mouth and tongue, split out of `head` for exactly this) come and go with it — but there is no second
+mounted copy, no fading layer, and no opacity change on any shape, ever, for an expression change. The two
+findings compound: the first fix stopped the dog going blank for a frame, and this one stops it going
+translucent for several — together they are why the recording below shows a crisp tail swing on top of a body
+that never dims.
 
 **Seen on the device** (dev build `5ddd4fa0`, iPhone 17 Pro simulator, iOS 26.5, 540p encodes of
 `simctl io recordVideo`; the frame-by-frame numbers come from `AVAssetImageGenerator` reads of the originals):
 
-| Recording                                                                                        | What it shows                                                                                                                                                             |
-| ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`motion/idle-place.mp4`](assets/phase-11/motion/idle-place.mp4)                                 | Twenty seconds of the Place scene: blinks at 4.4s, 10.1s and 16.1s, each four frames at 30fps; the head's top edge breathing 7px at 3× (2.3pt) on a 3.0s period.          |
-| [`motion/rep-wag.mp4`](assets/phase-11/motion/rep-wag.mp4)                                       | Biting Foundation's counted step: one rep at 4.8s — the face fades to happy, the tail swings for about 270ms of visible motion, the face returns at 5.5s. No blank frame. |
-| [`motion/completion-bounce.mp4`](assets/phase-11/motion/completion-bounce.mp4)                   | The completion screen arriving at 2.0s: up 17px at 3× within 130ms, down by 300ms, then breathing.                                                                        |
-| [`motion/reduce-motion-idle-place.mp4`](assets/phase-11/motion/reduce-motion-idle-place.mp4)     | The same twenty seconds with Reduce Motion on: no blink, no breathing (the eye and top-edge reads are constant; the file is 10KB because nothing changes).                |
-| [`motion/reduce-motion-rep-complete.mp4`](assets/phase-11/motion/reduce-motion-rep-complete.mp4) | A rep and the completion with Reduce Motion on: the happy face fades in and out, no swing; the completion arrives and holds, no bounce.                                   |
+| Recording                                                                                        | What it shows                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`motion/idle-place.mp4`](assets/phase-11/motion/idle-place.mp4)                                 | Twenty seconds of the Place scene: blinks at 4.4s, 10.1s and 16.1s, each four frames at 30fps; the head's top edge breathing 7px at 3× (2.3pt) on a 3.0s period.                                                                                                                                                                                                                                                                                                                                                                                                        |
+| [`motion/rep-wag.mp4`](assets/phase-11/motion/rep-wag.mp4)                                       | Biting Foundation's counted step: a rep at 2.00s — the happy face lands between 1.97s and 2.00s, one frame, no fade; the tail swings to a first full ±18° extreme at 2.10s, back through the middle at 2.20s, to the second extreme at 2.30s, and is indistinguishable from its 1.93s rest pose again by 2.40s. The dog's coat never dims: a pixel-diff of the tail region against a rest frame stays ≥14,926 (versus a ≤6,083 pre-trigger ceiling) for all 13 consecutive sampled frames from 2.00s to 2.40s, and the body silhouette is identical at 1.93s and 2.40s. |
+| [`motion/completion-bounce.mp4`](assets/phase-11/motion/completion-bounce.mp4)                   | The completion screen arriving at 2.0s: up 17px at 3× within 130ms, down by 300ms, then breathing.                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| [`motion/reduce-motion-idle-place.mp4`](assets/phase-11/motion/reduce-motion-idle-place.mp4)     | Fifteen seconds of the Place scene with Reduce Motion on: a whole-frame pixel diff against the first frame is exactly 0 at 2.0s, 5.0s, 10.0s and 14.8s — nothing moves in that span, not even a blink.                                                                                                                                                                                                                                                                                                                                                                  |
+| [`motion/reduce-motion-rep-complete.mp4`](assets/phase-11/motion/reduce-motion-rep-complete.mp4) | A rep and the completion with Reduce Motion on: the happy face lands the same one frame as above, with no fade; the tail's outline — same curl, same angle — does not change between 1.90s (before) and 2.30s (during): no swing at all, the small residual pixel diff between those two frames tracing only to a compression shimmer on the ear's shadow edge; the completion screen's dog is at the same position and size at 5.0s and 5.1s — no bounce.                                                                                                              |
 
 Reduce Motion was set through the simulator's accessibility preference (`com.apple.Accessibility
 ReduceMotionEnabled`, `simctl ui` has no flag for it) and the app confirmed it through
 `AccessibilityInfo.isReduceMotionEnabled`; it was set back to off, and the simulator left at medium text,
 English.
 
-**What the wag costs.** Measured on the dev build through the Hermes inspector: a burst is 455ms wall-clock
-from start to the end callback (the wrapper that timed it also called `console.time`; the dev client does not
-forward it to Metro). Over the 1.3 seconds of a whole rep reaction the JS thread was busy for 265–297ms, of
-which the wag's own per-frame work — React Native's `setNativeProps` on the tail group, about 27 frames — was
-104–131ms, four to five milliseconds a frame; the rest is React rendering the rep (the screen, the rep marks,
-the two cross-fades of the face) and the 48ms sync commits Animated makes for a JS-driven prop on Fabric. Metro
-logged no frame warnings. A release build will be lighter, but not on the `setNativeProps` half: if that number
-matters, the tail can be drawn in its own `Svg` under the body and turned on the native driver, at the cost of a
-second SVG view and a mirrored origin under RTL.
+**What the wag costs.** A burst measured 403.5ms wall-clock on the dev build through the Hermes inspector —
+close to the nominal 400ms, as it should be now that it is one continuous `Animated.timing` rather than four
+chained ones. The per-frame CPU cost was not re-profiled for this revision; the mechanism is simpler than the
+four-segment version it replaced (one `start()` call instead of four chained ones, the same `setNativeProps`
+path per frame), so there is no reason to expect it heavier, but that is a reason, not a measurement — a later
+session that cares about the exact number should re-run the Hermes-inspector profile against a fresh recording
+rather than trust this one's stale figures forward.
