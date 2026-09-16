@@ -52,7 +52,7 @@ at `https://soft-star-9254.pawcue-support.workers.dev` since 2026-09-14; `legal-
 Worker. To publish a change: from `legal-site/`, `npx wrangler@latest login` once, then `npx wrangler@latest
 deploy`. On 2026-09-16 the owner resolved the last two placeholders: `[[OPERATOR]]` is **Ori Ziv**, named as
 publisher and data controller on both policies and in their contact sections, and `[[POSTAL_ADDRESS]]` is
-**omitted by the owner's decision**, with `pawcue.support@gmail.com` as the sole contact channel. The drafts in
+**Dizengoff 278, Tel Aviv, Israel**, with `pawcue.support@gmail.com` as the contact channel. The drafts in
 this folder carry the same resolved values, so they and `legal-site/public` say the same thing.
 
 ## Publishing checklist

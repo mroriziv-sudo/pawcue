@@ -114,6 +114,7 @@ prejudice to any mandatory consumer-protection rights you have where you live.
 ## 11. Contact
 
 Ori Ziv, publisher of PawCue
+Dizengoff 278, Tel Aviv, Israel
 pawcue.support@gmail.com
 
 ## 12. Additional terms for the Apple App Store

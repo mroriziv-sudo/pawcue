@@ -150,4 +150,5 @@ app before the change takes effect.
 ## 11. Contact
 
 Ori Ziv, publisher of PawCue
+Dizengoff 278, Tel Aviv, Israel
 pawcue.support@gmail.com
