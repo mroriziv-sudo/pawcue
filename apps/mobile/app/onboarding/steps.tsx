@@ -416,6 +416,8 @@ function StepInput({
         value={value}
         onChange={(next) => setField(step.id, next || undefined)}
         inputTestID={`input-${step.id}`}
+        // Known only when the user has come back from a later step; otherwise the copy's default form.
+        sex={draft.sex}
         {...(validationMessage ? { error: validationMessage } : {})}
         errorTestID="validation-message"
       />

@@ -28,7 +28,11 @@ import { SectionHeader } from "../../src/components/SectionHeader";
 import { JourneySkeleton, SkeletonGroup } from "../../src/components/Skeleton";
 import { DogAvatar } from "../../src/components/DogAvatar";
 import { breedDisplayName } from "../../src/dogs/breed-lookup";
-import { ageLabel, monthsSince } from "../../src/components/BirthdatePicker";
+import {
+  ageLabel,
+  genderContext,
+  monthsSince,
+} from "../../src/components/BirthdatePicker";
 
 /**
  * Dog — this dog's page.
@@ -124,7 +128,7 @@ export default function DogScreen() {
 
   const breed = breedDisplayName(dog?.breed, i18n.language);
   const months = dog?.birthdate ? monthsSince(dog.birthdate) : null;
-  const age = months !== null ? ageLabel(months, t) : null;
+  const age = months !== null ? ageLabel(months, t, dog?.sex) : null;
   const sex =
     dog?.sex === "female" || dog?.sex === "male"
       ? t(`onboarding.sex.${dog.sex}`)
@@ -305,7 +309,9 @@ export default function DogScreen() {
         <>
           {knows.length > 0 ? (
             <Section>
-              <SectionHeader title={t("dogTab.knows", { name })} />
+              <SectionHeader
+                title={t("dogTab.knows", { name, ...genderContext(dog?.sex) })}
+              />
               {knows.map((item, index) => (
                 <LessonRow
                   key={item.lesson.id}

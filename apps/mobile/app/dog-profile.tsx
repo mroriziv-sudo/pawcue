@@ -169,6 +169,7 @@ export default function DogProfileScreen() {
               value={form.birthdate ?? ""}
               onChange={(value) => setForm((f) => ({ ...f, birthdate: value }))}
               inputTestID="edit-birthdate"
+              sex={form.sex}
               {...(birthdateError ? { error: birthdateError } : {})}
             />
           </Section>

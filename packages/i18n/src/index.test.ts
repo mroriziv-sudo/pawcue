@@ -14,10 +14,21 @@ function collectKeys(obj: unknown, prefix = ""): string[] {
  * Different locales have different CLDR plural category sets by design (English: one/other; Hebrew:
  * one/two/many/other — see LOCALIZATION.md). Comparing raw key names would flag that as a false mismatch, so
  * plural-suffixed keys are normalized to their base form before comparing "did both locales cover this concept."
+ *
+ * The same goes for i18next's `context` suffix: Hebrew agrees a handful of strings with the dog's sex
+ * (`ageMonths_female_one`, `knows_female`) where English has one form, and i18next falls back from the context
+ * key to the base key, so the concept is covered in both.
  */
 const PLURAL_SUFFIX = /_(zero|one|two|few|many|other)$/;
+const CONTEXT_SUFFIX = /_(female|male)$/;
 function normalizePluralKeys(keys: string[]): string[] {
-  return [...new Set(keys.map((key) => key.replace(PLURAL_SUFFIX, "")))];
+  return [
+    ...new Set(
+      keys.map((key) =>
+        key.replace(PLURAL_SUFFIX, "").replace(CONTEXT_SUFFIX, ""),
+      ),
+    ),
+  ];
 }
 
 describe("locale metadata", () => {

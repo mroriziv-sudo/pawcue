@@ -25,6 +25,7 @@ import SettingsScreen from "../app/settings";
 import ClickerScreen from "../app/clicker";
 import { BreedPicker } from "../src/components/BreedPicker";
 import { BackControl } from "../src/components/BackControl";
+import { BirthdatePicker } from "../src/components/BirthdatePicker";
 import { i18n } from "../src/i18n";
 import { useDogStore } from "../src/state/dog-store";
 import { useBootstrapStore } from "../src/state/bootstrap-store";
@@ -649,6 +650,123 @@ describe("finding 14 — marks scale with the text they sit beside, up to the le
 
     expect(flatStyle(screen.getByTestId("check", hidden) as never).width).toBe(
       22,
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------------
+
+describe("finding 18 — copy", () => {
+  it("ends the plan meta with a period, like every other meta", async () => {
+    await renderScreen(<TodayScreen />);
+    await waitFor(() =>
+      expect(screen.getByTestId("today-activity-state-name_game")).toBeTruthy(),
+    );
+
+    expect(
+      screen.getByTestId("today-activity-state-name_game"),
+    ).toHaveTextContent("Something new to learn.");
+  });
+
+  it("ends the Hebrew plan meta with a period too", async () => {
+    await i18n.changeLanguage("he-IL");
+    await renderScreen(<TodayScreen />, "rtl");
+    await waitFor(() =>
+      expect(screen.getByTestId("today-activity-state-name_game")).toBeTruthy(),
+    );
+
+    expect(
+      screen.getByTestId("today-activity-state-name_game"),
+    ).toHaveTextContent(/\.$/);
+  });
+
+  it("agrees the Dog tab's Hebrew with a female dog, and hyphenates the prefix before a date", async () => {
+    await i18n.changeLanguage("he-IL");
+    useTrainingLogStore.setState({
+      completed: [
+        {
+          sessionId: "s1",
+          lessonId: LESSON.nameGame,
+          lessonSlug: "name_game",
+          startedAt: "2026-09-15T10:00:00.000Z",
+          endedAt: "2026-09-15T10:03:00.000Z",
+          status: "completed",
+          stepsCompleted: 1,
+          repetitionsLogged: 0,
+          clickerPresses: 0,
+          troubleshootingViewed: 0,
+          syncedToServer: true,
+        },
+      ],
+      hydrated: true,
+    });
+    await renderScreen(<DogScreen />, "rtl");
+    await waitFor(() =>
+      expect(screen.getByTestId("dog-lesson-name_game")).toBeTruthy(),
+    );
+
+    // "בת" for a female dog, where the pass read "בן 18 חודשים".
+    expect(screen.getByText(/בת \d+ חודשים|בת שנ/)).toBeTruthy();
+    // "מה לונה כבר יודעת", not "יודע".
+    expect(screen.getByText(/מה Libi כבר יודעת/)).toBeTruthy();
+    // "נלמד ב-15 בספטמבר.", as the app writes "כ-4" elsewhere.
+    expect(
+      screen.getByTestId("dog-lesson-name_game").props.accessibilityLabel,
+    ).toMatch(/נלמד ב-15 בספטמבר\./);
+  });
+
+  it("keeps the masculine forms for a male dog and when the sex is not known", async () => {
+    await i18n.changeLanguage("he-IL");
+    // The tab re-reads the dog on mount, so the server's answer is the one that counts.
+    mockFetchDog.mockResolvedValue({ ...DOG, sex: "male" });
+    useDogStore.setState({ dog: { ...DOG, sex: "male" } });
+    await renderScreen(<DogScreen />, "rtl");
+    await waitFor(() => expect(screen.getByTestId("dog-name")).toBeTruthy());
+
+    expect(screen.getByText(/בן \d+ חודשים|בן שנ/)).toBeTruthy();
+  });
+
+  it("agrees the birthdate sentence and its hint with the dog's sex in Hebrew", async () => {
+    await i18n.changeLanguage("he-IL");
+    await renderScreen(
+      <>
+        <BirthdatePicker
+          value="2025-03-14"
+          onChange={jest.fn()}
+          inputTestID="girl"
+          sex="female"
+        />
+        <BirthdatePicker
+          value="2025-03-14"
+          onChange={jest.fn()}
+          inputTestID="unknown"
+        />
+      </>,
+      "rtl",
+    );
+
+    expect(screen.getByTestId("girl-summary")).toHaveTextContent(
+      /^בת .*נולדה בערך ב/,
+    );
+    expect(screen.getByTestId("unknown-summary")).toHaveTextContent(
+      /^בן .*נולד בערך ב/,
+    );
+    expect(screen.getByText("בערך בת כמה?")).toBeTruthy();
+    expect(screen.getByText("בערך בן כמה?")).toBeTruthy();
+  });
+
+  it("leaves English untouched by the Hebrew agreement", async () => {
+    await renderScreen(
+      <BirthdatePicker
+        value="2025-03-14"
+        onChange={jest.fn()}
+        inputTestID="girl"
+        sex="female"
+      />,
+    );
+
+    expect(screen.getByTestId("girl-summary")).toHaveTextContent(
+      /^18 months old, born around March 2025\.$/,
     );
   });
 });

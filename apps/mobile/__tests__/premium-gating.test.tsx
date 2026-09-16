@@ -1,4 +1,5 @@
 import {
+  act,
   render,
   screen,
   fireEvent,
@@ -43,11 +44,12 @@ import {
 
 const mockPush = jest.fn();
 const mockBack = jest.fn();
+const mockNavigate = jest.fn();
 
 jest.mock("expo-router", () => ({
   useRouter: () => ({
     push: mockPush,
-    navigate: jest.fn(),
+    navigate: mockNavigate,
     replace: jest.fn(),
     back: mockBack,
   }),
@@ -345,7 +347,7 @@ describe("Train — premium content while free", () => {
     expect(mockPush).toHaveBeenCalledWith("/paywall");
   });
 
-  it("says it is premium, in its own section", async () => {
+  it("says it is premium once, on the meta line, in its own section", async () => {
     await renderScreen(<TrainScreen />);
     await waitFor(() =>
       expect(screen.getByTestId("train-section-premium")).toBeTruthy(),
@@ -354,7 +356,27 @@ describe("Train — premium content while free", () => {
     expect(screen.getByTestId("lesson-status-place")).toHaveTextContent(
       /Premium/,
     );
-    expect(screen.getByTestId("lesson-premium-place")).toBeTruthy();
+    // Phase 10 acceptance, finding 8: the "Part of PawCue Premium." line said it a second time on every row.
+    expect(screen.queryByTestId("lesson-premium-place")).toBeNull();
+    const row = screen.getByTestId("lesson-card-place");
+    expect(
+      (row.props.accessibilityLabel as string).match(/Premium/g),
+    ).toHaveLength(1);
+  });
+
+  it("keeps the chevron on a premium-only row, because it routes to the paywall", async () => {
+    await renderScreen(<TrainScreen />);
+    await waitFor(() =>
+      expect(screen.getByTestId("lesson-card-place")).toBeTruthy(),
+    );
+
+    expect(
+      screen.getByTestId("lesson-card-place").props.accessibilityRole,
+    ).toBe("button");
+    // A row locked by a prerequisite as well goes nowhere, and says so by having no button role.
+    expect(
+      screen.getByTestId("lesson-card-stay").props.accessibilityRole,
+    ).toBeUndefined();
   });
 });
 
@@ -379,7 +401,9 @@ describe("Train — premium content while entitled", () => {
     );
 
     expect(screen.queryByTestId("train-section-premium")).toBeNull();
-    expect(screen.queryByTestId("lesson-premium-place")).toBeNull();
+    expect(screen.getByTestId("lesson-status-place")).not.toHaveTextContent(
+      /Premium/,
+    );
   });
 });
 
@@ -404,7 +428,10 @@ describe("the prerequisite lock is a separate thing", () => {
       expect(screen.getByTestId("lesson-card-stay")).toBeTruthy(),
     );
 
-    expect(screen.getByTestId("lesson-premium-stay")).toBeTruthy();
+    // The premium lock on the meta line (finding 8: once), the prerequisite lock on its own line beneath.
+    expect(screen.getByTestId("lesson-status-stay")).toHaveTextContent(
+      /Premium/,
+    );
     expect(screen.getByTestId("lesson-locked-stay")).toBeTruthy();
   });
 
@@ -527,6 +554,87 @@ describe("Today", () => {
 
     expect(mockPush).not.toHaveBeenCalledWith("/lesson/place");
     expect(mockPush).not.toHaveBeenCalledWith("/lesson/stay");
+  });
+
+  /**
+   * Phase 10 acceptance, finding 12 — the owner's product decision. Once the day's free lessons are done and
+   * the engine's next pick is premium, the primary button says the day is done; the locked lesson stays on the
+   * trail with its mark, and that row is the way to the paywall. "Unlock with Premium" never takes the primary
+   * slot. Nothing asserted the old behaviour; this is the first test of the state.
+   */
+  it("says the day is done rather than putting the paywall in the primary slot", async () => {
+    // Place, trained before the subscription lapsed, is due for review beside today's one new free skill — the
+    // engine allows one new skill a day, so this is how a free lesson and a premium one share a plan.
+    const daysAgo = (days: number) =>
+      new Date(Date.now() - days * 86_400_000).toISOString();
+    useTrainingLogStore.setState({
+      completed: [{ ...record(LESSON.place, daysAgo(5)), lessonSlug: "place" }],
+      hydrated: true,
+    });
+    // The plan is a commitment made in the morning: generate it first, then finish its free lesson with the
+    // screen still up, as coming back from the session does.
+    await renderScreen(<TodayScreen />);
+    await waitFor(() =>
+      expect(screen.getByTestId("today-start").props.accessibilityLabel).toBe(
+        "Start The Name Game",
+      ),
+    );
+    expect(screen.getByTestId("today-activity-place")).toBeTruthy();
+
+    await act(async () => {
+      useTrainingLogStore.setState({
+        completed: [
+          { ...record(LESSON.place, daysAgo(5)), lessonSlug: "place" },
+          { ...record(LESSON.nameGame, daysAgo(0)), lessonSlug: "name_game" },
+        ],
+        hydrated: true,
+      });
+    });
+    await waitFor(() => expect(screen.getByTestId("today-done")).toBeTruthy());
+
+    expect(screen.queryByTestId("today-start-premium")).toBeNull();
+    expect(screen.queryByTestId("today-start")).toBeNull();
+    expect(screen.getByTestId("today-done").props.accessibilityLabel).toBe(
+      "Done for today",
+    );
+    await fireEvent.press(screen.getByTestId("today-done"));
+    expect(mockPush).not.toHaveBeenCalledWith("/paywall");
+    expect(mockNavigate).toHaveBeenCalledWith("/progress");
+
+    // The locked row, its mark in the accessible name, is what leads to the paywall.
+    const row = screen.getByTestId("today-activity-place");
+    expect(row.props.accessibilityLabel).toMatch(/Premium lesson\./);
+    await fireEvent.press(row);
+    expect(mockPush).toHaveBeenCalledWith("/paywall");
+  });
+
+  it("offers no primary at all when nothing was trained and only premium remains", async () => {
+    // The free lessons finished yesterday — too soon to repeat — and Place due for review: a day of premium
+    // picks alone. Not "done" — the coach line and the trail carry it, and nothing in the primary slot sells.
+    const daysAgo = (days: number) =>
+      new Date(Date.now() - days * 86_400_000).toISOString();
+    useTrainingLogStore.setState({
+      completed: [
+        { ...record(LESSON.nameGame, daysAgo(1)), lessonSlug: "name_game" },
+        record(LESSON.sit, daysAgo(1)),
+        { ...record(LESSON.place, daysAgo(5)), lessonSlug: "place" },
+      ],
+      hydrated: true,
+    });
+    await renderScreen(<TodayScreen />);
+    await waitFor(() =>
+      expect(screen.getByTestId("today-activity-place")).toBeTruthy(),
+    );
+
+    expect(
+      screen.queryAllByTestId(/^today-activity-(name_game|sit)$/),
+    ).toHaveLength(0);
+    expect(screen.queryByTestId("today-start")).toBeNull();
+    expect(screen.queryByTestId("today-start-premium")).toBeNull();
+    expect(screen.queryByTestId("today-done")).toBeNull();
+    expect(screen.getByTestId("today-greeting")).toHaveTextContent(
+      /is part of Premium\./,
+    );
   });
 });
 

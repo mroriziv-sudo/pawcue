@@ -178,8 +178,11 @@ export default function TodayScreen() {
    *
    * A paused session outranks the plan: it is the one thing on this screen the user already committed to.
    * Otherwise the first thing that is neither finished nor locked — so the button keeps meaning what it says
-   * partway through a day, and never opens a lesson the user cannot train. When everything left is premium, the
-   * button changes to say so rather than silently doing nothing.
+   * partway through a day, and never opens a lesson the user cannot train. When everything left is premium and
+   * a session was trained today — on the plan or, as when the plan was built after it, off it — the day is done
+   * and the button says so; the locked lesson stays on the trail with its mark, and that row is the way to the
+   * paywall. "Unlock with Premium" never takes the primary slot (phase-10-native-acceptance.md, finding 12 — the
+   * owner's product decision).
    */
   const nextStartable = activities.find(
     (activity) => !activity.done && !(activity.premium && !isPremium),
@@ -441,11 +444,11 @@ export default function TodayScreen() {
                 }
                 testID="today-start"
               />
-            ) : nextLocked ? (
+            ) : nextLocked && completedToday.length > 0 ? (
               <Button
-                label={t("today.premiumCta")}
-                onPress={() => router.push("/paywall")}
-                testID="today-start-premium"
+                label={t("today.doneForToday")}
+                onPress={() => router.navigate("/progress")}
+                testID="today-done"
               />
             ) : null}
           </View>

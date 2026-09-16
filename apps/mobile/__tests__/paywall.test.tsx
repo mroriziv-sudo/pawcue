@@ -325,6 +325,32 @@ describe("the store cannot be reached", () => {
     // The way out still works.
     expect(screen.getByTestId("paywall-close")).toBeTruthy();
   });
+
+  it("says it once: the unavailable block, not also the generic alert line", async () => {
+    // Phase 10 acceptance, finding 5: the same failed fetch rendered both.
+    backend.productsThrow = new Error("store down");
+    await renderPaywall();
+
+    await waitFor(() =>
+      expect(screen.getByTestId("paywall-unavailable")).toBeTruthy(),
+    );
+    expect(screen.queryByTestId("paywall-message")).toBeNull();
+  });
+
+  it("still reports a restore that fails while the store is down", async () => {
+    backend.productsThrow = new Error("store down");
+    backend.restoreThrow = new Error("restore down");
+    await renderPaywall();
+    await waitFor(() =>
+      expect(screen.getByTestId("paywall-unavailable")).toBeTruthy(),
+    );
+
+    await fireEvent.press(screen.getByTestId("paywall-restore"));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("paywall-message")).toBeTruthy(),
+    );
+  });
 });
 
 describe("buying", () => {

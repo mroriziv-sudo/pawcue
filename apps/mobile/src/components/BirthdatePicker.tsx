@@ -5,6 +5,9 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { Button, Glyph, Text, useTheme } from "@pawcue/ui";
+import type { Dog } from "@pawcue/domain";
+
+type DogSex = Dog["sex"];
 
 /**
  * The dog's birthdate, two ways.
@@ -28,12 +31,15 @@ export function BirthdatePicker({
   value,
   onChange,
   inputTestID,
+  /** The dog's sex, when already known: Hebrew agrees "born" and "how old" with it. */
+  sex,
   error,
   errorTestID,
 }: {
   value: string;
   onChange: (next: string) => void;
   inputTestID: string;
+  sex?: DogSex | undefined;
   error?: string;
   errorTestID?: string;
 }) {
@@ -51,8 +57,9 @@ export function BirthdatePicker({
   const summary =
     ageMonths !== null
       ? t("fields.birthdate.summary", {
-          age: ageLabel(ageMonths, t),
+          age: ageLabel(ageMonths, t, sex),
           month: bornAround(value, i18n.language),
+          ...genderContext(sex),
         })
       : null;
 
@@ -81,7 +88,7 @@ export function BirthdatePicker({
       ) : (
         <View style={{ gap: theme.space[2] }}>
           <Text variant="secondary" tone="secondary">
-            {t("fields.birthdate.ageLabel")}
+            {t("fields.birthdate.ageLabel", genderContext(sex))}
           </Text>
           <View style={{ flexDirection: "row", gap: theme.space[2] }}>
             <View style={{ flex: 1 }}>
@@ -166,11 +173,29 @@ export function BirthdatePicker({
   );
 }
 
+/**
+ * The i18next `context` that makes Hebrew agree with the dog: "בת שנה" for a female dog, the default (masculine)
+ * form otherwise and when the sex is not yet known. English carries no such variants and resolves to the base
+ * key (phase-10-native-acceptance.md, finding 18).
+ */
+export function genderContext(sex: DogSex | null | undefined): {
+  context?: "female";
+} {
+  return sex === "female" ? { context: "female" } : {};
+}
+
 /** "3 months old" below two years, whole years after — the Dog tab's own age strings. */
-export function ageLabel(months: number, t: TFunction): string {
+export function ageLabel(
+  months: number,
+  t: TFunction,
+  sex?: DogSex | null,
+): string {
   return months < 24
-    ? t("dogTab.ageMonths", { count: months })
-    : t("dogTab.ageYears", { count: Math.floor(months / 12) });
+    ? t("dogTab.ageMonths", { count: months, ...genderContext(sex) })
+    : t("dogTab.ageYears", {
+        count: Math.floor(months / 12),
+        ...genderContext(sex),
+      });
 }
 
 /** The month a stored date falls in, in the user's language: "June 2025". */

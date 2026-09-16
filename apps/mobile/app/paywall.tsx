@@ -97,6 +97,12 @@ export default function PaywallScreen() {
   const restoring =
     restore.phase === "restoring" || restore.phase === "verifying";
 
+  /**
+   * One message per failure. A failed product fetch is already said, in full, by the "Plans aren't available
+   * right now" block below; the generic alert line is for a purchase or restore that went wrong, and rendering
+   * both for the same fetch said the store failure twice (phase-10-native-acceptance.md, finding 5).
+   */
+  const unavailable = !productsLoading && (!products || products.empty);
   const message =
     purchase.phase === "verifying"
       ? t("paywall.verifying")
@@ -104,7 +110,7 @@ export default function PaywallScreen() {
         ? t(purchase.messageKey)
         : restore.messageKey
           ? t(restore.messageKey)
-          : productsErrorKey
+          : productsErrorKey && !unavailable
             ? t(productsErrorKey)
             : null;
 

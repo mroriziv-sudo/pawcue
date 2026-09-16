@@ -160,7 +160,9 @@ export default function TrainScreen() {
  *
  * A lesson that cannot be started is not pressable *into the lesson*, rather than pressable-and-then-refused:
  * withholding `onPress` also removes the button role, so assistive technology is told the same thing the mark
- * says. Both locks are stated, in that order, whenever both apply.
+ * says. Both locks are stated, in that order, whenever both apply: the premium lock on the meta line, the
+ * prerequisite lock on its own line beneath. A premium-only row keeps its chevron, because it routes to the
+ * paywall; a row locked by a prerequisite as well routes nowhere and has none.
  */
 function LessonRow({
   detail,
@@ -250,16 +252,12 @@ function LessonRow({
           </Text>
         ) : null}
       </Text>
-      {/* Each lock explains itself in its own words. Shown together when both apply. */}
-      {gate.premiumLocked ? (
-        <Text
-          variant="caption"
-          tone="secondary"
-          testID={`lesson-premium-${detail.lesson.slug}`}
-        >
-          {t("train.premiumHint")}
-        </Text>
-      ) : null}
+      {/*
+        The prerequisite lock explains itself in its own words, because the row above cannot: "Finish the lesson
+        that teaches this first" is a different fact from the lock mark. The premium lock is already said once,
+        on the meta line, under a section that says it again — a third line saying "Part of PawCue Premium" said
+        it twice on every row (phase-10-native-acceptance.md, finding 8).
+      */}
       {gate.prerequisiteLocked ? (
         <Text
           variant="caption"
