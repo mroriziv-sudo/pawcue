@@ -1,0 +1,14 @@
+{
+  // The legal and support site: static files only, served by a Cloudflare Worker named after the
+  // workers.dev subdomain it already lives on. Deploy from this directory:
+  //   npx wrangler@latest login      (once, opens the browser)
+  //   npx wrangler@latest deploy
+  // Every page under public/ is served at its path; there is no script and no server-side code.
+  "name": "pawcue-support",
+  "compatibility_date": "2026-09-01",
+  "assets": {
+    "directory": "./public",
+    "not_found_handling": "404-page",
+    "html_handling": "auto-trailing-slash",
+  },
+}

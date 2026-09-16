@@ -44,10 +44,21 @@ translation of a legal document should be made or checked by someone qualified, 
 declared the governing version if both are published. Until that decision, the English documents are linked from
 both locales.
 
+## Where the published site lives
+
+`legal-site/public/` is the rendered site: `/`, `/privacy`, `/terms`, `/delete-account`, `/support` and a `404`
+page, one HTML file each, sharing one style. It is served by a Cloudflare Worker (static assets only, no code)
+at `https://soft-star-9254.pawcue-support.workers.dev` since 2026-09-14; `legal-site/wrangler.jsonc` names that
+Worker. To publish a change: from `legal-site/`, `npx wrangler@latest login` once, then `npx wrangler@latest
+deploy`. Two placeholders are still unresolved on the live site and in `legal-site/public`: `[[OPERATOR]]`
+(the pages say "the developer who publishes the app") and `[[POSTAL_ADDRESS]]` (omitted). Both are the owner's
+decision; see the table above.
+
 ## Publishing checklist
 
 1. Resolve every placeholder; have the texts reviewed.
-2. Publish at `[[WEBSITE]]/privacy`, `[[WEBSITE]]/terms`, `[[WEBSITE]]/delete-account` over HTTPS.
+2. Publish at `[[WEBSITE]]/privacy`, `[[WEBSITE]]/terms`, `[[WEBSITE]]/delete-account` and `[[WEBSITE]]/support`
+   over HTTPS (`npx wrangler@latest deploy` from `legal-site/`).
 3. From `apps/mobile`: `npx eas-cli env:set production --name EXPO_PUBLIC_PRIVACY_URL --value https://… --visibility plaintext --type string --scope project --non-interactive`
    and the same for `EXPO_PUBLIC_TERMS_URL` (and for `preview`, so the simulator audit build shows them).
 4. Enter the same URLs in App Store Connect (Privacy Policy URL, Support URL) and Play Console (Privacy policy;
