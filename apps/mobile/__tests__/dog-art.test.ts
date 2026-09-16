@@ -212,6 +212,37 @@ describe("the family templates", () => {
     );
   });
 
+  /**
+   * For the motion session: a blink is the eyelid arcs in place of the eyes and nothing else, so the renderer
+   * can toggle it on a timer without a cross-fade; the tail declares its root so the wag turns it about the
+   * right point by tag, never by reading the path.
+   */
+  it("blinks by swapping only the eyes for the eyelids, never on a bust, and roots every tail", () => {
+    const base = { group: "herding", size: "large", ears: "pointed" } as const;
+    for (const pose of BODY_POSES) {
+      for (const expression of EXPRESSIONS) {
+        const open = drawDog({ ...base, pose, expression });
+        const blink = drawDog({ ...base, pose, expression, blink: true });
+        expect(blink.shapes.filter((s) => s.part === "eye")).toHaveLength(0);
+        expect(blink.shapes.filter((s) => s.part === "eyelid")).toHaveLength(2);
+        const rest = (d: typeof open) =>
+          d.shapes.filter((s) => s.part !== "eye" && s.part !== "eyelid");
+        expect(rest(blink)).toEqual(rest(open));
+        const tail = open.shapes.find((s) => s.part === "tail");
+        expect(tail?.kind).toBe("path");
+        if (tail?.kind === "path") {
+          expect(tail.origin).toBeDefined();
+          // The root is where the path starts.
+          const [x, y] = tail.origin ?? [NaN, NaN];
+          expect(tail.d.startsWith(`M ${x} ${y} `)).toBe(true);
+        }
+      }
+    }
+    const bust = drawDog({ ...base, pose: "bust", blink: true });
+    expect(bust.shapes.filter((s) => s.part === "eye")).toHaveLength(2);
+    expect(bust.shapes.filter((s) => s.part === "eyelid")).toHaveLength(0);
+  });
+
   it("tags every shape, with exactly one tail and two eyes on every body pose", () => {
     for (const group of FAMILY_ORDER) {
       for (const pose of POSES) {

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   ScrollView,
@@ -45,12 +45,14 @@ import { usePlanStore } from "../../src/state/plan-store";
 import { useEntitlementStore } from "../../src/state/entitlement-store";
 import { buildTodayView } from "../../src/plans/plan-lifecycle";
 import { ScreenScroll } from "../../src/components/ScreenScroll";
-import { DogAvatar } from "../../src/components/DogAvatar";
+import { DogAvatar, type DogReaction } from "../../src/components/DogAvatar";
 import { Crossfade } from "../../src/components/Crossfade";
 import { skillDemo } from "../../src/dogs/skill-demo";
 
 /** The demo scene's width; its drawing is five-quarters as tall. */
 const DEMO_SCENE_SIZE = 140;
+/** The completion screen's one reaction, fired on mount. A constant, so it can never fire twice. */
+const COMPLETION_BOUNCE: DogReaction = { kind: "complete", key: 1 };
 /** Free space below the text before the scene is allowed in — the drawing plus a breath, never less. */
 const DEMO_SCENE_MIN_SPACE = 200;
 
@@ -247,13 +249,6 @@ function ActiveStepView({
       : null,
   );
 
-  if (!session || !step) return null;
-
-  const progress = sessionProgress(session, content);
-  const clicks = clicksFor(session, step);
-  const satisfied = isStepSatisfied(session, step);
-  const isFinalStep = progress.stepNumber === progress.totalSteps;
-  const hasTroubleshooting = content.troubleshooting.length > 0;
   const freeSpace =
     regionHeight !== null && textHeight !== null
       ? regionHeight - textHeight - theme.space[6] * 2 - theme.space[4]
@@ -261,6 +256,35 @@ function ActiveStepView({
   // Never with the help sheet open: the puzzled bust on the sheet is the one dog in that state.
   const showScene =
     !helpVisible && freeSpace !== null && freeSpace >= DEMO_SCENE_MIN_SPACE;
+
+  /**
+   * The dog reacts to a counted rep — the same count the rep marks fill from — and only while the scene is on
+   * screen. A rep counted with no scene is not remembered: a dog that appears later must not wag for it, and
+   * the scene is never drawn to make a reaction possible (phase-11-the-dog-at-work.md, "Motion").
+   */
+  const [reaction, setReaction] = useState<DogReaction | null>(null);
+  const seenReps = useRef(reps);
+  const reactionCount = useRef(0);
+  useEffect(() => {
+    const counted = reps > seenReps.current;
+    seenReps.current = reps;
+    if (!showScene) {
+      setReaction(null);
+      return;
+    }
+    if (counted) {
+      reactionCount.current += 1;
+      setReaction({ kind: "rep", key: reactionCount.current });
+    }
+  }, [reps, showScene]);
+
+  if (!session || !step) return null;
+
+  const progress = sessionProgress(session, content);
+  const clicks = clicksFor(session, step);
+  const satisfied = isStepSatisfied(session, step);
+  const isFinalStep = progress.stepNumber === progress.totalSteps;
+  const hasTroubleshooting = content.troubleshooting.length > 0;
 
   return (
     <View
@@ -416,6 +440,7 @@ function ActiveStepView({
               pose={demo.pose}
               expression={demo.expression}
               props={demo.props}
+              reaction={reaction}
               testID={`session-demo-${demo.pose}`}
             />
           </View>
@@ -876,6 +901,8 @@ function CompletionView({ content }: { content: LessonContent }) {
           pose="sit"
           expression="happy"
           props={["treat"]}
+          // One bounce as the screen arrives: the reaction is present at mount and never keyed again.
+          reaction={COMPLETION_BOUNCE}
           testID="completion-dog"
         />
       </View>

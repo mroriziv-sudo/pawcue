@@ -1,7 +1,7 @@
 import { useMemo } from "react";
-import { Image, View } from "react-native";
+import { Animated, Image, View } from "react-native";
 import Svg, { Circle, Ellipse, G, Path } from "react-native-svg";
-import { useIsRtl, useTheme } from "@pawcue/ui";
+import { useIsRtl, useReducedMotion, useTheme } from "@pawcue/ui";
 import { lookFor, type DogLook } from "../dogs/breed-lookup";
 import {
   drawDog,
@@ -12,8 +12,11 @@ import {
 } from "../dogs/dog-art";
 import { monthsSince } from "./BirthdatePicker";
 import { Crossfade } from "./Crossfade";
+import { DOG_MOTION, useDogMotion, type DogReaction } from "./dog-motion";
 
-export type { DogExpression, DogPose, DogProp };
+export type { DogExpression, DogPose, DogProp, DogReaction };
+
+const AnimatedG = Animated.createAnimatedComponent(G);
 
 /** Under a year the dog is drawn as a puppy; past nine, with a grey muzzle. */
 const PUPPY_MONTHS = 12;
@@ -30,6 +33,12 @@ export interface DogAvatarProps {
   props?: readonly DogProp[];
   /** A photo of the dog. Replaces the drawn bust; the body poses stay drawn, because a photo cannot pose. */
   photoUri?: string | null;
+  /**
+   * Something the dog reacts to — a counted rep (a wag and the happy face), completion (one bounce). A new `key`
+   * fires it again; the reaction present when the avatar mounts fires too. Nothing unless the dog is a drawn
+   * body pose of at least 120pt; under Reduce Motion only the expression changes.
+   */
+  reaction?: DogReaction | null;
   /** Read by assistive technology only when the dog is the subject; otherwise the avatar is decorative. */
   accessibilityLabel?: string;
   testID?: string;
@@ -48,6 +57,13 @@ export interface DogAvatarProps {
  *
  * Under RTL the drawing is mirrored so the dog's asymmetries (the tail, the half-pricked ear) turn with the
  * layout and the character keeps looking toward the text beside it.
+ *
+ * A drawn body pose of at least 120pt is alive (phase-11-the-dog-at-work.md, "Motion"): it blinks every few
+ * seconds, breathes, wags for a counted rep and bounces once on completion. The blink is state — two shapes
+ * redraw — and the breathing and the bounce are transforms on one Animated.View around the whole avatar, on the
+ * native driver; the wag turns the tagged tail group for 400ms on the JS thread. A bust, a photo and a smaller
+ * dog render exactly as they always did, with no Animated wrapper at all. Under Reduce Motion the loops are off
+ * and a reaction is the expression change alone, which the cross-fade carries.
  */
 export function DogAvatar({
   breed,
@@ -57,28 +73,43 @@ export function DogAvatar({
   expression = "attentive",
   props,
   photoUri,
+  reaction,
   accessibilityLabel,
   testID,
 }: DogAvatarProps) {
+  const theme = useTheme();
+  const reduceMotion = useReducedMotion();
   const look = useMemo(() => lookFor(breed), [breed]);
   const months = birthdate ? monthsSince(birthdate) : null;
   const puppy = months !== null && months < PUPPY_MONTHS;
   const senior = months !== null && months >= SENIOR_MONTHS;
 
-  // What the dog looks like, as a key: a change cross-fades rather than swaps.
+  const photo = Boolean(photoUri) && pose === "bust";
+  // Only a drawn body at the scene sizes moves; the bust never does, and neither does a photo or a small dog.
+  const alive = !photo && pose !== "bust" && size >= DOG_MOTION.minSize;
+  const motion = useDogMotion({
+    enabled: alive && !reduceMotion,
+    reduceMotion,
+    reaction,
+    theme,
+  });
+  // A rep is celebrated with the happy face whatever the caller asked for, and the caller's face comes back.
+  const shown = alive && motion.celebrating ? "happy" : expression;
+
+  // What the dog looks like, as a key: a change cross-fades rather than swaps. A blink is not a change.
   const stateKey = [
-    photoUri && pose === "bust" ? `photo:${photoUri}` : "drawn",
+    photo ? `photo:${photoUri}` : "drawn",
     look.breedId ?? look.group,
     look.ears,
     puppy ? "puppy" : senior ? "senior" : "adult",
     pose,
-    expression,
+    shown,
     props?.join(",") ?? "",
   ].join("|");
 
-  return (
+  const content = (
     <Crossfade stateKey={stateKey}>
-      {photoUri && pose === "bust" ? (
+      {photo && photoUri ? (
         <DogPhoto
           uri={photoUri}
           size={size}
@@ -90,15 +121,31 @@ export function DogAvatar({
           look={look}
           size={size}
           pose={pose}
-          expression={expression}
+          expression={shown}
           {...(props ? { props } : {})}
           puppy={puppy}
           senior={senior}
+          blink={alive && motion.blink}
+          {...(alive && !reduceMotion ? { wag: motion.wag } : {})}
           {...(accessibilityLabel ? { accessibilityLabel } : {})}
           {...(testID ? { testID } : {})}
         />
       )}
     </Crossfade>
+  );
+
+  if (!alive || reduceMotion) return content;
+  return (
+    <Animated.View
+      testID={testID ? `${testID}-motion` : undefined}
+      style={{
+        // The paws stay on the ground: the dog grows up from where it stands, and lifts from there.
+        transformOrigin: "50% 100%",
+        transform: [{ translateY: motion.bounce }, { scale: motion.breath }],
+      }}
+    >
+      {content}
+    </Animated.View>
   );
 }
 
@@ -111,6 +158,8 @@ export function DogFace({
   props,
   puppy = false,
   senior = false,
+  blink = false,
+  wag,
   accessibilityLabel,
   testID,
 }: {
@@ -121,6 +170,10 @@ export function DogFace({
   props?: readonly DogProp[];
   puppy?: boolean;
   senior?: boolean;
+  /** Eyes closed for a blink: the eyelid arcs in place of the eyes, nothing else. */
+  blink?: boolean;
+  /** The tail's swing, −1 to 1. When given, the tail is drawn in a group that turns about the tail's root. */
+  wag?: Animated.Value;
   accessibilityLabel?: string;
   testID?: string;
 }) {
@@ -140,6 +193,7 @@ export function DogFace({
         pose,
         expression,
         ...(propsKey ? { props: propsKey.split(",") as DogProp[] } : {}),
+        blink,
       }),
     [
       look.group,
@@ -151,6 +205,7 @@ export function DogFace({
       pose,
       expression,
       propsKey,
+      blink,
     ],
   );
   const [x, y, w, h] = drawing.viewBox;
@@ -192,10 +247,32 @@ export function DogFace({
         viewBox={`${x} ${y} ${w} ${h}`}
         style={rtl ? { transform: [{ scaleX: -1 }] } : undefined}
       >
-        <G>{drawing.shapes.map((shape, index) => renderShape(shape, index))}</G>
+        <G>
+          {drawing.shapes.map((shape, index) =>
+            wag && shape.part === "tail" && shape.kind === "path" ? (
+              <AnimatedG
+                key={index}
+                transform={wagTransform(wag, shape.origin ?? [0, 0])}
+              >
+                {renderShape(shape, index)}
+              </AnimatedG>
+            ) : (
+              renderShape(shape, index)
+            ),
+          )}
+        </G>
       </Svg>
     </View>
   );
+}
+
+/** The tail's rotation about its root, ±14° at the ends of the swing, as the SVG transform string the group takes. */
+function wagTransform(wag: Animated.Value, [x, y]: readonly [number, number]) {
+  const deg = DOG_MOTION.wag.degrees;
+  return wag.interpolate({
+    inputRange: [-1, 1],
+    outputRange: [`rotate(${-deg} ${x} ${y})`, `rotate(${deg} ${x} ${y})`],
+  });
 }
 
 function renderShape(shape: Shape, index: number) {

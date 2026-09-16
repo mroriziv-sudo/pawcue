@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Animated, Easing, View, type ViewStyle } from "react-native";
 import { useReducedMotion, useTheme } from "@pawcue/ui";
 
@@ -9,6 +9,12 @@ import { useReducedMotion, useTheme } from "@pawcue/ui";
  * button is primary — and the outgoing content fades out beneath the incoming one, which arrives from 0.96 on the
  * `responsive` spring (no overshoot) instead of swapping in a frame. Nothing in the real world appears from
  * nothing, so nothing here starts from zero scale. Both layers are the same box, so the layout never jumps.
+ *
+ * The outgoing content is the very instance that was on screen, moved to the fading layer, never a fresh copy:
+ * a re-mounted `Svg` draws nothing on its first frame, so the copy used to blank the dog for a frame at every
+ * change (found on the motion pass, phase-11-the-dog-at-work.md). The layers are keyed by state so React keeps
+ * the old one, and the incoming opacity is set before the first paint, so the new state never flashes at full
+ * strength before its fade.
  *
  * Opacity and transform only, on the native driver. Under Reduce Motion the scale and rise are dropped and only
  * the fade remains, at the fast duration.
@@ -30,22 +36,29 @@ export function Crossfade({
   const theme = useTheme();
   const reduceMotion = useReducedMotion();
   const progress = useRef(new Animated.Value(1)).current;
-  const seenKey = useRef(stateKey);
   const lastChildren = useRef<React.ReactNode>(children);
-  const [outgoing, setOutgoing] = useState<React.ReactNode>(null);
+  const [currentKey, setCurrentKey] = useState(stateKey);
+  const [outgoing, setOutgoing] = useState<{
+    key: string;
+    node: React.ReactNode;
+  } | null>(null);
+
+  // A key change is answered in the same render: the previous content becomes the outgoing layer before anything
+  // commits, so its instance is kept rather than unmounted and mounted again.
+  if (currentKey !== stateKey) {
+    setOutgoing({ key: currentKey, node: lastChildren.current });
+    setCurrentKey(stateKey);
+  }
 
   // While the key is unchanged, the latest children are what a future change will fade out.
   useEffect(() => {
-    if (stateKey === seenKey.current) lastChildren.current = children;
+    if (stateKey === currentKey) lastChildren.current = children;
   });
 
-  // Only a key change starts a transition, and only the next key change (or unmount) cuts one short.
-  useEffect(() => {
-    if (stateKey === seenKey.current) return;
-    const previous = lastChildren.current;
-    seenKey.current = stateKey;
-    lastChildren.current = children;
-    setOutgoing(previous);
+  // The transition starts before the first paint of the new state, and only the next change or unmount cuts one
+  // short.
+  useLayoutEffect(() => {
+    if (!outgoing) return;
     progress.setValue(0);
     const animation = reduceMotion
       ? Animated.timing(progress, {
@@ -69,7 +82,7 @@ export function Crossfade({
       clearTimeout(clear);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stateKey]);
+  }, [currentKey]);
 
   return (
     <View style={style} testID={testID}>
@@ -77,6 +90,7 @@ export function Crossfade({
         // The old state, leaving: faster than the arrival, out of the way of touches at once, and never a second
         // copy of a control to assistive technology.
         <Animated.View
+          key={outgoing.key}
           pointerEvents="none"
           accessibilityElementsHidden
           importantForAccessibility="no-hide-descendants"
@@ -92,10 +106,11 @@ export function Crossfade({
             }),
           }}
         >
-          {outgoing}
+          {outgoing.node}
         </Animated.View>
       ) : null}
       <Animated.View
+        key={currentKey}
         style={{
           opacity: progress,
           transform: reduceMotion

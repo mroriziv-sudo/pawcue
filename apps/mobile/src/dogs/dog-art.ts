@@ -46,6 +46,12 @@ export interface DogAppearance {
   collar?: string;
   /** Objects drawn with the dog. Ignored on a bust. */
   props?: readonly DogProp[];
+  /**
+   * The eyes closed for a blink: the `eyelid` arcs in place of the `eye` circles and nothing else — the ears,
+   * the mouth and the brows stay with the expression. The renderer toggles this on a timer; it is state, not an
+   * animation. Ignored on a bust, which never moves.
+   */
+  blink?: boolean;
 }
 
 export type Shape =
@@ -78,6 +84,10 @@ export type Shape =
       part: DogPart;
     };
 
+/**
+ * The tail's `origin` is its root — where it leaves the body — so the renderer that wags it turns it about that
+ * point by tag and never by reading the path.
+ */
 export interface DogDrawing {
   /** x y w h */
   viewBox: [number, number, number, number];
@@ -475,6 +485,7 @@ export function drawDog(appearance: DogAppearance): DogDrawing {
 
   const headScale = puppy ? 1.06 : 1;
   const resting = expression === "resting";
+  const eyesClosed = resting || (appearance.blink === true && pose !== "bust");
   // Rest sinks the head into the shoulders; every other pose keeps it at the bust height.
   const headCy = HEAD.cy + (pose === "rest" ? 10 : 0);
   const head = {
@@ -551,7 +562,7 @@ export function drawDog(appearance: DogAppearance): DogDrawing {
   const eyeY = head.cy + template.eyes.dy;
   for (const side of [-1, 1] as const) {
     const ex = head.cx + side * template.eyes.dx;
-    if (resting) {
+    if (eyesClosed) {
       shapes.push({
         kind: "path",
         d: `M ${ex - eyeR} ${eyeY} q ${eyeR} ${eyeR * 0.9} ${eyeR * 2} 0`,
@@ -1001,11 +1012,13 @@ function lying(
   const out: Shape[] = [];
   // Rest sinks the head into the shoulders, so its body sits lower; down keeps the chest up against the head.
   const cy = bodyTop + (tail === "lying" ? 26 : 16);
+  const tailRoot: [number, number] = [head.cx + chest * 1.3, cy + 4];
   out.push({
     kind: "path",
-    d: tailPath(t.body.tail, head.cx + chest * 1.3, cy + 4, tail),
+    d: tailPath(t.body.tail, tailRoot[0], tailRoot[1], tail),
     stroke: t.coat,
     width: 6.5 * s,
+    origin: tailRoot,
     part: "tail",
   });
   out.push({
@@ -1068,11 +1081,13 @@ function barrel(
   // middle, the stand's at the barrel's underside.
   const legLen = t.body.long ? legs : legs * 0.82;
   const legTop = barrelCy + barrelRy * 0.6;
+  const tailRoot: [number, number] = [head.cx + barrelRx * 0.95, barrelCy - 2];
   out.push({
     kind: "path",
-    d: tailPath(t.body.tail, head.cx + barrelRx * 0.95, barrelCy - 2, tail),
+    d: tailPath(t.body.tail, tailRoot[0], tailRoot[1], tail),
     stroke: t.coat,
     width: 6 * s,
+    origin: tailRoot,
     part: "tail",
   });
   out.push({
@@ -1163,16 +1178,16 @@ function barrel(
 function sitting({ t, s, chest, legs, bodyTop, head, collar }: Parts): Body {
   const out: Shape[] = [];
   const torsoCy = bodyTop + chest * 0.85;
+  const tailRoot: [number, number] = [
+    head.cx + chest * 0.95,
+    torsoCy + chest * 0.55,
+  ];
   out.push({
     kind: "path",
-    d: tailPath(
-      t.body.tail,
-      head.cx + chest * 0.95,
-      torsoCy + chest * 0.55,
-      "up",
-    ),
+    d: tailPath(t.body.tail, tailRoot[0], tailRoot[1], "up"),
     stroke: t.coat,
     width: 6.5 * s,
+    origin: tailRoot,
     part: "tail",
   });
   out.push({

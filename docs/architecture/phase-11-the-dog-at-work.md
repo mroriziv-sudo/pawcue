@@ -172,10 +172,13 @@ screenshots:
 **Where the scene competes with the dock, and the judgment.** On a counting step the dock holds the rep marks,
 the clicker, "Count it" and the remaining count, and on a 6.3" phone at the default size the paper between the
 instruction and that dock measures about 110pt ([`en/session-down-step3.png`](assets/phase-11/en/session-down-step3.png)).
-The scene is therefore never drawn while reps are being counted on this device; it is drawn on the setup steps
-before. That is the rule working, not a gap: while the trainer counts, the amber ring and the rep marks are the
-moment, and the dog would have been a third thing to look at above a control that has to be hit without looking.
-The scene will return on those steps on taller screens, where the measurement allows it, without any change.
+The scene is therefore never drawn while reps are being counted with the clicker on this device; it is drawn on
+the setup steps before. That is the rule working, not a gap: while the trainer counts, the amber ring and the rep
+marks are the moment, and the dog would have been a third thing to look at above a control that has to be hit
+without looking. The scene will return on those steps on taller screens, where the measurement allows it, without
+any change. (The motion pass found the one exception on this device: the five lessons counted with a spoken
+marker — calm settle, loose leash, jumping, biting and crate — have no clicker in their dock, which is about
+110pt shorter, and their counting step does draw the scene. Same rule, same measurement.)
 
 Not in this session, by the brief: motion. The tags are in place and unused.
 
@@ -191,3 +194,71 @@ light coats. And the `scene` alias is retired: `apps/mobile/app/dev-preview.tsx`
 `sit` and `rest` by name, `DogPose` no longer includes it, `resolvePose` is gone from the module and the avatar,
 and a stale caller sending `scene` gets an error rather than a guessed body — `dog-art.test.ts` asserts exactly
 that in place of the old alias-equivalence test.
+
+## Motion (2026-09-16)
+
+The dog is alive, within the rules above. Everything here is in `apps/mobile/src/components/dog-motion.ts`
+(the numbers, the hook) and `DogAvatar.tsx` (where it is applied); the geometry module only gained a `blink`
+flag and a declared tail root. Nothing else in the app moves because of this section.
+
+**Where it applies.** A drawn body pose — `sit`, `down`, `rest`, `stand`, `run` — of at least 120pt: the
+session scene (140pt), completion (200pt), Today's finished plan (160pt), the Dog tab and the onboarding
+welcome. A bust, an owner's photo, a dog below 120pt (Today's 96pt avatar beside the coach line), every 44pt
+row and the tab bar render exactly as before, with no Animated wrapper at all.
+
+**What moves, and when.**
+
+| Motion    | When                                          | What                                                                                                                                                                                   | Driver                                       |
+| --------- | --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| Blink     | Every 4 to 7 seconds while idle               | The eyes closed for 120ms: the `eyelid` arcs drawn in place of the `eye` circles, nothing else. State on a timer; two shapes redraw, no cross-fade.                                    | A timer                                      |
+| Breathing | Continuous while idle                         | The whole avatar at 1.5% scale over 3 seconds, ease in and out, growing up from the paws (the transform origin is bottom centre, so the ground line holds).                            | Native, `Animated.loop`                      |
+| Wag       | A counted repetition, when the scene is drawn | The tagged `tail` group turned ±14° about its declared root: out, across, back, home in 400ms. A burst, never a loop. With it the `happy` face for 700ms, then the caller's face back. | JS thread, `setNativeProps` on the SVG group |
+| Bounce    | Once, as the completion screen arrives        | The whole avatar up 8pt and down in 300ms.                                                                                                                                             | Native, one sequence                         |
+
+Idle means: enabled, and the app in the foreground. Both loops stop when the app leaves the foreground
+(`AppState`) and on unmount, and start again on return. The contract's "on the responsive spring" for the wag
+became a timed return: with React Native's rest thresholds that spring needs another half second to settle the
+last swing, outside the 400ms budget, so the fourth swing home is timed on the standard curve instead.
+
+**Reduce Motion.** Neither loop starts. A counted rep is the `happy` face for 700ms and nothing else — the
+cross-fade at its Reduce Motion fade, no wag; completion is the screen's own arrival, no bounce. The expression
+change is kept on purpose: it is the only feedback left.
+
+**The wag appears only where the scene fits.** A rep counted while the scene is not drawn fires nothing and
+is not remembered: a dog that arrives later, when the text shrinks, arrives still. The scene is never drawn to
+make a reaction possible. On the iPhone 17 Pro that means the wag is seen on the counted steps of the five
+spoken-marker lessons and not on the clicker lessons, whose taller dock leaves the scene no room ("Wired").
+
+**A cross-fade fix, found here.** The first recording of a wag showed the whole dog vanish for one frame at
+each expression change. `Crossfade` re-mounted the previous content as its fading copy, and a freshly mounted
+`Svg` draws nothing on its first frame. It now keeps the outgoing content's instance — the layers are keyed by
+state, so React moves the old one into the fading layer instead of creating it again — and sets the incoming
+opacity before the first paint, so the new state no longer flashes at full strength before its fade.
+`crossfade.test.tsx` asserts the old content is not mounted twice; the rep-wag recording below has no blank
+frame.
+
+**Seen on the device** (dev build `5ddd4fa0`, iPhone 17 Pro simulator, iOS 26.5, 540p encodes of
+`simctl io recordVideo`; the frame-by-frame numbers come from `AVAssetImageGenerator` reads of the originals):
+
+| Recording                                                                                        | What it shows                                                                                                                                                             |
+| ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`motion/idle-place.mp4`](assets/phase-11/motion/idle-place.mp4)                                 | Twenty seconds of the Place scene: blinks at 4.4s, 10.1s and 16.1s, each four frames at 30fps; the head's top edge breathing 7px at 3× (2.3pt) on a 3.0s period.          |
+| [`motion/rep-wag.mp4`](assets/phase-11/motion/rep-wag.mp4)                                       | Biting Foundation's counted step: one rep at 4.8s — the face fades to happy, the tail swings for about 270ms of visible motion, the face returns at 5.5s. No blank frame. |
+| [`motion/completion-bounce.mp4`](assets/phase-11/motion/completion-bounce.mp4)                   | The completion screen arriving at 2.0s: up 17px at 3× within 130ms, down by 300ms, then breathing.                                                                        |
+| [`motion/reduce-motion-idle-place.mp4`](assets/phase-11/motion/reduce-motion-idle-place.mp4)     | The same twenty seconds with Reduce Motion on: no blink, no breathing (the eye and top-edge reads are constant; the file is 10KB because nothing changes).                |
+| [`motion/reduce-motion-rep-complete.mp4`](assets/phase-11/motion/reduce-motion-rep-complete.mp4) | A rep and the completion with Reduce Motion on: the happy face fades in and out, no swing; the completion arrives and holds, no bounce.                                   |
+
+Reduce Motion was set through the simulator's accessibility preference (`com.apple.Accessibility
+ReduceMotionEnabled`, `simctl ui` has no flag for it) and the app confirmed it through
+`AccessibilityInfo.isReduceMotionEnabled`; it was set back to off, and the simulator left at medium text,
+English.
+
+**What the wag costs.** Measured on the dev build through the Hermes inspector: a burst is 455ms wall-clock
+from start to the end callback (the wrapper that timed it also called `console.time`; the dev client does not
+forward it to Metro). Over the 1.3 seconds of a whole rep reaction the JS thread was busy for 265–297ms, of
+which the wag's own per-frame work — React Native's `setNativeProps` on the tail group, about 27 frames — was
+104–131ms, four to five milliseconds a frame; the rest is React rendering the rep (the screen, the rep marks,
+the two cross-fades of the face) and the 48ms sync commits Animated makes for a JS-driven prop on Fabric. Metro
+logged no frame warnings. A release build will be lighter, but not on the `setNativeProps` half: if that number
+matters, the tail can be drawn in its own `Svg` under the body and turned on the native driver, at the cost of a
+second SVG view and a mirrored origin under RTL.
