@@ -71,11 +71,7 @@ export default function ClickerScreen() {
           minHeight: theme.minTouchTarget,
         }}
       >
-        {canGoBack ? (
-          <BackControl onPress={() => router.back()} testID="clicker-back" />
-        ) : (
-          <View />
-        )}
+        {canGoBack ? <BackControl testID="clicker-back" /> : <View />}
         <Pressable
           onPress={() => router.push("/settings")}
           accessibilityRole="button"

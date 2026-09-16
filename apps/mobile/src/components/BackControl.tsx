@@ -1,4 +1,5 @@
 import { Pressable } from "react-native";
+import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { Glyph, Text, useTheme } from "@pawcue/ui";
 
@@ -8,22 +9,34 @@ import { Glyph, Text, useTheme } from "@pawcue/ui";
  * The app draws its own headers, so this is the platform's back affordance in the design system's hand: a
  * chevron pointing along the reading direction (mirrored by the icon registry in Hebrew) and the word. A full
  * 44pt target, on the reading edge, and never the only way out — the edge-swipe gesture still works.
+ *
+ * Without an `onPress` it goes back — and when there is nothing behind it (a screen reached by deep link) it
+ * goes to Today instead of doing nothing and warning in development (phase-10-native-acceptance.md, finding 16).
+ * A caller with its own idea of "back" (onboarding's step navigation) still passes a handler.
  */
 export function BackControl({
   onPress,
   label,
   testID,
 }: {
-  onPress: () => void;
+  onPress?: () => void;
   label?: string;
   testID?: string;
 }) {
   const theme = useTheme();
+  const router = useRouter();
   const { t } = useTranslation();
   const text = label ?? t("common.cta.back");
+  const goBack = () => {
+    if (typeof router.canGoBack === "function" && !router.canGoBack()) {
+      router.replace("/");
+      return;
+    }
+    router.back();
+  };
   return (
     <Pressable
-      onPress={onPress}
+      onPress={onPress ?? goBack}
       accessibilityRole="button"
       accessibilityLabel={text}
       hitSlop={theme.space[2]}

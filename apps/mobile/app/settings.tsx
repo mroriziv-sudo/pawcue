@@ -65,7 +65,7 @@ export default function SettingsScreen() {
   return (
     <ScreenScroll testID="settings-screen" gap={theme.space[8]}>
       <View style={{ gap: theme.space[4] }}>
-        <BackControl onPress={() => router.back()} testID="close-settings" />
+        <BackControl testID="close-settings" />
         <Text
           variant="headline"
           accessibilityRole="header"

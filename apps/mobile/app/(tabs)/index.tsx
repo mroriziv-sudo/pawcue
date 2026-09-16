@@ -22,7 +22,10 @@ import { usePlanStore } from "../../src/state/plan-store";
 import { useDogStore } from "../../src/state/dog-store";
 import { useOnboardingStore } from "../../src/state/onboarding-store";
 import { useBootstrapStore } from "../../src/state/bootstrap-store";
-import { useSessionStore } from "../../src/state/session-store";
+import {
+  resumableSession,
+  useSessionStore,
+} from "../../src/state/session-store";
 import { useTrainingLogStore } from "../../src/state/training-log-store";
 import { useEntitlementStore } from "../../src/state/entitlement-store";
 import { useDogPhotoStore } from "../../src/state/dog-photo-store";
@@ -140,12 +143,12 @@ export default function TodayScreen() {
   /**
    * A lesson started and left unfinished, and still resumable.
    *
-   * Real state, not a nag: `session-store` holds exactly one in-progress session, and it is the same one the
-   * training screen would resume. Surfacing it here is the honest half of retention — the user is reminded of
-   * something they actually began, by the app they already opened.
+   * Real state, not a nag: `resumableSession` is the one in-progress session, the same one the training screen
+   * would resume and the same answer the Dog tab, Train and the lesson overview read. Surfacing it here is the
+   * honest half of retention — the user is reminded of something they actually began, by the app they already
+   * opened.
    */
-  const resumable =
-    activeSession?.status === "in_progress" ? activeSession : null;
+  const resumable = resumableSession(activeSession);
 
   if (startup.kind === "onboarding") return <Redirect href="/onboarding" />;
   if (startup.kind === "onboarding_resume") {

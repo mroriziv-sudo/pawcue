@@ -162,9 +162,12 @@ function draw(name: GlyphName, fill: string, s: Stroke) {
         </>
       );
     case "repeat":
+      // The arc runs clockwise from three o'clock round to one, where the arrowhead sits. With the sweep flag
+      // cleared, the same endpoints describe the large arc about the chord's other centre, off the canvas — what
+      // drew as a fragment on Android and in the preview (phase-10-native-acceptance.md, finding 15).
       return (
         <>
-          <Path d="M19.5 12A7.5 7.5 0 1 0 15.75 5.5" {...s} />
+          <Path d="M19.5 12A7.5 7.5 0 1 1 15.75 5.5" {...s} />
           <Path d="M12.6 4.4l3.3 1.1-1.1 3.3" {...s} />
         </>
       );

@@ -17,6 +17,10 @@ import {
 import { useLessonStatuses } from "../../src/lessons/useCatalogue";
 import { useDogStore } from "../../src/state/dog-store";
 import { useEntitlementStore } from "../../src/state/entitlement-store";
+import {
+  resumableSession,
+  useSessionStore,
+} from "../../src/state/session-store";
 import { EmptyState } from "../../src/components/EmptyState";
 import { ScreenScroll, Section } from "../../src/components/ScreenScroll";
 import { SectionHeader } from "../../src/components/SectionHeader";
@@ -30,6 +34,9 @@ import { SectionHeader } from "../../src/components/SectionHeader";
  * with a trail mark that says the state in shape, and a meta line that says it in words.
  *
  * Every state is derived from real history by `deriveLessonStatuses`; nothing here is stored or counted twice.
+ * The one exception is the lesson paused on this device: the server learns of it only once it is abandoned, so
+ * the local session is consulted the way Today and the Dog tab consult it, and a paused lesson is unfinished here
+ * too.
  */
 export default function TrainScreen() {
   const theme = useTheme();
@@ -39,12 +46,20 @@ export default function TrainScreen() {
   const dog = useDogStore((s) => s.dog);
   const { statuses, loading, error } = useLessonStatuses();
   const entitlement = useEntitlementStore((s) => s.view);
+  const resumable = useSessionStore((s) => resumableSession(s.session));
 
   /** Each lesson's two locks, resolved once. `lessonGate` keeps them separate: different causes, different ways out. */
-  const gated = statuses.map((detail) => ({
-    detail,
-    gate: lessonGate(detail, entitlement),
-  }));
+  const gated = statuses
+    .map((detail) =>
+      detail.status === "not_started" &&
+      resumable?.lessonSlug === detail.lesson.slug
+        ? { ...detail, status: "unfinished" as const }
+        : detail,
+    )
+    .map((detail) => ({
+      detail,
+      gate: lessonGate(detail, entitlement),
+    }));
 
   const sections = [
     {

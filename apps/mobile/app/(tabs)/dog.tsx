@@ -16,7 +16,10 @@ import type { LessonStatusDetail } from "@pawcue/domain";
 import { useDogStore } from "../../src/state/dog-store";
 import { useBootstrapStore } from "../../src/state/bootstrap-store";
 import { useDogPhotoStore } from "../../src/state/dog-photo-store";
-import { useSessionStore } from "../../src/state/session-store";
+import {
+  resumableSession,
+  useSessionStore,
+} from "../../src/state/session-store";
 import { useTrainingLogStore } from "../../src/state/training-log-store";
 import { useLessonStatuses } from "../../src/lessons/useCatalogue";
 import { EmptyState } from "../../src/components/EmptyState";
@@ -52,7 +55,7 @@ export default function DogScreen() {
   const photoUri = useDogPhotoStore((s) => s.photoFor(dogId));
   const choosePhoto = useDogPhotoStore((s) => s.choose);
   const removePhoto = useDogPhotoStore((s) => s.remove);
-  const activeSession = useSessionStore((s) => s.session);
+  const resumable = useSessionStore((s) => resumableSession(s.session));
   const records = useTrainingLogStore((s) => s.completed);
   const { statuses, summary, loading } = useLessonStatuses();
 
@@ -318,9 +321,7 @@ export default function DogScreen() {
             <Section>
               <SectionHeader title={t("dogTab.workingOn")} />
               {working.map((item, index) => {
-                const paused =
-                  activeSession?.status === "in_progress" &&
-                  activeSession.lessonSlug === item.lesson.slug;
+                const paused = resumable?.lessonSlug === item.lesson.slug;
                 return (
                   <LessonRow
                     key={item.lesson.id}

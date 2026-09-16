@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { Redirect, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import {
   Text,
@@ -97,25 +97,11 @@ export default function DogProfileScreen() {
     }
   };
 
-  if (!dogId) {
-    return (
-      <View
-        style={{
-          flex: 1,
-          justifyContent: "center",
-          padding: theme.screenGutter,
-          backgroundColor: theme.colors.background.base,
-        }}
-        testID="dog-profile-empty"
-      >
-        <Button
-          label={t("common.cta.close")}
-          variant="secondary"
-          onPress={() => router.back()}
-        />
-      </View>
-    );
-  }
+  /**
+   * Nothing to edit without a dog. Unreachable through the UI, reachable by deep link: the answer is the flow
+   * that creates one, not a wordless page with a Close button (phase-10-native-acceptance.md, finding 17).
+   */
+  if (!dogId) return <Redirect href="/onboarding" />;
 
   const nameError =
     error && !validateField("name", form).ok ? error : undefined;
@@ -141,7 +127,7 @@ export default function DogProfileScreen() {
         keyboardShouldPersistTaps="handled"
         testID="dog-profile"
       >
-        <BackControl onPress={() => router.back()} testID="dog-profile-back" />
+        <BackControl testID="dog-profile-back" />
 
         <View
           style={{

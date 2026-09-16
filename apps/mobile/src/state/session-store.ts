@@ -110,6 +110,21 @@ async function persist(session: TrainingSessionState | null): Promise<void> {
   }
 }
 
+/**
+ * The one paused lesson, if there is one.
+ *
+ * The store holds exactly one in-progress session, and it is the same one the training screen would resume.
+ * Every screen that says a lesson is paused — Today's resume button and trail row, the Dog tab's journey, Train's
+ * catalogue and the lesson overview's button — asks this one question, so a paused Sit reads one way everywhere
+ * (phase-10-native-acceptance.md, finding 2). The server-derived lesson status is a different, later fact: it
+ * says "unfinished" only once a session has been abandoned and logged.
+ */
+export function resumableSession(
+  session: TrainingSessionState | null,
+): TrainingSessionState | null {
+  return session?.status === "in_progress" ? session : null;
+}
+
 export const useSessionStore = create<SessionStoreState>((set, get) => {
   /**
    * Applies an engine transition.

@@ -1,5 +1,10 @@
-import { useMemo, useState } from "react";
-import { Pressable, View } from "react-native";
+import { useCallback, useMemo, useState } from "react";
+import {
+  Pressable,
+  useWindowDimensions,
+  View,
+  type LayoutChangeEvent,
+} from "react-native";
 import { useTranslation } from "react-i18next";
 import { Glyph, Row, Text, TextField, useTheme } from "@pawcue/ui";
 import { BREEDS, MIXED_BREED_ID, type Breed } from "../dogs/breeds";
@@ -9,6 +14,8 @@ import { SectionHeader } from "./SectionHeader";
 
 /** How many popular breeds sit in the Common grid beside Mixed breed and Not sure. */
 const COMMON_COUNT = 6;
+/** The Common grid: two columns, one gap. */
+const GRID_COLUMNS = 2;
 
 /**
  * Choosing a breed.
@@ -42,6 +49,24 @@ export function BreedPicker({
   const [query, setQuery] = useState("");
   const [unsure, setUnsure] = useState(false);
   const [expanded, setExpanded] = useState(!compact);
+
+  /**
+   * The Common grid's tile width comes from the grid's own measured width: the container minus the gap, halved.
+   * A percentage plus the tiles' selection margins came to 352pt inside a 350pt content width, so every tile
+   * wrapped onto its own row (phase-10-native-acceptance.md, finding 1). Until the first layout reports, the
+   * window minus the screen gutter stands in — the width the grid has everywhere it is drawn.
+   */
+  const gridGap = theme.space[3];
+  const window = useWindowDimensions();
+  const [gridWidth, setGridWidth] = useState<number | null>(null);
+  const onGridLayout = useCallback((event: LayoutChangeEvent) => {
+    setGridWidth(event.nativeEvent.layout.width);
+  }, []);
+  const tileWidth = Math.floor(
+    ((gridWidth ?? window.width - 2 * theme.screenGutter) -
+      gridGap * (GRID_COLUMNS - 1)) /
+      GRID_COLUMNS,
+  );
 
   const selected = useMemo(() => findBreed(value), [value]);
   const trimmed = query.trim();
@@ -231,9 +256,11 @@ export function BreedPicker({
               style={{
                 flexDirection: "row",
                 flexWrap: "wrap",
-                gap: theme.space[3],
+                gap: gridGap,
                 paddingTop: theme.space[2],
               }}
+              onLayout={onGridLayout}
+              testID={`${inputTestID}-common`}
             >
               {common.map((breed) => (
                 <BreedTile
@@ -241,6 +268,7 @@ export function BreedPicker({
                   label={nameOf(breed)}
                   face={<DogFace look={lookFor(breed.id)} size={56} />}
                   selected={selected?.id === breed.id}
+                  width={tileWidth}
                   onPress={() => choose(breed)}
                   testID={`${inputTestID}-option-${breed.id}`}
                 />
@@ -249,6 +277,7 @@ export function BreedPicker({
                 label={t("fields.breed.unknown")}
                 face={<DogFace look={lookFor(null)} size={56} />}
                 selected={unsure && !value.trim()}
+                width={tileWidth}
                 onPress={() => {
                   setUnsure(true);
                   onChange("");
@@ -322,11 +351,15 @@ export function BreedPicker({
 /**
  * One choice in the Common grid: the face and the name. The one card type — a standalone tappable object — with
  * selection shown as the brand edge plus a check, and announced as a radio.
+ *
+ * `width` is the tile's whole footprint in the grid. The selection margin is taken out of it rather than added
+ * around it, so a row of two never outgrows the grid.
  */
 function BreedTile({
   label,
   face,
   selected,
+  width,
   onPress,
   accessibilityHint,
   testID,
@@ -334,11 +367,14 @@ function BreedTile({
   label: string;
   face: React.ReactNode;
   selected: boolean;
+  width: number;
   onPress: () => void;
   accessibilityHint?: string;
   testID: string;
 }) {
   const theme = useTheme();
+  // Keeps content still when the border thickens on selection.
+  const margin = selected ? 0 : theme.border.focus - theme.border.hairline;
   return (
     <Pressable
       onPress={onPress}
@@ -348,9 +384,8 @@ function BreedTile({
       accessibilityState={{ selected, checked: selected }}
       testID={testID}
       style={({ pressed }) => ({
-        // Two columns with one gap between them.
-        width: "48%",
-        flexGrow: 1,
+        width: width - 2 * margin,
+        margin,
         minHeight: theme.minTouchTarget,
         padding: theme.space[3],
         gap: theme.space[2],
@@ -363,8 +398,6 @@ function BreedTile({
         backgroundColor: pressed
           ? theme.colors.surface.pressed
           : theme.colors.surface.raised,
-        // Keeps content still when the border thickens on selection.
-        margin: selected ? 0 : theme.border.focus - theme.border.hairline,
       })}
     >
       <View
@@ -387,6 +420,9 @@ function BreedTile({
           variant="secondary"
           align="center"
           style={{ fontWeight: "600", flexShrink: 1 }}
+          // A label inside a half-width tile: the same anti-clipping cap as the name input, so "Labrador"
+          // wraps at the space rather than mid-word at the largest sizes. Not reading text.
+          maxFontSizeMultiplier={1.6}
         >
           {label}
         </Text>

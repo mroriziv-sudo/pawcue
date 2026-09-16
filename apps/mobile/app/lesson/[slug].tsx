@@ -6,6 +6,10 @@ import { isPremiumLesson, lessonGate, orderedSteps } from "@pawcue/domain";
 import { useLessonContent } from "../../src/lessons/useLessonContent";
 import { useLessonStatuses } from "../../src/lessons/useCatalogue";
 import { useEntitlementStore } from "../../src/state/entitlement-store";
+import {
+  resumableSession,
+  useSessionStore,
+} from "../../src/state/session-store";
 import { ScreenScroll, Section } from "../../src/components/ScreenScroll";
 import { SectionHeader } from "../../src/components/SectionHeader";
 import { BackControl } from "../../src/components/BackControl";
@@ -29,6 +33,7 @@ export default function LessonOverviewScreen() {
   const entitlement = useEntitlementStore((s) => s.view);
   const isPremium = entitlement.isPremiumActive;
   const { statuses } = useLessonStatuses();
+  const resumable = useSessionStore((s) => resumableSession(s.session));
 
   if (loading) {
     return (
@@ -95,10 +100,12 @@ export default function LessonOverviewScreen() {
       ? content.lesson.equipment.filter((item) => item !== "none")
       : [];
   const lesson = t(content.lesson.titleKey);
+  /** This lesson is the one paused on this device: the button continues it, in Today's words. */
+  const paused = resumable?.lessonSlug === content.lesson.slug;
 
   return (
     <ScreenScroll gap={theme.space[8]} testID="lesson-overview">
-      <BackControl onPress={() => router.back()} testID="lesson-back" />
+      <BackControl testID="lesson-back" />
 
       {/* The lesson, and how big a commitment it is, in one glance. */}
       <View style={{ gap: theme.space[2] }}>
@@ -239,7 +246,11 @@ export default function LessonOverviewScreen() {
 
       {!premiumLocked && !prerequisiteLocked ? (
         <Button
-          label={t("today.startLesson", { lesson })}
+          label={
+            paused
+              ? t("today.continueLesson", { lesson })
+              : t("today.startLesson", { lesson })
+          }
           onPress={() => router.push(`/session/${content.lesson.slug}`)}
           testID="start-training"
         />
