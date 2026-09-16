@@ -124,6 +124,16 @@ leash) and part tags for motion are specified in
 [docs/architecture/phase-11-the-dog-at-work.md](docs/architecture/phase-11-the-dog-at-work.md), with the table of
 which moment shows which drawing and the motion rules. Expression and pose are independent there.
 
+## The app icon
+
+The icon is the welcome-screen dog, unchanged: the generic mixed-breed character in the `sit` pose, attentive,
+blue collar, on Warm Ivory. It is rendered from `apps/mobile/src/dogs/dog-art.ts` by `tools/app-icon/render.mjs`
+(SVG) and rasterised by `tools/app-icon/rasterise.swift` and `finish.swift` (macOS), so a change to the character
+re-renders the icon rather than drifting from it. The same run produces the Android adaptive layers (foreground
+within the safe zone, paper background, one-colour monochrome), `splash-icon.png` and `favicon.png`; the iOS
+icon carries no alpha channel. Re-render with
+`node --experimental-strip-types tools/app-icon/render.mjs <out> sit` and the two Swift steps in that order.
+
 ## Iconography
 
 Standard marks come from SF Symbols on iOS (`expo-symbols`, injected through `ThemeProvider.renderGlyph`) and from
