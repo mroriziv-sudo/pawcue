@@ -100,7 +100,10 @@ box is actually checked against the app in hand, not just planned for.
 - [ ] English + Hebrew + RTL pass on the full critical path (Phase 10 gate) before either store submission.
       The simulator half is done and recorded in
       [docs/architecture/phase-10-native-acceptance.md](docs/architecture/phase-10-native-acceptance.md) (three
-      blocking defects fixed); the gate closes only after the owner's manual checklist at the end of that document.
+      blocking defects fixed). The manual checklist was run on the simulator on 2026-09-16 with real OS-level
+      taps ("Manual checklist — results" in that document): 7 of 10 pass, the live text-size change fails as
+      predicted, VoiceOver and the paywall tiles could not run there. The gate closes on the owner's word after
+      those three on a device.
 - [ ] `PRIVACY.md`, `SECURITY.md`, `DATA_MAP.md` up to date with what the shipped build actually does, not what an
       earlier phase planned.
 
