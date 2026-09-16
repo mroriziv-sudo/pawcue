@@ -1,6 +1,6 @@
 # Delete your PawCue account and data
 
-**DRAFT — for review. To be published at [[WEBSITE]]/delete-account.**
+**DRAFT — for review. To be published at https://soft-star-9254.pawcue-support.workers.dev/delete-account.**
 
 Google Play requires a public, login-free web page where a user can request account deletion without the app
 installed, linked from the Data Safety form. This page must go straight to the request flow — it is not a
@@ -16,7 +16,7 @@ Confirm, and it is done immediately. This works whether you use PawCue as a gues
 
 ## If you no longer have the app installed
 
-Email **[[CONTACT_EMAIL]]** from the address you used with Sign in with Apple (or the private-relay address Apple
+Email **pawcue.support@gmail.com** from the address you used with Sign in with Apple (or the private-relay address Apple
 gave you), with the subject line "Delete my PawCue account". We will delete the account within 30 days and confirm
 by reply.
 

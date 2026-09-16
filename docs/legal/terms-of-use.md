@@ -2,9 +2,9 @@
 
 **DRAFT — for review. Not yet published.**
 
-_Effective date: [[EFFECTIVE_DATE]]_
+_Effective date: 14 September 2026_
 
-These terms are an agreement between you and [[OPERATOR]] ("we", "us") about your use of the PawCue app. By
+These terms are an agreement between you and Ori Ziv ("we", "us") about your use of the PawCue app. By
 using the app you agree to them. If you do not agree, do not use the app.
 
 ## 1. What PawCue is
@@ -108,14 +108,13 @@ app before they take effect. Continuing to use the app after that is acceptance 
 
 ## 10. Governing law
 
-These terms are governed by the law of [[GOVERNING_LAW]], and disputes will be resolved in its courts, without
+These terms are governed by the laws of the State of Israel, and disputes will be resolved exclusively in the competent courts of Israel, without
 prejudice to any mandatory consumer-protection rights you have where you live.
 
 ## 11. Contact
 
-[[OPERATOR]]
-[[POSTAL_ADDRESS]]
-[[CONTACT_EMAIL]]
+Ori Ziv, publisher of PawCue
+pawcue.support@gmail.com
 
 ## 12. Additional terms for the Apple App Store
 

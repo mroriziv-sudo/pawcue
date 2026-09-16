@@ -2,9 +2,9 @@
 
 **DRAFT — for review. Not yet published.**
 
-_Effective date: [[EFFECTIVE_DATE]]_
+_Effective date: 14 September 2026_
 
-PawCue is a dog-training app made by [[OPERATOR]] ("we", "us"). This policy explains what information the app
+PawCue is a dog-training app made by Ori Ziv ("we", "us"). This policy explains what information the app
 collects, why, where it is kept, who else handles it, and how you can delete it. It describes the app as it works
 today. If the app starts collecting something new, this policy will be updated before it does.
 
@@ -86,7 +86,7 @@ We use a small number of service providers, each of which processes data only to
 
 | Provider                              | What it does for PawCue                                          | What it handles                                                                  |
 | ------------------------------------- | ---------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| Supabase                              | Hosts our database, sign-in service and server functions         | Everything in §2.1–2.4. Stored in the [[HOSTING_REGION]] region.                 |
+| Supabase                              | Hosts our database, sign-in service and server functions         | Everything in §2.1–2.4. Stored in the United States (AWS us-east-1).             |
 | RevenueCat                            | Manages subscription status across the App Store and Google Play | Your account identifier and subscription events (§2.4). No training or dog data. |
 | Apple (App Store, Sign in with Apple) | Payment and, if you choose it, sign-in                           | Governed by Apple's own privacy policy.                                          |
 | Google (Google Play)                  | Payment on Android                                               | Governed by Google's own privacy policy.                                         |
@@ -112,7 +112,7 @@ alike. It permanently deletes your dog's profile, all training history, progress
 servers, removes your identity from our subscription provider, and clears the app on your device. It cannot be
 undone.
 
-Without the app: [[WEBSITE]]/delete-account explains how to request deletion by email.
+Without the app: https://soft-star-9254.pawcue-support.workers.dev/delete-account explains how to request deletion by email.
 
 Deleting your account does **not** cancel a subscription. Subscriptions are managed in your Apple ID or Google
 account settings; cancel there if you no longer want it.
@@ -122,7 +122,7 @@ account settings; cancel there if you no longer want it.
 Depending on where you live, you may have the right to access the personal information we hold about you, to
 correct it, to delete it, to object to or restrict how we use it, to receive a copy of it, and to complain to a
 supervisory authority. You can see and change your dog's profile in the app, delete everything as described in
-§6, and ask us for anything else at [[CONTACT_EMAIL]]. We will respond within the time the applicable law
+§6, and ask us for anything else at pawcue.support@gmail.com. We will respond within the time the applicable law
 allows.
 
 Users in Israel: this policy is provided in accordance with the Protection of Privacy Law, 5741-1981. You are
@@ -140,7 +140,7 @@ only by our server, never by the app on your device.
 
 PawCue is for dog owners and is not directed to children under 13 (or the age at which consent is required
 where you live). We do not knowingly collect personal information from children. If you believe a child has
-provided us with personal information, contact us at [[CONTACT_EMAIL]] and we will delete it.
+provided us with personal information, contact us at pawcue.support@gmail.com and we will delete it.
 
 ## 10. Changes to this policy
 
@@ -149,6 +149,5 @@ app before the change takes effect.
 
 ## 11. Contact
 
-[[OPERATOR]]
-[[POSTAL_ADDRESS]]
-[[CONTACT_EMAIL]]
+Ori Ziv, publisher of PawCue
+pawcue.support@gmail.com
