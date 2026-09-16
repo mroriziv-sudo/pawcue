@@ -166,17 +166,23 @@ export function BillingSection() {
 
       {/*
         Restore is always reachable, in every state. A user whose subscription looks missing is exactly the one who
-        needs it, and hiding it behind "free" would hide it from them.
+        needs it, and hiding it behind "free" would hide it from them. A text control on the text edge beneath the
+        one button, not a second stacked button: one dark object per screen, and a list is not a card
+        (phase-10-native-acceptance.md, finding 9).
       */}
-      <Button
-        label={
-          restoring ? t("billing.restoring") : t("settings.restorePurchases")
-        }
-        variant="secondary"
-        onPress={() => void restorePurchases()}
-        loading={restoring}
-        testID="billing-restore"
-      />
+      <View style={{ alignItems: "flex-start" }}>
+        <Button
+          label={
+            restoring ? t("billing.restoring") : t("settings.restorePurchases")
+          }
+          variant="tertiary"
+          size="md"
+          fullWidth={false}
+          onPress={() => void restorePurchases()}
+          loading={restoring}
+          testID="billing-restore"
+        />
+      </View>
 
       {restore.messageKey ? (
         <Text

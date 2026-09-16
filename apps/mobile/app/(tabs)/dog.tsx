@@ -172,8 +172,10 @@ export default function DogScreen() {
             photoUri ? t("dogTab.changePhoto") : t("dogTab.choosePhoto")
           }
           testID="dog-avatar"
+          // The character at scene size is centred, as on the welcome and the empty tab; the words beneath keep
+          // the text edge (DESIGN_SYSTEM.md: nothing is centred except the character at scene size).
           style={({ pressed }) => ({
-            alignSelf: "flex-start",
+            alignSelf: "center",
             opacity: pressed ? 0.85 : 1,
           })}
         >

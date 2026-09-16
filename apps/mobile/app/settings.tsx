@@ -119,20 +119,13 @@ export default function SettingsScreen() {
         {/*
           Sync status, shown plainly. A user who trained offline should be able to see that their sessions are
           safe and not yet uploaded, rather than having to trust that something invisible is working.
+
+          No leading column: no other row in this list has one, and rows in one list share edges
+          (phase-10-native-acceptance.md, finding 7). The done mark sits on the trailing edge, where this list
+          already puts a check; a pending count carries its own control there instead.
         */}
         {dogId ? (
           <Row
-            leading={
-              <Glyph
-                name={pendingSync.length === 0 ? "check" : "repeat"}
-                size={20}
-                color={
-                  pendingSync.length === 0
-                    ? theme.colors.text.completed
-                    : theme.colors.text.secondary
-                }
-              />
-            }
             title={
               pendingSync.length === 0
                 ? t("dogProfile.syncedAll")
@@ -157,7 +150,15 @@ export default function SettingsScreen() {
                     </Text>
                   ),
                 }
-              : {})}
+              : {
+                  trailing: (
+                    <Glyph
+                      name="check"
+                      size={20}
+                      color={theme.colors.text.completed}
+                    />
+                  ),
+                })}
             accessibilityLabel={
               pendingSync.length === 0
                 ? t("dogProfile.syncedAll")

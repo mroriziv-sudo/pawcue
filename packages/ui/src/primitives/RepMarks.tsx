@@ -132,6 +132,7 @@ function Mark({ filled, size }: { filled: boolean; size: number }) {
           name="treat"
           size={Math.round(size * 0.5)}
           color={theme.colors.text.onBrand}
+          fixed
         />
       </Animated.View>
     </View>

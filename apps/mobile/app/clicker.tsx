@@ -19,7 +19,8 @@ const PRESSES_BEFORE_PROMPT = 3;
  *
  * No login, no onboarding, no permission prompt: the first thing the app does is work. Everything on this screen
  * is local, so it behaves identically offline. The clicker is the one thing on the page, centred, with the press
- * count as a plain line beneath it — a tool, not a dashboard.
+ * count as a plain line beneath it — a tool, not a dashboard. The headline and subline above it sit on the text
+ * edge like every other screen's (phase-10-native-acceptance.md, finding 11).
  */
 export default function ClickerScreen() {
   const theme = useTheme();
@@ -90,22 +91,16 @@ export default function ClickerScreen() {
         </Pressable>
       </View>
 
-      <View
-        style={{
-          alignItems: "center",
-          marginTop: theme.space[6],
-          gap: theme.space[2],
-        }}
-      >
+      {/* The words on the text edge, like every other screen's; only the clicker beneath is centred. */}
+      <View style={{ marginTop: theme.space[6], gap: theme.space[2] }}>
         <Text
           variant="headline"
-          align="center"
           accessibilityRole="header"
           testID="clicker-title"
         >
           {t("clicker.freeTitle")}
         </Text>
-        <Text variant="body" tone="secondary" align="center">
+        <Text variant="body" tone="secondary">
           {t("clicker.freeSubtitle")}
         </Text>
       </View>

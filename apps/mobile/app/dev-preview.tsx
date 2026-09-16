@@ -394,7 +394,7 @@ function PreviewBody({
             onPress={() => undefined}
             accessibilityLabel="Clicker"
           />
-          <ClickerMark size={40} />
+          <ClickerMark />
         </View>
       </Section>
 

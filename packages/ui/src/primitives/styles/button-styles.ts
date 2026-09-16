@@ -1,4 +1,4 @@
-import type { TextStyle, ViewStyle } from "react-native";
+import type { Insets, TextStyle, ViewStyle } from "react-native";
 import type { AppTheme } from "../../tokens/theme";
 import type { TypographyVariant } from "../../tokens/typography";
 import type { TextTone } from "./text-styles";
@@ -38,6 +38,8 @@ export interface ResolvedButtonStyle {
   labelTone: TextTone;
   /** Scale factor for the press animation; always 1 when Reduce Motion is on (see pressScaleFor). */
   pressedScale: number;
+  /** Tappable area beyond the container: what a text control gives up in padding it keeps here. */
+  hitSlop?: Insets;
 }
 
 const SIZE_SPEC = {
@@ -71,13 +73,22 @@ export function resolveButtonStyle({
 }: ButtonStyleOptions): ResolvedButtonStyle {
   const spec = SIZE_SPEC[size];
 
+  /**
+   * A text control standing on its own — tertiary, hugging its label — sits on the text edge: "Not working?"
+   * under the instruction, "Choose a photo" under the dog's name, on the same edge as the words above them
+   * (DESIGN_SYSTEM.md: marks and text share edges). Its horizontal padding goes to zero and comes back as
+   * hitSlop, so the tap target is what it was and the ink is where the text is. A stretched tertiary button
+   * (a centred "Not now" under a primary) keeps its padding, because its label is centred, not on an edge.
+   */
+  const onTextEdge = variant === "tertiary" && !fullWidth;
+
   const base: ViewStyle = {
     /**
      * Never below the accessible minimum, whatever the size variant. This is the enforcement point for
      * DESIGN_SYSTEM.md's touch-target rule — a caller cannot style their way under it.
      */
     minHeight: Math.max(spec.minHeight, theme.minTouchTarget),
-    paddingHorizontal: spec.paddingH,
+    paddingHorizontal: onTextEdge ? 0 : spec.paddingH,
     borderRadius: theme.radius[spec.radius],
     alignItems: "center",
     justifyContent: "center",
@@ -85,6 +96,8 @@ export function resolveButtonStyle({
     gap: theme.space[2],
     borderWidth: theme.border.hairline,
     alignSelf: fullWidth ? "stretch" : "flex-start",
+    // The transparent hairline every variant carries would still hold the label a point off the edge.
+    ...(onTextEdge ? { marginHorizontal: -theme.border.hairline } : {}),
   };
 
   let container: ViewStyle;
@@ -152,5 +165,8 @@ export function resolveButtonStyle({
     labelVariant: spec.labelVariant,
     labelTone,
     pressedScale: theme.pressScale.button,
+    ...(onTextEdge
+      ? { hitSlop: { left: spec.paddingH, right: spec.paddingH } }
+      : {}),
   };
 }

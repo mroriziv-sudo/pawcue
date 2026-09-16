@@ -212,7 +212,10 @@ export default function TodayScreen() {
 
   return (
     <ScreenScroll testID="today-screen" gap={theme.space[8]}>
-      {/* The top bar: the date on the reading edge, the clicker one tap away on the trailing edge. */}
+      {/*
+        The top bar: the date on the reading edge, the clicker one tap away on the trailing edge — a glyph in ink,
+        no fill, so the primary button is the one dark object on the screen.
+      */}
       <View
         style={{
           flexDirection: "row",
@@ -240,7 +243,7 @@ export default function TodayScreen() {
             opacity: pressed ? 0.85 : 1,
           })}
         >
-          <ClickerMark size={40} />
+          <ClickerMark />
         </Pressable>
       </View>
 

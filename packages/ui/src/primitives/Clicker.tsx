@@ -103,6 +103,7 @@ export function Clicker({
           name="clicker-glyph"
           size={Math.round(size * 0.36)}
           color={theme.colors.text.onBrand}
+          fixed
         />
       </PressableScale>
     </View>

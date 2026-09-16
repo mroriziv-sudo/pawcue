@@ -1,7 +1,7 @@
 import { View } from "react-native";
 import { useTheme } from "../theme/ThemeProvider";
 import { Text } from "./Text";
-import { Glyph } from "./Glyph";
+import { Glyph, useMarkSize } from "./Glyph";
 
 /**
  * Where a thing is on its route.
@@ -29,9 +29,17 @@ export interface TrailMarkProps {
 /**
  * The trail's mark: a 24pt circle that sits in a row's leading column and is joined to its neighbours by the
  * row's connector. The one structural motif in the product — it replaces cards, rings and dots for progress.
+ * It grows with the text beside it up to the column's width, like every mark (`markSizeFor`); what it holds is
+ * sized to the disc.
  */
-export function TrailMark({ state, label, size = 24, testID }: TrailMarkProps) {
+export function TrailMark({
+  state,
+  label,
+  size: baseSize = 24,
+  testID,
+}: TrailMarkProps) {
   const theme = useTheme();
+  const size = useMarkSize(baseSize);
   const ringWidth = 2;
 
   const ringColor =
@@ -80,18 +88,21 @@ export function TrailMark({ state, label, size = 24, testID }: TrailMarkProps) {
         <Glyph
           name="check"
           size={Math.round(size * 0.6)}
+          fixed
           color={theme.colors.text.onBrand}
         />
       ) : state === "locked" ? (
         <Glyph
           name="lock"
           size={Math.round(size * 0.55)}
+          fixed
           color={theme.colors.text.secondary}
         />
       ) : state === "paused" ? (
         <Glyph
           name="pause"
           size={Math.round(size * 0.5)}
+          fixed
           color={theme.colors.brand.primary}
         />
       ) : label ? (

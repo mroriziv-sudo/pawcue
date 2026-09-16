@@ -318,6 +318,47 @@ describe("button styles", () => {
       );
     }
   });
+
+  /**
+   * Phase 10 acceptance, finding 4: a text control standing alone under text sits on the text edge. The padding
+   * it gives up comes back as hitSlop, so the target is what it was.
+   */
+  it("puts a standalone text control on the text edge, keeping its target through hitSlop", () => {
+    const alone = resolveButtonStyle({
+      variant: "tertiary",
+      size: "md",
+      fullWidth: false,
+      theme,
+    });
+    const stretched = resolveButtonStyle({
+      variant: "tertiary",
+      size: "md",
+      theme,
+    });
+    const solidAlone = resolveButtonStyle({
+      variant: "secondary",
+      size: "md",
+      fullWidth: false,
+      theme,
+    });
+
+    expect(alone.container.paddingHorizontal).toBe(0);
+    // The transparent hairline would still hold the label a point in from the edge.
+    expect(alone.container.marginHorizontal).toBe(-theme.border.hairline);
+    expect(alone.hitSlop).toEqual({
+      left: stretched.container.paddingHorizontal,
+      right: stretched.container.paddingHorizontal,
+    });
+    expect(alone.container.minHeight).toBeGreaterThanOrEqual(
+      theme.minTouchTarget,
+    );
+
+    // A stretched text button centres its label; a solid button keeps its padding whatever its width.
+    expect(stretched.container.paddingHorizontal).toBeGreaterThan(0);
+    expect(stretched.hitSlop).toBeUndefined();
+    expect(solidAlone.container.paddingHorizontal).toBeGreaterThan(0);
+    expect(solidAlone.hitSlop).toBeUndefined();
+  });
 });
 
 describe("card styles", () => {

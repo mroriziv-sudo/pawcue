@@ -63,6 +63,7 @@ export function Button({
        * they cannot see — the brief's rule that meaning never depends on a visual signal alone.
        */
       accessibilityState={{ disabled: isInactive, busy: loading }}
+      {...(resolved.hitSlop ? { hitSlop: resolved.hitSlop } : {})}
       testID={testID}
     >
       {loading ? (

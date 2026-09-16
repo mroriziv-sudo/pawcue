@@ -4,10 +4,16 @@ import {
   fireEvent,
   waitFor,
 } from "@testing-library/react-native";
-import { StyleSheet } from "react-native";
+import { Dimensions, StyleSheet, type ScaledSize } from "react-native";
 import { I18nextProvider } from "react-i18next";
 import { SafeAreaProvider, type Metrics } from "react-native-safe-area-context";
-import { ThemeProvider } from "@pawcue/ui";
+import {
+  Glyph,
+  ROW_LEADING_WIDTH,
+  ThemeProvider,
+  TrailMark,
+  defaultTheme,
+} from "@pawcue/ui";
 import type { TrainingSessionState } from "@pawcue/domain";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import TodayScreen from "../app/(tabs)/index";
@@ -15,6 +21,8 @@ import TrainScreen from "../app/(tabs)/train";
 import DogScreen from "../app/(tabs)/dog";
 import LessonOverviewScreen from "../app/lesson/[slug]";
 import DogProfileScreen from "../app/dog-profile";
+import SettingsScreen from "../app/settings";
+import ClickerScreen from "../app/clicker";
 import { BreedPicker } from "../src/components/BreedPicker";
 import { BackControl } from "../src/components/BackControl";
 import { i18n } from "../src/i18n";
@@ -439,5 +447,208 @@ describe("finding 17 — the profile editor needs a dog", () => {
 
     expect(screen.queryByTestId("redirect")).toBeNull();
     expect(screen.getByTestId("dog-profile-editor")).toBeTruthy();
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------------
+
+/** A rendered node and everything beneath it, flattened. */
+interface HostNode {
+  type?: unknown;
+  props?: Record<string, unknown>;
+  children?: HostNode[];
+}
+
+function descendants(node: HostNode): HostNode[] {
+  const out: HostNode[] = [];
+  const visit = (n: HostNode) => {
+    out.push(n);
+    for (const child of n.children ?? []) {
+      if (typeof child === "object") visit(child);
+    }
+  };
+  visit(node);
+  return out;
+}
+
+function flatStyle(node: HostNode): Record<string, unknown> {
+  return (StyleSheet.flatten(node.props?.style as never) ?? {}) as Record<
+    string,
+    unknown
+  >;
+}
+
+/** Every view painted in evergreen: the "dark objects" DESIGN_SYSTEM.md allows one of per screen. */
+function darkObjects(root: HostNode): HostNode[] {
+  return descendants(root).filter(
+    (node) =>
+      flatStyle(node).backgroundColor === defaultTheme.colors.brand.primary,
+  );
+}
+
+/** Whether a row draws the 28pt leading column. */
+function hasLeadingColumn(row: HostNode): boolean {
+  return descendants(row).some((node) => {
+    const style = flatStyle(node);
+    return style.width === ROW_LEADING_WIDTH && style.alignSelf === "stretch";
+  });
+}
+
+describe("finding 3 — Today keeps one dark object", () => {
+  it("draws the primary button and nothing else in evergreen; the clicker shortcut is a glyph", async () => {
+    await renderScreen(<TodayScreen />);
+    await waitFor(() => expect(screen.getByTestId("today-start")).toBeTruthy());
+
+    const root = screen.getByTestId("today-screen") as unknown as HostNode;
+    const dark = darkObjects(root);
+    expect(dark).toHaveLength(1);
+    expect(dark[0]?.props?.testID).toBe("today-start");
+
+    const clicker = screen.getByTestId("today-clicker") as unknown as HostNode;
+    expect(darkObjects(clicker)).toHaveLength(0);
+  });
+});
+
+describe("finding 6 — the Dog tab's scene is centred at scene size", () => {
+  it("centres the dog and keeps the words beneath it on the text edge", async () => {
+    await renderScreen(<DogScreen />);
+    await waitFor(() => expect(screen.getByTestId("dog-name")).toBeTruthy());
+
+    expect(flatStyle(screen.getByTestId("dog-avatar") as never).alignSelf).toBe(
+      "center",
+    );
+    expect(
+      flatStyle(screen.getByTestId("dog-name") as never).textAlign,
+    ).not.toBe("center");
+  });
+});
+
+describe("finding 7 — rows in one list share a leading column", () => {
+  it("gives the synced row no leading column, like the Account row above it", async () => {
+    await renderScreen(<SettingsScreen />);
+    await waitFor(() => expect(screen.getByTestId("sync-status")).toBeTruthy());
+
+    expect(hasLeadingColumn(screen.getByTestId("open-account") as never)).toBe(
+      false,
+    );
+    expect(hasLeadingColumn(screen.getByTestId("sync-status") as never)).toBe(
+      false,
+    );
+    // The state is still said, in words.
+    expect(screen.getByTestId("sync-status").props.accessibilityLabel).toBe(
+      "Everything is synced.",
+    );
+  });
+
+  it("still draws the column on a trail row", async () => {
+    await renderScreen(<TodayScreen />);
+    await waitFor(() =>
+      expect(screen.getByTestId("today-activity-name_game")).toBeTruthy(),
+    );
+
+    expect(
+      hasLeadingColumn(screen.getByTestId("today-activity-name_game") as never),
+    ).toBe(true);
+  });
+});
+
+describe("finding 9 — Restore Purchases is a text control beneath the list", () => {
+  it("is not a second stacked button", async () => {
+    await renderScreen(<SettingsScreen />);
+    await waitFor(() =>
+      expect(screen.getByTestId("billing-restore")).toBeTruthy(),
+    );
+
+    const style = flatStyle(screen.getByTestId("billing-restore") as never);
+    expect(style.backgroundColor).toBe("transparent");
+    expect(style.alignSelf).toBe("flex-start");
+    expect(style.paddingHorizontal).toBe(0);
+    // Settings keeps its one dark object: Go Premium.
+    const dark = darkObjects(
+      screen.getByTestId("settings-screen") as unknown as HostNode,
+    );
+    expect(dark.map((node) => node.props?.testID)).toEqual(["billing-upgrade"]);
+  });
+});
+
+describe("finding 11 — the clicker screen's words sit on the text edge", () => {
+  it("does not centre the headline; the clicker beneath stays centred", async () => {
+    await renderScreen(<ClickerScreen />);
+    await waitFor(() =>
+      expect(screen.getByTestId("clicker-title")).toBeTruthy(),
+    );
+
+    expect(
+      flatStyle(screen.getByTestId("clicker-title") as never).textAlign,
+    ).toBe("left");
+    expect(
+      flatStyle(screen.getByTestId("press-count") as never).textAlign,
+    ).toBe("center");
+  });
+});
+
+describe("finding 14 — marks scale with the text they sit beside, up to the leading column", () => {
+  // Marks are decorative and hidden from assistive technology; the query has to say so.
+  const hidden = { includeHiddenElements: true };
+  const window = Dimensions.get("window");
+  const atTextSize = (fontScale: number) =>
+    Dimensions.set({ window: { ...window, fontScale } as ScaledSize });
+  afterEach(() => Dimensions.set({ window }));
+
+  it("keeps its size beside 17pt text at the default size", async () => {
+    atTextSize(1);
+    await renderScreen(
+      <>
+        <Glyph name="chevron-end" size={20} testID="chevron" />
+        <Glyph name="check" size={16} testID="check" />
+        <TrailMark state="next" label="1" testID="mark" />
+      </>,
+    );
+
+    expect(
+      flatStyle(screen.getByTestId("chevron", hidden) as never).width,
+    ).toBe(20);
+    expect(flatStyle(screen.getByTestId("check", hidden) as never).width).toBe(
+      16,
+    );
+    expect(flatStyle(screen.getByTestId("mark", hidden) as never).width).toBe(
+      24,
+    );
+  });
+
+  it("grows with the font until it fills the 28pt column, then stops", async () => {
+    // accessibility-extra-large: text about two and a half times its size.
+    atTextSize(2.35);
+    await renderScreen(
+      <>
+        <Glyph name="chevron-end" size={20} testID="chevron" />
+        <Glyph name="check" size={16} testID="check" />
+        <Glyph name="clicker-glyph" size={40} testID="large" />
+        <TrailMark state="next" label="1" testID="mark" />
+      </>,
+    );
+
+    expect(
+      flatStyle(screen.getByTestId("chevron", hidden) as never).width,
+    ).toBe(ROW_LEADING_WIDTH);
+    expect(flatStyle(screen.getByTestId("check", hidden) as never).width).toBe(
+      ROW_LEADING_WIDTH,
+    );
+    // A mark already wider than the column is left alone.
+    expect(flatStyle(screen.getByTestId("large", hidden) as never).width).toBe(
+      40,
+    );
+    expect(flatStyle(screen.getByTestId("mark", hidden) as never).width).toBe(
+      ROW_LEADING_WIDTH,
+    );
+  });
+
+  it("grows in step below the cap", async () => {
+    atTextSize(1.35);
+    await renderScreen(<Glyph name="check" size={16} testID="check" />);
+
+    expect(flatStyle(screen.getByTestId("check", hidden) as never).width).toBe(
+      22,
+    );
   });
 });

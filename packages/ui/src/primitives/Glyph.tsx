@@ -1,6 +1,8 @@
+import { useWindowDimensions } from "react-native";
 import Svg, { Circle, Path, Rect } from "react-native-svg";
 import { useGlyphRenderer, useTheme } from "../theme/ThemeProvider";
 import { Icon } from "./Icon";
+import { ROW_LEADING_WIDTH } from "./Row";
 import type { IconName } from "../tokens/icon-mirroring";
 
 /**
@@ -60,25 +62,58 @@ export const STANDARD_GLYPHS: ReadonlySet<GlyphName> = new Set<GlyphName>([
 
 export interface GlyphProps {
   name: GlyphName;
+  /** The mark's size beside body text at the default Dynamic Type size; see `markSizeFor`. */
   size?: number;
   color?: string;
+  /**
+   * The mark's size is decided by what it sits in — a trail mark's disc, a rep mark, the clicker — not by the
+   * text beside it, so it does not scale on its own. The container applies the rule, if it applies at all.
+   */
+  fixed?: boolean;
   testID?: string;
 }
 
-export function Glyph({ name, size = 20, color, testID }: GlyphProps) {
+/**
+ * The one rule for how a mark scales with Dynamic Type.
+ *
+ * A mark beside text grows with the text — a chevron, a check, a plus, an undo mark keeps pace with a row title
+ * — until it fills the row's 28pt leading column, then stops, so marks and text keep sharing edges at every size
+ * (phase-10-native-acceptance.md, finding 14). Below the default size the mark holds: it is already as small as
+ * it can legibly be. A mark that is already the column's width or larger is left alone.
+ */
+export function markSizeFor(size: number, fontScale: number): number {
+  const ceiling = Math.max(size, ROW_LEADING_WIDTH);
+  return Math.round(Math.min(size * Math.max(fontScale, 1), ceiling));
+}
+
+/** `markSizeFor` at the device's current text size. */
+export function useMarkSize(size: number): number {
+  const { fontScale } = useWindowDimensions();
+  return markSizeFor(size, fontScale);
+}
+
+export function Glyph({
+  name,
+  size = 20,
+  color,
+  fixed = false,
+  testID,
+}: GlyphProps) {
   const theme = useTheme();
   const renderGlyph = useGlyphRenderer();
   const tint = color ?? theme.colors.text.primary;
+  const scaled = useMarkSize(size);
+  const drawn = fixed ? size : scaled;
 
-  const injected = renderGlyph?.({ name, size, color: tint });
+  const injected = renderGlyph?.({ name, size: drawn, color: tint });
 
   return (
     <Icon
       name={name satisfies IconName}
-      size={size}
+      size={drawn}
       {...(testID ? { testID } : {})}
     >
-      {injected ?? <VectorGlyph name={name} size={size} color={tint} />}
+      {injected ?? <VectorGlyph name={name} size={drawn} color={tint} />}
     </Icon>
   );
 }

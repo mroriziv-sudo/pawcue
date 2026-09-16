@@ -107,7 +107,9 @@ describe("Clicker screen", () => {
     const style = Array.isArray(title.props.style)
       ? Object.assign({}, ...title.props.style.flat())
       : title.props.style;
-    expect(style.textAlign).toBe("center"); // this title is explicitly centred
+    // On the reading edge like every other screen's headline (Phase 10 acceptance, finding 11) — which in
+    // Hebrew is the right. It used to be centred, the one headline that was.
+    expect(style.textAlign).toBe("right");
     expect(style.writingDirection).toBe("rtl");
   });
 
