@@ -71,7 +71,7 @@ Each screenshot is one message, caption first, UI second. Captions are the ad; t
 | 2   | Lessons that tell you exactly what to do | שיעורים שאומרים לכם בדיוק מה לעשות | Sit lesson, step 2 of 3, repetition counter visible |
 | 3   | A daily plan built for your dog          | תוכנית יומית שנבנתה לכלב שלכם      | Today screen with a named dog and two activities    |
 | 4   | Stuck? Every lesson has "Not working?"   | נתקעתם? בכל שיעור יש "לא עובד?"    | Troubleshooting sheet open, one option selected     |
-| 5   | See your progress add up                 | ההתקדמות שלכם מצטברת               | Progress screen with sessions and a streak          |
+| 5   | See your progress add up                 | ההתקדמות שלכם מצטברת               | Progress screen with sessions and lessons learned   |
 | 6   | Unlock every lesson with Premium         | פתחו את כל השיעורים עם פרימיום     | Train tab with locked lessons, paywall peeking      |
 
 Rules: real screenshots from the release build (never mock-ups with invented data); the dog shown has a name and
@@ -84,7 +84,7 @@ with the app actually in Hebrew, not mirrored in an editor.
 PawCue helps you train your dog in a few minutes a day, with a method that's kind to your dog and easy for you.
 
 FREE DOG CLICKER
-A fast, reliable clicker that works the moment you open the app — no account, no sign-up. Three click sounds, optional haptics, and it works offline.
+A fast, reliable clicker that works the moment you open the app — no account, no sign-up. Optional haptics, and it works offline.
 
 GUIDED LESSONS
 Step-by-step lessons for the things every dog needs: name response, sit, down, come, stay, leave it, place, calm settling, loose-leash walking, and foundations for jumping, biting, crate and potty training. Each lesson tells you what to do, how many times, and when to click and treat.
@@ -96,7 +96,7 @@ Tell PawCue about your dog — age, goals, and how many minutes a day you have �
 Every lesson has a troubleshooting button for the common ways training goes sideways, with a fix for each. If something needs a vet or a professional trainer, PawCue says so instead of guessing.
 
 YOUR PROGRESS, KEPT
-Sessions, minutes, and streaks build up as you train. Train as a guest, or sign in with Apple to keep everything safe across devices.
+Sessions and minutes add up as you train, and you can see which days you trained. Train as a guest, or sign in with Apple to keep everything safe across devices.
 
 POSITIVE REINFORCEMENT ONLY
 No punishment, no aversive tools, no shortcuts. Just clear marking, good timing, and treats.
@@ -106,13 +106,15 @@ The first lessons are free. Premium unlocks the full lesson catalogue and the co
 
 In English and Hebrew.
 
-Terms of Use: [[TERMS_URL]]
-Privacy Policy: [[PRIVACY_URL]]
+Terms of Use: https://soft-star-9254.pawcue-support.workers.dev/terms
+Privacy Policy: https://soft-star-9254.pawcue-support.workers.dev/privacy
 ```
 
 Everything in the description exists in the build. Lesson list = the 13 seeded lessons. "Works offline" = the
-clicker and cached catalogue. "Sign in with Apple" = Phase 9.5. Remove or reword any line whose feature is
-cut before submission.
+clicker and cached catalogue. "Sign in with Apple" = Phase 9.5. Two claims were removed on 2026-09-17 because
+the build does not make them: "three click sounds" (the sound selector is development-only) and "streaks" (the
+Progress and Dog screens count sessions and days trained; there is no streak by design). Remove or reword any
+line whose feature is cut before submission.
 
 ## 7. Promotional text (170 chars; editable without a new build)
 
@@ -165,3 +167,33 @@ eas submit --platform ios --profile production --path <path-to.ipa>   # or --id 
 
 `ascAppId` has no environment variable in `eas-cli`; when it is absent from the profile, `eas submit` resolves or
 creates the App Store Connect app interactively from the bundle identifier — run this without `--non-interactive`.
+
+## 13. App Privacy questionnaire (App Store Connect → App Privacy), from DATA_MAP.md as built
+
+Answer "Yes, we collect data from this app", then declare exactly these. Everything is **linked to the user's
+identity** (it hangs off the account or the guest identity), **not used for tracking**, and used for **App
+Functionality** only. No third-party analytics or crash SDK is in the build (checked 2026-09-17), so nothing
+under Diagnostics or Usage Data.
+
+| Apple category → type                | Declare? | Why (DATA_MAP.md row)                                                                                  |
+| ------------------------------------ | -------- | ------------------------------------------------------------------------------------------------------ |
+| Contact Info → Email Address         | Yes      | `profiles.email` from Sign in with Apple (email scope only; a private-relay address is still an email) |
+| Contact Info → Name                  | No       | The name scope is never requested                                                                      |
+| Identifiers → User ID                | Yes      | The account / guest identity and the RevenueCat app user id                                            |
+| Purchases → Purchase History         | Yes      | `subscriptions`, `purchase_events`, `entitlements`                                                     |
+| User Content → Photos                | No       | The dog photo never leaves the device (`photo_url` is never written)                                   |
+| User Content → Other User Content    | Yes      | The dog's profile (name, birthdate, breed, sex), goals, plan, sessions, progress                       |
+| Usage Data → Product Interaction     | No       | `app_events` exists in the schema but nothing writes it as built                                       |
+| Diagnostics → Crash Data             | No       | No crash reporter                                                                                      |
+| Location, Health, Contacts, Browsing | No       | Never requested                                                                                        |
+
+Tracking: **No, we do not track**. Data linked to you: the four "Yes" rows. Deletion: tick that the app offers
+in-app account deletion (Settings → Account → Delete account and data) and give the web URL
+https://soft-star-9254.pawcue-support.workers.dev/delete-account.
+
+## 14. Screenshots, produced
+
+`tools/store-screens/compose.py` frames raw simulator screenshots with the §5 captions on Warm Ivory at the
+6.9" size (1320×2868, iPhone 17 Pro Max) App Store Connect requires; ASC scales the 6.5" set from it. The
+2026-09-17 set was captured from the Release build of the tree at 79c057a on a fresh profile named Luna, in
+English and Hebrew, and lives outside the repo (binary marketing assets) in the owner's upload folder.

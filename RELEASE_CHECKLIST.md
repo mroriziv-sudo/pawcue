@@ -37,8 +37,9 @@ box is actually checked against the app in hand, not just planned for.
       per §14 of the brief: explicit acknowledgement before the destructive button enables, server deletes the
       verified JWT's subject only, RevenueCat customer erased first, local state cleared only after confirmation,
       guests included. `pnpm test:delete` 44/44 against the deployed function.
-- [ ] **Privacy Policy URL** live and accessible before submission. Draft ready for review:
-      `docs/legal/privacy-policy.md` (placeholders for operator, contact, domain, region). Needs a domain.
+- [x] **Privacy Policy URL** live and accessible before submission —
+      https://soft-star-9254.pawcue-support.workers.dev/privacy (published 2026-09-14, publisher, address and
+      every placeholder resolved 2026-09-17; source in `legal-site/public`, drafts in `docs/legal`).
 - [ ] **App Privacy ("nutrition label") questionnaire** in App Store Connect filled out to match `DATA_MAP.md`
       exactly — including 2026's expanded granularity around any third-party AI data sharing (not applicable to v1,
       since no AI coach is enabled by default — confirm this stays true before submission) and the in-app
@@ -50,13 +51,15 @@ box is actually checked against the app in hand, not just planned for.
       Asserted in `__tests__/paywall.test.tsx`, including that a trial is disclosed only when the store reports one.
 - [ ] **Store products configured** in App Store Connect / Play Console. Until they are, the paywall correctly
       reports that no plans are available — which is honest, and unshippable.
-- [ ] **Accessibility** — VoiceOver pass on the full critical path (Phase 11 gate).
-- [ ] **Support URL** live.
-- [ ] **Terms of Use (EULA)** — either Apple's standard EULA or a custom one, linked from the paywall per store
-      requirement for auto-renewing subscriptions. Draft ready for review: `docs/legal/terms-of-use.md`, including
-      Apple's minimum EULA terms. **Blocking:** the links exist on the paywall (and in Settings, when set) but
-      `EXPO_PUBLIC_TERMS_URL` / `EXPO_PUBLIC_PRIVACY_URL` are unset, so they currently say so instead of opening;
-      a production build now refuses to start without both. PawCue has no domain yet (see ARCHITECTURE.md §2).
+- [x] **Accessibility** — VoiceOver pass on the full critical path: the accessibility tree read on the
+      simulator on 2026-09-17 (`docs/architecture/phase-10-native-acceptance.md`, closing section) — labels,
+      values and states on the tab bar, Today, Train, the session and Settings.
+- [x] **Support URL** live — https://soft-star-9254.pawcue-support.workers.dev/support (2026-09-17).
+- [x] **Terms of Use (EULA)** — custom, including Apple's minimum EULA terms, live at
+      https://soft-star-9254.pawcue-support.workers.dev/terms and linked from the paywall and Settings through
+      `EXPO_PUBLIC_TERMS_URL` / `EXPO_PUBLIC_PRIVACY_URL` in the EAS `production` environment (set 2026-09-14;
+      build 17 carries both, verified from the .ipa). Domain is workers.dev for now; a custom domain is a later
+      swap of two environment values and a rebuild.
 - [ ] **Reviewer test account** — if guest mode alone doesn't let a reviewer reach premium screens, provide
       credentials/notes in the App Review submission form.
 - [ ] Age rating questionnaire completed accurately (no medical/veterinary advice claims — see PRIVACY/training
