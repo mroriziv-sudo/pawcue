@@ -49,7 +49,7 @@ both locales.
 `legal-site/public/` is the rendered site: `/`, `/privacy`, `/terms`, `/delete-account`, `/support` and a `404`
 page, one HTML file each, sharing one style. It is served by a Cloudflare Worker (static assets only, no code)
 at `https://soft-star-9254.pawcue-support.workers.dev` since 2026-09-14; `legal-site/wrangler.jsonc` names that
-Worker. To publish a change: from `legal-site/`, `npx wrangler@latest login` once, then `npx wrangler@latest
+Worker (`soft-star-9254`, the dashboard's random name — keep it, the URL is baked into every app build). To publish a change: from `legal-site/`, `npx wrangler@latest login` once, then `npx wrangler@latest
 deploy`. On 2026-09-16 the owner resolved the last two placeholders: `[[OPERATOR]]` is **Ori Ziv**, named as
 publisher and data controller on both policies and in their contact sections, and `[[POSTAL_ADDRESS]]` is
 **Dizengoff 278, Tel Aviv, Israel**, with `pawcue.support@gmail.com` as the contact channel. The drafts in

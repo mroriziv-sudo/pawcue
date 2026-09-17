@@ -1,10 +1,11 @@
 {
-  // The legal and support site: static files only, served by a Cloudflare Worker named after the
-  // workers.dev subdomain it already lives on. Deploy from this directory:
+  // The legal and support site: static files only, served by the Cloudflare Worker the app already points at
+  // (soft-star-9254.pawcue-support.workers.dev — the name is the dashboard's random one; the URL is baked into
+  // every build through EXPO_PUBLIC_TERMS_URL / EXPO_PUBLIC_PRIVACY_URL, so the name stays). Deploy from here:
   //   npx wrangler@latest login      (once, opens the browser)
   //   npx wrangler@latest deploy
   // Every page under public/ is served at its path; there is no script and no server-side code.
-  "name": "pawcue-support",
+  "name": "soft-star-9254",
   "compatibility_date": "2026-09-01",
   "assets": {
     "directory": "./public",
