@@ -1,0 +1,35 @@
+# A throwaway Xcode project whose only purpose is a UI-test bundle that attaches to the PawCue build already
+# installed on the booted simulator and reads what VoiceOver would read — the accessibility tree — and, with
+# StoreKitTest, puts real products in front of the paywall. Generate with `xcodegen` (brew), run with
+# `xcodebuild test` (see run.sh). Nothing here ships.
+name: PawCueAcceptance
+options:
+  bundleIdPrefix: com.pawcue.acceptance
+  deploymentTarget:
+    iOS: "17.0"
+  xcodeVersion: "26.0"
+targets:
+  Host:
+    type: application
+    platform: iOS
+    sources: [Host]
+    info:
+      path: Host/Info.plist
+      properties:
+        UILaunchScreen: {}
+        CFBundleDisplayName: Acceptance Host
+  AcceptanceUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - Tests
+      # A copy of apps/mobile/PawCue.storekit refreshed by run.sh, so the test bundle carries the project's own
+      # StoreKit configuration (Xcode does not follow a symlink into a resource).
+      - path: Resources
+        buildPhase: resources
+    dependencies:
+      - target: Host
+    settings:
+      base:
+        TEST_TARGET_NAME: Host
+        GENERATE_INFOPLIST_FILE: YES

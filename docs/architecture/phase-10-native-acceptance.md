@@ -395,6 +395,54 @@ Seven of ten pass, one fails the way the earlier simulator finding predicted, tw
 store products. Nothing new was found that the code-side pass had not already recorded. The simulator was left at
 medium text, English, Reduce Motion off.
 
+## The three "device-only" items, closed on the simulator (2026-09-17)
+
+Each had a reason it could not run here, and each reason had a way around it. Run against a local Release build
+of commit e283149 (embedded bundle, no dev launcher) on the same iPhone 17 Pro simulator, on a fresh profile
+("Luna", Golden Retriever) created through onboarding with real taps.
+
+**5 and 9, VoiceOver.** The simulator has no VoiceOver, but what VoiceOver speaks is the accessibility tree —
+label, value, traits, selection — and a UI-test bundle reads that tree from the running app. `tools/ios-acceptance`
+is a throwaway Xcode project whose only target attaches to the installed PawCue and prints what it finds; the run
+log is [`manual/09-voiceover-tree.txt`](assets/phase-10/manual/09-voiceover-tree.txt). What it read:
+
+| Where                           | Spoken as                                                                                                                                             |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Tab bar                         | "Today", "Train", "Progress", "Dog", each a tab, the current one selected                                                                             |
+| Today, plan row                 | "The Name Game. Something new to learn. About 3 minutes." (fresh); "The Name Game. Paused. Pick up where you left off. About 3 minutes." (unfinished) |
+| Today, clicker shortcut         | "Clicker", a button                                                                                                                                   |
+| Train                           | "Biting Foundation. Not started"; "Sit. Unfinished"; "Down. Premium" (a button, routes to the paywall); "Calm Settle. Premium. Locked" (not a button) |
+| Session, step 2 advance control | "Click to continue" before the click, "Next step" after it                                                                                            |
+| Session, clicker                | "Dog training clicker. Double tap to play click sound.", a button                                                                                     |
+| Session, step 4 rep marks       | "0 of 5" then "1 of 5", "2 of 5" … with the value 20 %, 40 % …; the clicker is present on the same step (the 2026-09-16 content change, live)         |
+| Session, step 4 advance control | "3 more to go"                                                                                                                                        |
+| Settings, Sound Effects         | a switch labelled "Sound Effects" with value 1; activating it reads 0, and again 1                                                                    |
+
+**8, the paywall.** StoreKit testing needs the configuration file attached to the app's launch, which only Xcode
+does; `SKTestSession` from the UI-test bundle applies to the test's own host app, not to PawCue (storekitd still
+asked the Media API — the log says so). So the run went through Xcode itself, scripted: the shared scheme got
+`StoreKitConfigurationFileReference identifier="../../PawCue.storekit"` on its Launch action and the project a
+file reference to the configuration, Xcode ran the scheme on the booted simulator, and storekitd reported
+"Initialized with server XcodeTest". The paywall then rendered **two tiles from the store's own data**, the
+selected one with the evergreen ring and check, the disclosure below reading the selected plan, and no RevenueCat
+toast — [`manual/08-paywall-storekit-tiles.png`](assets/phase-10/manual/08-paywall-storekit-tiles.png); selecting
+the annual tile moved the ring and rewrote the disclosure —
+[`manual/08-paywall-annual-selected.png`](assets/phase-10/manual/08-paywall-annual-selected.png). For this
+`apps/mobile/PawCue.storekit` gained `premium_annual` (P1Y, a placeholder price of 39.99), because the RevenueCat
+offering asks the store for both products and had only the monthly one to find. TESTING.md records the scheme
+identifier and the file reference, since `expo prebuild` regenerates the project without them.
+
+**10, text size changed while backgrounded — pass.** With Today on screen, the app was sent to the background,
+the size was raised to the largest accessibility size **in the iOS Settings app itself** (Accessibility → Display
+& Text Size → Larger Text, the slider dragged to its end), and the app was re-entered through the status bar's
+"◀ PawCue" link. Today came back reflowed at the new size, every glyph intact, with no relaunch —
+[`manual/10-settings-app-slider.png`](assets/phase-10/manual/10-settings-app-slider.png),
+[`manual/10-settings-app-return-pass.png`](assets/phase-10/manual/10-settings-app-return-pass.png). The earlier
+failure reproduces only when the size is changed with `simctl ui content_size`, which is not the path a person
+takes; the stale-layout finding above is a simulator-tooling artefact, not an app defect.
+
+That closes the checklist: ten of ten, on the simulator, with evidence.
+
 ## Still device-only, still not claimed
 
 Audio: whether the click is audible and its latency against the 50ms budget; silent-mode and audio-session

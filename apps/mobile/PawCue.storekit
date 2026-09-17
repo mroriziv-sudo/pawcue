@@ -1,87 +1,102 @@
 {
-  "appPolicies" : {
-    "eula" : "",
-    "policies" : [
+  "appPolicies": {
+    "eula": "",
+    "policies": [
       {
-        "locale" : "en_US",
-        "policyText" : "",
-        "policyURL" : ""
+        "locale": "en_US",
+        "policyText": "",
+        "policyURL": ""
       }
     ]
   },
-  "identifier" : "06EC2715",
-  "nonRenewingSubscriptions" : [
-
-  ],
-  "products" : [
-
-  ],
-  "settings" : {
-    "_askToBuyEnabled" : false,
-    "_billingGracePeriodEnabled" : false,
-    "_billingIssuesEnabled" : false,
-    "_disableDialogs" : false,
-    "_failTransactionsEnabled" : false,
-    "_locale" : "en_US",
-    "_renewalBillingIssuesEnabled" : false,
-    "_storefront" : "USA",
-    "_storeKitErrors" : [
-
-    ],
-    "_timeRate" : 0
+  "identifier": "06EC2715",
+  "nonRenewingSubscriptions": [],
+  "products": [],
+  "settings": {
+    "_askToBuyEnabled": false,
+    "_billingGracePeriodEnabled": false,
+    "_billingIssuesEnabled": false,
+    "_disableDialogs": false,
+    "_failTransactionsEnabled": false,
+    "_locale": "en_US",
+    "_renewalBillingIssuesEnabled": false,
+    "_storefront": "USA",
+    "_storeKitErrors": [],
+    "_timeRate": 0
   },
-  "subscriptionGroups" : [
+  "subscriptionGroups": [
     {
-      "id" : "2AECFBF4",
-      "localizations" : [
-
-      ],
-      "name" : "PawCue Premium",
-      "subscriptions" : [
+      "id": "2AECFBF4",
+      "localizations": [],
+      "name": "PawCue Premium",
+      "subscriptions": [
         {
-          "adHocOffers" : [
-
-          ],
-          "billingPlans" : [
+          "adHocOffers": [],
+          "billingPlans": [
             {
-              "billingPlanType" : "BILLED_UPFRONT",
-              "commitmentDisplayPrice" : "0.99",
-              "displayPrice" : "0.99",
-              "internalID" : "4F15DE12",
-              "isEnabled" : true
+              "billingPlanType": "BILLED_UPFRONT",
+              "commitmentDisplayPrice": "0.99",
+              "displayPrice": "0.99",
+              "internalID": "4F15DE12",
+              "isEnabled": true
             }
           ],
-          "codeOffers" : [
-
-          ],
-          "displayPrice" : "0.99",
-          "familyShareable" : false,
-          "groupNumber" : 1,
-          "internalID" : "8E3D3687",
-          "introductoryOffers" : [
-
-          ],
-          "localizations" : [
+          "codeOffers": [],
+          "displayPrice": "0.99",
+          "familyShareable": false,
+          "groupNumber": 1,
+          "internalID": "8E3D3687",
+          "introductoryOffers": [],
+          "localizations": [
             {
-              "description" : "",
-              "displayName" : "",
-              "locale" : "en_US"
+              "description": "",
+              "displayName": "",
+              "locale": "en_US"
             }
           ],
-          "productID" : "premium_monthly",
-          "recurringSubscriptionPeriod" : "P1M",
-          "referenceName" : "PawCue Premium Monthly",
-          "subscriptionGroupID" : "2AECFBF4",
-          "type" : "RecurringSubscription",
-          "winbackOffers" : [
-
-          ]
+          "productID": "premium_monthly",
+          "recurringSubscriptionPeriod": "P1M",
+          "referenceName": "PawCue Premium Monthly",
+          "subscriptionGroupID": "2AECFBF4",
+          "type": "RecurringSubscription",
+          "winbackOffers": []
+        },
+        {
+          "adHocOffers": [],
+          "billingPlans": [
+            {
+              "billingPlanType": "BILLED_UPFRONT",
+              "commitmentDisplayPrice": "39.99",
+              "displayPrice": "39.99",
+              "internalID": "4F15DE13",
+              "isEnabled": true
+            }
+          ],
+          "codeOffers": [],
+          "displayPrice": "39.99",
+          "familyShareable": false,
+          "groupNumber": 2,
+          "internalID": "8E3D3688",
+          "introductoryOffers": [],
+          "localizations": [
+            {
+              "description": "",
+              "displayName": "",
+              "locale": "en_US"
+            }
+          ],
+          "productID": "premium_annual",
+          "recurringSubscriptionPeriod": "P1Y",
+          "referenceName": "PawCue Premium Annual",
+          "subscriptionGroupID": "2AECFBF4",
+          "type": "RecurringSubscription",
+          "winbackOffers": []
         }
       ]
     }
   ],
-  "version" : {
-    "major" : 5,
-    "minor" : 0
+  "version": {
+    "major": 5,
+    "minor": 0
   }
 }

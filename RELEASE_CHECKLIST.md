@@ -97,13 +97,13 @@ box is actually checked against the app in hand, not just planned for.
 - [x] Development-only entitlement simulation cannot activate in a release build — guarded at a single chokepoint
       and asserted by flipping `__DEV__` in `__tests__/billing-dev-guard.test.tsx`.
       build as a mechanical check, not just a design intention.
-- [ ] English + Hebrew + RTL pass on the full critical path (Phase 10 gate) before either store submission.
-      The simulator half is done and recorded in
-      [docs/architecture/phase-10-native-acceptance.md](docs/architecture/phase-10-native-acceptance.md) (three
-      blocking defects fixed). The manual checklist was run on the simulator on 2026-09-16 with real OS-level
-      taps ("Manual checklist — results" in that document): 7 of 10 pass, the live text-size change fails as
-      predicted, VoiceOver and the paywall tiles could not run there. The gate closes on the owner's word after
-      those three on a device.
+- [x] English + Hebrew + RTL pass on the full critical path (Phase 10 gate) before either store submission.
+      Recorded in [docs/architecture/phase-10-native-acceptance.md](docs/architecture/phase-10-native-acceptance.md):
+      three blocking defects fixed on the code side; the manual checklist run on the simulator with real OS-level
+      taps on 2026-09-16 (7 of 10), and the remaining three closed on 2026-09-17 — the accessibility tree read by
+      a UI-test bundle (what VoiceOver speaks), the paywall with StoreKit testing through Xcode, and the text-size
+      change made in the iOS Settings app (pass; the earlier failure was the simctl path only). Closed at the
+      owner's request ("check them yourself", 2026-09-17).
 - [ ] `PRIVACY.md`, `SECURITY.md`, `DATA_MAP.md` up to date with what the shipped build actually does, not what an
       earlier phase planned.
 

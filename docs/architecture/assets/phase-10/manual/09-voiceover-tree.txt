@@ -1,0 +1,32 @@
+A11Y train-row: type=9 id='lesson-card-name_game' label='The Name Game. Unfinished' value='' selected=false
+A11Y overview-start: type=9 id='start-training' label='Continue The Name Game' value='' selected=false
+A11Y rep-marks before: type=1 id='repetition-progress' label='2 of 5' value='40%' selected=false
+A11Y step-4 clicker present: true
+A11Y rep-marks after one: type=1 id='repetition-progress' label='3 of 5' value='60%' selected=false
+A11Y rep-marks after two: type=1 id='repetition-progress' label='4 of 5' value='80%' selected=false
+A11Y advance on step 4: type=9 id='advance-step' label='1 more to go' value='' selected=false
+Test Case 'testSessionReadsClickerAndRepMarksOnTheNameGame]' passed.
+A11Y switch before: type=40 id='switch-sound' label='Sound Effects' value='1' selected=false
+A11Y switch after: type=40 id='switch-sound' label='Sound Effects' value='0' selected=false
+A11Y switch restored: type=40 id='switch-sound' label='Sound Effects' value='1' selected=false
+Test Case 'testSettingsSoundEffectsSwitchReadsLabelAndStateAndToggles]' passed.
+A11Y tab: type=1 id='tab-index' label='Today' value='' selected=true
+A11Y tab: type=1 id='tab-train' label='Train' value='' selected=false
+A11Y tab: type=1 id='tab-progress' label='Progress' value='' selected=false
+A11Y tab: type=1 id='tab-dog' label='Dog' value='' selected=false
+Test Case 'testTabBarExposesTabsWithSelection]' passed.
+A11Y today-row: type=9 id='today-activity-name_game' label='The Name Game. Paused. Pick up where you left off. About 3 minutes.' value='' selected=false
+A11Y today-clicker: type=9 id='today-clicker' label='Clicker' value='' selected=false
+Test Case 'testTodayReadsPlanRowsWithTheirTrailState]' passed.
+A11Y train-row: type=9 id='lesson-card-biting_foundation' label='Biting Foundation. Not started' value='' selected=false
+A11Y train-row: type=9 id='lesson-card-potty_foundation' label='Potty Foundation. Not started' value='' selected=false
+A11Y train-row: type=48 id='train-section-premium' label='Included with Premium' value='' selected=false
+A11Y train-row: type=1 id='lesson-card-calm_settle' label='Calm Settle. Premium. Locked' value='' selected=false
+A11Y train-row: type=1 id='lesson-card-come' label='Come. Premium. Locked' value='' selected=false
+A11Y train-row: type=1 id='lesson-card-crate_foundation' label='Crate Foundation. Premium. Locked' value='' selected=false
+A11Y train-row: type=9 id='lesson-card-down' label='Down. Premium' value='' selected=false
+A11Y train-row: type=9 id='lesson-card-jumping_foundation' label='Jumping Foundation. Premium' value='' selected=false
+A11Y train-paused: type=9 id='lesson-card-name_game' label='The Name Game. Unfinished' value='' selected=false
+A11Y train-paused: type=9 id='lesson-card-sit' label='Sit. Unfinished' value='' selected=false
+Test Case 'testTrainReadsPausedAndLockedStates]' passed.
+** TEST SUCCEEDED **
